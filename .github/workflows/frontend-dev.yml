@@ -1,0 +1,33 @@
+name: Frontend Dev Tests
+
+# Déclenchement du workflow
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Récupérer le code du repo
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Installer Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      # 3. Installer les dépendances frontend
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      # 4. Lancer les tests frontend
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
