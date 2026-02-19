@@ -35,3 +35,12 @@ jobs:
       - name: Run frontend build
         working-directory: frontend
         run: npm run build
+
+      # 5. Lancer le serveur de dev (le message du vite.config.js s'affiche dans les logs)
+      - name: Lancer le serveur frontend
+        working-directory: frontend
+        run: |
+          npm run dev &
+          sleep 8
+          curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost:5173 && echo "✅ Serveur accessible" || echo "⚠️ Vérification du serveur (non bloquant)"
+          pkill -f "vite" 2>/dev/null || true
