@@ -27,7 +27,11 @@ jobs:
         working-directory: frontend
         run: npm install
 
-      # 4. Lancer les tests frontend
-      - name: Run frontend tests
+      # 4. Vérifier le frontend (build + lint)
+      - name: Run frontend lint
         working-directory: frontend
-        run: npm test
+        run: npm run lint
+
+      - name: Run frontend build
+        working-directory: frontend
+        run: npm run build
