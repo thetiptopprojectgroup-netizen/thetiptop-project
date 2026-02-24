@@ -1,0 +1,90 @@
+name: CD - Server (Promotion dev → preprod/prod)
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  create-preprod-pr:
+    name: Server - Créer PR dev → preprod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or update PR dev → preprod
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: 'preprod',
+              head: `${context.repo.owner}:dev`
+            });
+
+            if (pulls.length > 0) {
+              core.info('PR dev → preprod déjà existante, aucune nouvelle PR créée.');
+            } else {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: 'dev',
+                base: 'preprod',
+                title: 'Promotion backend dev → preprod',
+                body: [
+                  'Promotion automatique de la branche `dev` vers `preprod` pour le backend (server).',
+                  '',
+                  'Cette PR a été créée par le workflow CD server.'
+                ].join('\n'),
+                draft: false
+              });
+              core.info(`PR dev → preprod créée : #${pr.number}`);
+            }
+
+  create-prod-pr:
+    name: Server - Créer PR dev → prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or update PR dev → prod
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: 'prod',
+              head: `${context.repo.owner}:dev`
+            });
+
+            if (pulls.length > 0) {
+              core.info('PR dev → prod déjà existante, aucune nouvelle PR créée.');
+            } else {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: 'dev',
+                base: 'prod',
+                title: 'Promotion backend dev → prod',
+                body: [
+                  'Promotion automatique de la branche `dev` vers `prod` pour le backend (server).',
+                  '',
+                  'Cette PR a été créée par le workflow CD server.'
+                ].join('\n'),
+                draft: true
+              });
+              core.info(`PR dev → prod créée : #${pr.number}`);
+            }
+
