@@ -55,6 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - client-ci
+    if: ${{ secrets.HARBOR_REGISTRY != '' }}
 
     steps:
       - name: Checkout
@@ -99,8 +100,9 @@ jobs:
       - name: Déterminer le statut global
         id: set_conclusion
         run: |
-          if [ "${{ needs.client-ci.result }}" = "success" ] && \
-             [ "${{ needs.client-docker-build-and-scan.result }}" = "success" ]; then
+          CI_RESULT="${{ needs.client-ci.result }}"
+          DOCKER_RESULT="${{ needs.client-docker-build-and-scan.result }}"
+          if [ "$CI_RESULT" = "success" ] && [ "$DOCKER_RESULT" = "success" -o "$DOCKER_RESULT" = "skipped" ]; then
             echo "status=success" >> $GITHUB_OUTPUT
           else
             echo "status=failure" >> $GITHUB_OUTPUT
