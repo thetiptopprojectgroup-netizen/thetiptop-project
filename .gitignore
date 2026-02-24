@@ -74,3 +74,6 @@ playwright-report/
 # Misc
 *.bak
 *.backup
+
+# Markdown files (documentation handled outside Git)
+*.md

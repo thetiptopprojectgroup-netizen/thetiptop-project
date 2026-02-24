@@ -1,0 +1,46 @@
+name: CD - Server (Promotion dev → preprod/prod)
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  create-preprod-pr:
+    name: Server - Créer PR dev → preprod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or update PR to preprod
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: dev
+          base: preprod
+          title: 'Promotion backend dev → preprod'
+          body: |
+            Promotion automatique de la branche `dev` vers `preprod` pour le backend (server).
+            Cette PR a été créée par le workflow CD server.
+          draft: false
+
+  create-prod-pr:
+    name: Server - Créer PR dev → prod
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create or update PR to prod
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: dev
+          base: prod
+          title: 'Promotion backend dev → prod'
+          body: |
+            Promotion automatique de la branche `dev` vers `prod` pour le backend (server).
+            Cette PR a été créée par le workflow CD server.
+          draft: true
+

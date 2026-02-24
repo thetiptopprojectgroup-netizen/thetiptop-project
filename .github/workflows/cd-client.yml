@@ -1,0 +1,37 @@
+name: CD - Client (Préparation déploiement frontend)
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  prepare-client-artifacts:
+    name: Client - Préparer artefacts de déploiement
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      # TODO (phase hébergement) :
+      # - Uploader le build en artefact GitHub
+      # - Déployer vers le VPS / CDN / bucket objet (DigitalOcean Spaces, etc.)
+      # - Intégrer ce job avec la chaîne de déploiement réelle une fois l'infra définie
+

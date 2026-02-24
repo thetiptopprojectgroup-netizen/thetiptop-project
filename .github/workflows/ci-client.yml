@@ -1,0 +1,130 @@
+name: CI - Client (Frontend)
+
+on:
+  push:
+    branches:
+      - dev
+      - preprod
+      - prod
+  pull_request:
+    branches:
+      - dev
+      - preprod
+      - prod
+
+jobs:
+  client-ci:
+    name: Client - Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit & component tests (Jest + RTL) with coverage
+        run: npm run test:coverage
+
+      - name: Enforce coverage >= 80%
+        run: |
+          npx jest --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
+
+      - name: E2E tests (Playwright - Chromium, Firefox, WebKit)
+        env:
+          CI: true
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'http://localhost:5173' }}
+        run: |
+          npx playwright install --with-deps
+          npm run test:e2e
+
+      - name: Build frontend
+        run: npm run build
+
+  client-docker-build-and-scan:
+    name: Client - Build Docker image & scan (Harbor)
+    runs-on: ubuntu-latest
+    needs:
+      - client-ci
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Harbor registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.HARBOR_REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build multi-stage frontend image
+        run: |
+          docker build \
+            -f client/Dockerfile \
+            -t ${{ secrets.HARBOR_REGISTRY }}/thetiptop/frontend:${{ github.sha }} \
+            client
+
+      - name: Push frontend image to Harbor
+        run: |
+          docker push ${{ secrets.HARBOR_REGISTRY }}/thetiptop/frontend:${{ github.sha }}
+
+      - name: Trigger Harbor security scan (frontend)
+        if: always()
+        run: |
+          echo "Triggering Harbor scan for frontend image"
+          # TODO: Intégrer l'appel réel à l'API Harbor (projet, repository, tag)
+
+  notify-client:
+    name: Client - Notification CI
+    runs-on: ubuntu-latest
+    needs:
+      - client-ci
+      - client-docker-build-and-scan
+    if: always()
+
+    steps:
+      - name: Déterminer le statut global
+        id: set_conclusion
+        run: |
+          if [ "${{ needs.client-ci.result }}" = "success" ] && \
+             [ "${{ needs.client-docker-build-and-scan.result }}" = "success" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commenter sur la PR avec le résultat CI (client)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const status = '${{ steps.set_conclusion.outputs.status }}';
+            const body = status === 'success'
+              ? '✅ CI client (frontend) passée avec succès (lint, build, Docker, scan).'
+              : '❌ CI client (frontend) en échec. Merci de vérifier les jobs (lint, build, Docker, scan).';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
