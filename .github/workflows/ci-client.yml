@@ -12,6 +12,11 @@ on:
       - preprod
       - prod
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   client-ci:
     name: Client - Lint & Build
@@ -43,7 +48,6 @@ jobs:
       - name: E2E tests (Playwright - Chromium, Firefox, WebKit)
         env:
           CI: true
-          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'http://localhost:5173' }}
         run: |
           npx playwright install --with-deps
           npm run test:e2e
@@ -56,15 +60,30 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - client-ci
+    env:
+      HARBOR_REGISTRY: ${{ secrets.HARBOR_REGISTRY }}
 
     steps:
+      - name: Check Harbor configuration
+        id: harbor
+        run: |
+          if [ -z "$HARBOR_REGISTRY" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Harbor secrets not configured – skipping Docker build"
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout
+        if: steps.harbor.outputs.configured == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
+        if: steps.harbor.outputs.configured == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Harbor registry
+        if: steps.harbor.outputs.configured == 'true'
         uses: docker/login-action@v3
         with:
           registry: ${{ secrets.HARBOR_REGISTRY }}
@@ -72,6 +91,7 @@ jobs:
           password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Build multi-stage frontend image
+        if: steps.harbor.outputs.configured == 'true'
         run: |
           docker build \
             -f client/Dockerfile \
@@ -79,11 +99,12 @@ jobs:
             client
 
       - name: Push frontend image to Harbor
+        if: steps.harbor.outputs.configured == 'true'
         run: |
           docker push ${{ secrets.HARBOR_REGISTRY }}/thetiptop/frontend:${{ github.sha }}
 
       - name: Trigger Harbor security scan (frontend)
-        if: always()
+        if: steps.harbor.outputs.configured == 'true'
         run: |
           echo "Triggering Harbor scan for frontend image"
           # TODO: Intégrer l'appel réel à l'API Harbor (projet, repository, tag)
@@ -100,8 +121,9 @@ jobs:
       - name: Déterminer le statut global
         id: set_conclusion
         run: |
-          if [ "${{ needs.client-ci.result }}" = "success" ] && \
-             [ "${{ needs.client-docker-build-and-scan.result }}" = "success" ]; then
+          CI_RESULT="${{ needs.client-ci.result }}"
+          DOCKER_RESULT="${{ needs.client-docker-build-and-scan.result }}"
+          if [ "$CI_RESULT" = "success" ] && [ "$DOCKER_RESULT" = "success" -o "$DOCKER_RESULT" = "skipped" ]; then
             echo "status=success" >> $GITHUB_OUTPUT
           else
             echo "status=failure" >> $GITHUB_OUTPUT
@@ -123,4 +145,3 @@ jobs:
               issue_number: context.issue.number,
               body,
             });
-

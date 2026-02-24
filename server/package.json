@@ -10,7 +10,7 @@
     "seed": "node src/scripts/seedTickets.js",
     "seed:admin": "node src/scripts/createAdmin.js",
     "seed:admin:prompt": "powershell -ExecutionPolicy Bypass -File ./src/scripts/run-seed-admin.ps1",
-    "test": "jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "lint": "eslint . --ext js --max-warnings=0"
   },
   "keywords": ["tea", "contest", "api", "express", "mongodb"],

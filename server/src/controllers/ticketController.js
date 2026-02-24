@@ -1,4 +1,4 @@
-import Code, { PRIZES, Ticket } from '../models/Ticket.js';
+import Code, { PRIZES } from '../models/Ticket.js';
 import Participation from '../models/Participation.js';
 import RemiseLot from '../models/RemiseLot.js';
 import User from '../models/User.js';

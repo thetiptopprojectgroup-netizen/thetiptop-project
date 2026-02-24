@@ -250,7 +250,7 @@ export const resetPassword = async (req, res, next) => {
 };
 
 // @desc    OAuth callback
-export const oauthCallback = async (req, res, next) => {
+export const oauthCallback = async (req, res) => {
   try {
     if (!req.user) {
       return res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
