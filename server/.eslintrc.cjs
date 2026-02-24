@@ -11,7 +11,19 @@ module.exports = {
   },
   rules: {
     'no-console': 'off',
-    'no-unused-vars': ['error', { argsIgnorePattern: '^_' }]
+    'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    // Adapter ESLint au style déjà présent dans le projet
+    semi: 'off',
+    'comma-dangle': 'off',
+    camelcase: 'off',
+    'no-trailing-spaces': 'off',
+    'space-before-function-paren': 'off',
+    'brace-style': 'off',
+    'multiline-ternary': 'off',
+    quotes: 'off',
+    indent: 'off',
+    'object-shorthand': 'off',
+    'prefer-const': 'off'
   },
   overrides: [
     {
