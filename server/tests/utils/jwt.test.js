@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import jwt from 'jsonwebtoken';
 import { generateToken, generateRefreshToken, verifyToken, decodeToken } from '../../src/utils/jwt.js';
 

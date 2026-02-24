@@ -1,3 +1,4 @@
+import { jest, describe, it, expect } from '@jest/globals';
 import { AppError, notFound } from '../../src/middlewares/errorHandler.js';
 
 describe('Error Handler', () => {

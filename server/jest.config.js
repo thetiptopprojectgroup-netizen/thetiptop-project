@@ -1,8 +1,9 @@
 export default {
   testEnvironment: 'node',
   transform: {},
+  extensionsToTreatAsEsm: [],
   moduleFileExtensions: ['js', 'json'],
-  testMatch: ['**/__tests__/**/*.test.js', '**/*.test.js'],
+  testMatch: ['**/tests/**/*.test.js'],
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/index.js',
@@ -13,4 +14,7 @@ export default {
   coverageReporters: ['text', 'lcov', 'clover'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   testTimeout: 10000,
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
 };

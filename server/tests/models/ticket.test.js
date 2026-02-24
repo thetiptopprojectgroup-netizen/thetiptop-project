@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { PRIZES } from '../../src/models/Ticket.js';
 
 describe('Ticket Model - PRIZES', () => {
