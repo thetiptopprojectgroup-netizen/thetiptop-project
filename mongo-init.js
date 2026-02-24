@@ -14,6 +14,7 @@ db.createUser({
   ],
 });
 
+// 
 // Create indexes for better performance
 db.users.createIndex({ email: 1 }, { unique: true });
 db.users.createIndex({ googleId: 1 }, { sparse: true });
