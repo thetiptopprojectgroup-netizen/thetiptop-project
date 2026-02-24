@@ -5,6 +5,10 @@ on:
     branches:
       - dev
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   create-preprod-pr:
     name: Server - Créer PR dev → preprod
