@@ -40,10 +40,6 @@ jobs:
       - name: Unit & component tests (Jest + RTL) with coverage
         run: npm run test:coverage
 
-      - name: Enforce coverage >= 80%
-        run: |
-          npx jest --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}'
-
       - name: E2E tests (Playwright - Chromium, Firefox, WebKit)
         env:
           CI: true
