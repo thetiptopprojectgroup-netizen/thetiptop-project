@@ -43,7 +43,6 @@ jobs:
       - name: E2E tests (Playwright - Chromium, Firefox, WebKit)
         env:
           CI: true
-          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL || 'http://localhost:5173' }}
         run: |
           npx playwright install --with-deps
           npm run test:e2e
