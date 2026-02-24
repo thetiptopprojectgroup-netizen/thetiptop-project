@@ -12,6 +12,11 @@ on:
       - preprod
       - prod
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   client-ci:
     name: Client - Lint & Build
