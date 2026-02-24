@@ -1,37 +1,115 @@
-name: CD - Client (Préparation déploiement frontend)
+name: CD - Client (Promotion automatique)
 
 on:
-  push:
-    branches:
-      - dev
+  workflow_run:
+    workflows: ["CI - Client (Frontend)"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
-  prepare-client-artifacts:
-    name: Client - Préparer artefacts de déploiement
+  # Créer PR dev → preprod quand CI passe sur dev
+  create-preprod-pr:
+    name: Créer PR dev → preprod (client)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: client
-
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'dev'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Créer ou mettre à jour PR dev → preprod
+        uses: actions/github-script@v7
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: 'preprod',
+              head: `${context.repo.owner}:dev`
+            });
 
-      - name: Install dependencies
-        run: npm install
+            if (pulls.length > 0) {
+              core.info(`PR dev → preprod déjà existante: #${pulls[0].number}`);
+            } else {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: 'dev',
+                base: 'preprod',
+                title: '🚀 Promotion dev → preprod',
+                body: [
+                  '## Promotion automatique',
+                  '',
+                  'Cette PR a été créée automatiquement car tous les tests CI ont passé sur la branche `dev`.',
+                  '',
+                  '### Checklist avant merge',
+                  '- [ ] Revue de code effectuée',
+                  '- [ ] Tests manuels si nécessaire',
+                  '',
+                  '---',
+                  '_Créée par le workflow CD Client_'
+                ].join('\n'),
+                draft: false
+              });
+              core.info(`PR dev → preprod créée: #${pr.number}`);
+            }
 
-      - name: Build frontend
-        run: npm run build
+  # Créer PR preprod → prod quand CI passe sur preprod
+  create-prod-pr:
+    name: Créer PR preprod → prod (client)
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'preprod'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # TODO (phase hébergement) :
-      # - Uploader le build en artefact GitHub
-      # - Déployer vers le VPS / CDN / bucket objet (DigitalOcean Spaces, etc.)
-      # - Intégrer ce job avec la chaîne de déploiement réelle une fois l'infra définie
+      - name: Créer ou mettre à jour PR preprod → prod
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: 'prod',
+              head: `${context.repo.owner}:preprod`
+            });
 
+            if (pulls.length > 0) {
+              core.info(`PR preprod → prod déjà existante: #${pulls[0].number}`);
+            } else {
+              const { data: pr } = await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: 'preprod',
+                base: 'prod',
+                title: '🎯 Promotion preprod → prod',
+                body: [
+                  '## Mise en production',
+                  '',
+                  'Cette PR a été créée automatiquement car tous les tests CI ont passé sur la branche `preprod`.',
+                  '',
+                  '### Checklist avant mise en production',
+                  '- [ ] Tests de pré-production validés',
+                  '- [ ] Revue de code effectuée',
+                  '- [ ] Plan de rollback préparé',
+                  '',
+                  '⚠️ **Attention**: Cette PR déploiera les changements en production.',
+                  '',
+                  '---',
+                  '_Créée par le workflow CD Client_'
+                ].join('\n'),
+                draft: true
+              });
+              core.info(`PR preprod → prod créée (draft): #${pr.number}`);
+            }

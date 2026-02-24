@@ -1,23 +1,28 @@
-name: CD - Server (Promotion dev → preprod/prod)
+name: CD - Server (Promotion automatique)
 
 on:
-  push:
-    branches:
-      - dev
+  workflow_run:
+    workflows: ["CI - Server (Backend)"]
+    types:
+      - completed
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
+  # Créer PR dev → preprod quand CI passe sur dev
   create-preprod-pr:
-    name: Server - Créer PR dev → preprod
+    name: Créer PR dev → preprod
     runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'dev'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create or update PR dev → preprod
+      - name: Créer ou mettre à jour PR dev → preprod
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -31,32 +36,43 @@ jobs:
             });
 
             if (pulls.length > 0) {
-              core.info('PR dev → preprod déjà existante, aucune nouvelle PR créée.');
+              core.info(`PR dev → preprod déjà existante: #${pulls[0].number}`);
             } else {
               const { data: pr } = await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 head: 'dev',
                 base: 'preprod',
-                title: 'Promotion backend dev → preprod',
+                title: '🚀 Promotion dev → preprod',
                 body: [
-                  'Promotion automatique de la branche `dev` vers `preprod` pour le backend (server).',
+                  '## Promotion automatique',
                   '',
-                  'Cette PR a été créée par le workflow CD server.'
+                  'Cette PR a été créée automatiquement car tous les tests CI ont passé sur la branche `dev`.',
+                  '',
+                  '### Checklist avant merge',
+                  '- [ ] Revue de code effectuée',
+                  '- [ ] Tests manuels si nécessaire',
+                  '',
+                  '---',
+                  '_Créée par le workflow CD Server_'
                 ].join('\n'),
                 draft: false
               });
-              core.info(`PR dev → preprod créée : #${pr.number}`);
+              core.info(`PR dev → preprod créée: #${pr.number}`);
             }
 
+  # Créer PR preprod → prod quand CI passe sur preprod
   create-prod-pr:
-    name: Server - Créer PR dev → prod
+    name: Créer PR preprod → prod
     runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'preprod'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create or update PR dev → prod
+      - name: Créer ou mettre à jour PR preprod → prod
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -66,25 +82,34 @@ jobs:
               repo: context.repo.repo,
               state: 'open',
               base: 'prod',
-              head: `${context.repo.owner}:dev`
+              head: `${context.repo.owner}:preprod`
             });
 
             if (pulls.length > 0) {
-              core.info('PR dev → prod déjà existante, aucune nouvelle PR créée.');
+              core.info(`PR preprod → prod déjà existante: #${pulls[0].number}`);
             } else {
               const { data: pr } = await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                head: 'dev',
+                head: 'preprod',
                 base: 'prod',
-                title: 'Promotion backend dev → prod',
+                title: '🎯 Promotion preprod → prod',
                 body: [
-                  'Promotion automatique de la branche `dev` vers `prod` pour le backend (server).',
+                  '## Mise en production',
                   '',
-                  'Cette PR a été créée par le workflow CD server.'
+                  'Cette PR a été créée automatiquement car tous les tests CI ont passé sur la branche `preprod`.',
+                  '',
+                  '### Checklist avant mise en production',
+                  '- [ ] Tests de pré-production validés',
+                  '- [ ] Revue de code effectuée',
+                  '- [ ] Plan de rollback préparé',
+                  '',
+                  '⚠️ **Attention**: Cette PR déploiera les changements en production.',
+                  '',
+                  '---',
+                  '_Créée par le workflow CD Server_'
                 ].join('\n'),
                 draft: true
               });
-              core.info(`PR dev → prod créée : #${pr.number}`);
+              core.info(`PR preprod → prod créée (draft): #${pr.number}`);
             }
-
