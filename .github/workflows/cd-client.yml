@@ -88,6 +88,7 @@ jobs:
               return;
             }
 
+            // Flux : dev → preprod (PR dev→preprod) puis preprod → prod (PR preprod→prod)
             const base = branch === 'dev' ? 'preprod' : 'prod';
             const head = branch;
             let { data: pulls } = await github.rest.pulls.list({
@@ -104,7 +105,7 @@ jobs:
             try {
               const { data: pr } = await github.rest.pulls.create({
                 owner, repo, head, base, title, body,
-                draft: branch !== 'dev'
+                draft: false
               });
               core.info(`PR ${head} → ${base} créée: #${pr.number}`);
             } catch (err) {
