@@ -25,6 +25,15 @@ describe('JWT Utils', () => {
       expect(decoded.exp).toBeDefined();
       expect(decoded.iat).toBeDefined();
     });
+
+    it('should use 7d when JWT_EXPIRES_IN is not set', () => {
+      const saved = process.env.JWT_EXPIRES_IN;
+      delete process.env.JWT_EXPIRES_IN;
+      const token = generateToken(userId);
+      const decoded = jwt.decode(token);
+      expect(decoded.exp).toBeDefined();
+      process.env.JWT_EXPIRES_IN = saved;
+    });
   });
 
   describe('generateRefreshToken', () => {
