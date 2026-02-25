@@ -6,7 +6,10 @@ name: CD - Server (Backend)
 
 on:
   push:
-    branches: [dev, preprod, prod]
+    branches:
+      - dev
+      - preprod
+      - prod
   workflow_run:
     workflows: ["CI - Server (Backend)"]
     types: [completed]
