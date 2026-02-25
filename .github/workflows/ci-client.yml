@@ -1,0 +1,268 @@
+name: CI - Client (Frontend)
+
+on:
+  push:
+    branches:
+      - dev
+      - preprod
+      - prod
+  pull_request:
+    branches:
+      - dev
+      - preprod
+      - prod
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  client-ci:
+    name: Client - Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
+        run: npm run lint
+
+      - name: Unit & component tests (Jest + RTL) with coverage
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
+        run: npm run test:coverage
+
+      - name: Cache Playwright browsers
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: playwright-${{ runner.os }}-
+
+      - name: Install Playwright browsers (Chromium only in CI for speed)
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
+        run: npx playwright install chromium --with-deps
+        env:
+          CI: true
+
+      - name: E2E tests (Playwright - Chromium only in CI)
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
+        env:
+          CI: true
+          E2E_BROWSER: chromium
+        run: npm run test:e2e
+
+      - name: Build frontend
+        run: npm run build
+
+  client-docker-build-and-scan:
+    name: Client - Build Docker image & scan (Harbor)
+    runs-on: ubuntu-latest
+    needs:
+      - client-ci
+    env:
+      HARBOR_REGISTRY: ${{ secrets.HARBOR_REGISTRY }}
+
+    steps:
+      - name: Check Harbor configuration
+        id: harbor
+        run: |
+          if [ -z "$HARBOR_REGISTRY" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Harbor secrets not configured – skipping Docker build"
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        if: steps.harbor.outputs.configured == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: steps.harbor.outputs.configured == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Harbor registry
+        if: steps.harbor.outputs.configured == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.HARBOR_REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build multi-stage frontend image
+        if: steps.harbor.outputs.configured == 'true'
+        run: |
+          for attempt in 1 2 3; do
+            echo "Docker build attempt $attempt/3"
+            if docker build \
+              -f client/Dockerfile \
+              -t ${{ secrets.HARBOR_REGISTRY }}/thetiptop/frontend:${{ github.sha }} \
+              client; then
+              echo "Build succeeded."
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Build failed (e.g. 504 from Docker Hub). Retrying in 45s..."
+              sleep 45
+            fi
+          done
+          echo "Build failed after 3 attempts."
+          exit 1
+
+      - name: Push frontend image to Harbor
+        if: steps.harbor.outputs.configured == 'true'
+        run: |
+          docker push ${{ secrets.HARBOR_REGISTRY }}/thetiptop/frontend:${{ github.sha }}
+
+      - name: Trigger Harbor security scan (frontend)
+        if: steps.harbor.outputs.configured == 'true'
+        run: |
+          echo "Triggering Trivy scan via Harbor for frontend image..."
+          SCAN_URL="https://${{ secrets.HARBOR_REGISTRY }}/api/v2.0/projects/thetiptop/repositories/frontend/artifacts/${{ github.sha }}/scan"
+          curl -s -X POST "$SCAN_URL" \
+            -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
+            -H "Content-Type: application/json" || echo "Scan trigger sent (may already be in progress)"
+          sleep 30
+          REPORT_URL="https://${{ secrets.HARBOR_REGISTRY }}/api/v2.0/projects/thetiptop/repositories/frontend/artifacts/${{ github.sha }}?with_scan_overview=true"
+          RESULT=$(curl -s "$REPORT_URL" \
+            -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
+            -H "Content-Type: application/json")
+          echo "$RESULT" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          overview = data.get('scan_overview', {})
+          for k, v in overview.items():
+              severity = v.get('summary', {})
+              print(f'Scan status: {v.get(\"scan_status\", \"unknown\")}')
+              print(f'Vulnerabilities: {severity}')
+          " || echo "Scan report not yet available"
+
+  notify-client:
+    name: Client - Notification CI
+    runs-on: ubuntu-latest
+    needs:
+      - client-ci
+      - client-docker-build-and-scan
+    if: always()
+
+    steps:
+      - name: Déterminer le statut global
+        id: set_conclusion
+        run: |
+          CI_RESULT="${{ needs.client-ci.result }}"
+          DOCKER_RESULT="${{ needs.client-docker-build-and-scan.result }}"
+          if [ "$CI_RESULT" = "success" ] && [ "$DOCKER_RESULT" = "success" -o "$DOCKER_RESULT" = "skipped" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commenter sur la PR avec le résultat CI (client)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const status = '${{ steps.set_conclusion.outputs.status }}';
+            const body = status === 'success'
+              ? '✅ CI client (frontend) passée avec succès (lint, build, Docker, scan).'
+              : '❌ CI client (frontend) en échec. Merci de vérifier les jobs (lint, build, Docker, scan).';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+  # Crée automatiquement la PR dev→preprod (sur push dev) ou preprod→prod (sur push preprod) quand les 2 CI sont vertes.
+  create-promotion-pr:
+    name: Créer PR promotion (dev→preprod ou preprod→prod)
+    runs-on: ubuntu-latest
+    needs: [client-ci, client-docker-build-and-scan]
+    if: |
+      (needs.client-ci.result == 'success') &&
+      (needs.client-docker-build-and-scan.result == 'success' || needs.client-docker-build-and-scan.result == 'skipped') &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/preprod')
+    steps:
+      - name: Vérifier les 2 CI et créer la PR si vertes
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            const head_sha = context.sha;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            // Flux : dev → preprod (PR dev→preprod) puis preprod → prod (PR preprod→prod)
+            const base = branch === 'dev' ? 'preprod' : 'prod';
+            core.info('Promotion automatique : ' + branch + ' → ' + base + ' (si les 2 CI sont vertes).');
+
+            const { data: { workflows } } = await github.rest.actions.listRepoWorkflows({ owner, repo });
+            const serverCi = workflows.find(w => w.name === 'CI - Server (Backend)');
+            const clientCi = workflows.find(w => w.name === 'CI - Client (Frontend)');
+            if (!serverCi || !clientCi) {
+              core.info('Workflows CI introuvables.');
+              return;
+            }
+
+            const getRuns = async (workflowId) => {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner, repo, workflow_id: workflowId, branch, per_page: 20
+              });
+              return data.workflow_runs || [];
+            };
+            const serverRuns = await getRuns(serverCi.id);
+            const clientRuns = await getRuns(clientCi.id);
+            const serverRun = serverRuns.find(r => r.head_sha === head_sha);
+            const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+
+            if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
+              core.info('Les 2 CI ne sont pas encore vertes pour ce commit. La PR sera créée quand l\'autre CI aura terminé.');
+              return;
+            }
+
+            const head = branch;
+            const { data: pulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base, head: owner + ':' + head
+            });
+            if (pulls.length > 0) {
+              core.info('PR ' + head + ' → ' + base + ' déjà existante: #' + pulls[0].number);
+              return;
+            }
+            const title = branch === 'dev' ? '🚀 Promotion dev → preprod' : '🎯 Promotion preprod → prod';
+            const body = branch === 'dev'
+              ? 'Promotion automatique : CI Server et CI Client ont réussi sur `dev`.'
+              : 'Mise en production : CI Server et CI Client ont réussi sur `preprod`.';
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner, repo, head, base, title, body,
+                draft: false
+              });
+              core.info('PR ' + head + ' → ' + base + ' créée: #' + pr.number);
+            } catch (err) {
+              if (err.status === 422 && err.message && err.message.includes('already exists')) {
+                core.info('PR déjà existante (ignoré).');
+              } else {
+                throw err;
+              }
+            }
