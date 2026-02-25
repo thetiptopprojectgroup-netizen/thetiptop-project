@@ -47,13 +47,27 @@ jobs:
         if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
         run: npm run test:coverage
 
-      - name: E2E tests (Playwright - Chromium, Firefox, WebKit)
+      - name: Cache Playwright browsers
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('client/package-lock.json') }}
+          restore-keys: playwright-${{ runner.os }}-
+
+      - name: Install Playwright browsers (Chromium only in CI for speed)
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
+        run: npx playwright install chromium --with-deps
+        env:
+          CI: true
+
+      - name: E2E tests (Playwright - Chromium only in CI)
         if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
         env:
           CI: true
-        run: |
-          npx playwright install --with-deps
-          npm run test:e2e
+          E2E_BROWSER: chromium
+        run: npm run test:e2e
 
       - name: Build frontend
         run: npm run build
