@@ -58,14 +58,19 @@ jobs:
               });
               return data.workflow_runs || [];
             };
+            const status = (r) => r ? (r.status === 'completed' ? r.conclusion : r.status) : 'absent';
             let ok = false;
             if (isPush) {
-              const maxWait = 5;
+              const maxWait = 18;
+              const waitSec = 60;
               for (let i = 0; i < maxWait; i++) {
                 const serverRuns = await getRuns(serverCi.id);
                 const clientRuns = await getRuns(clientCi.id);
                 const serverRun = serverRuns.find(r => r.head_sha === head_sha);
                 const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+                const s = status(serverRun);
+                const c = status(clientRun);
+                core.info(`CI Server: ${s} | CI Client: ${c} (${i + 1}/${maxWait})`);
                 if (serverRun?.conclusion === 'success' && clientRun?.conclusion === 'success') {
                   ok = true;
                   break;
@@ -75,12 +80,11 @@ jobs:
                   return;
                 }
                 if (i < maxWait - 1) {
-                  core.info(`Attente des 2 CI (${i + 1}/${maxWait})...`);
-                  await new Promise(r => setTimeout(r, 60000));
+                  await new Promise(r => setTimeout(r, waitSec * 1000));
                 }
               }
               if (!ok) {
-                core.setFailed('Timeout : les 2 CI ne sont pas passés dans le délai.');
+                core.setFailed('Timeout : les 2 CI ne sont pas passés dans le délai (~' + (maxWait * waitSec / 60) + ' min).');
                 return;
               }
             } else {
