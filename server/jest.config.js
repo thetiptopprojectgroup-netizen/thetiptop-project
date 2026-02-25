@@ -7,10 +7,10 @@ export default {
   collectCoverageFrom: [
     'src/utils/**/*.js',
     'src/middlewares/**/*.js',
-    'src/models/Ticket.js',
     '!src/index.js',
     '!src/scripts/**',
     '!src/config/passport.js',
+    '!src/models/**',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'clover'],
