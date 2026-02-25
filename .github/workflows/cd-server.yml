@@ -1,8 +1,12 @@
-# Déclenché quand CI - Server (Backend) se termine.
-# Crée la PR dev→preprod ou preprod→prod uniquement si CI Server ET CI Client sont verts.
+# Crée la PR dev→preprod ou preprod→prod quand CI Server ET CI Client sont verts.
+# Déclenché par : fin du CI Server (workflow_run) OU push sur dev/preprod/prod.
+# Note : workflow_run exécute ce workflow depuis la branche par défaut (ex. main).
+# Si les CD ne se déclenchent pas, mergez ce fichier sur la branche par défaut.
 name: CD - Server (Backend)
 
 on:
+  push:
+    branches: [dev, preprod, prod]
   workflow_run:
     workflows: ["CI - Server (Backend)"]
     types: [completed]
@@ -16,9 +20,9 @@ jobs:
   cd-server:
     name: CD Server (Backend)
     runs-on: ubuntu-latest
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      contains(fromJSON('["dev", "preprod", "prod"]'), github.event.workflow_run.head_branch)
+    if: |
+      (github.event_name == 'push' && contains(fromJSON('["dev", "preprod", "prod"]'), github.ref_name)) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && contains(fromJSON('["dev", "preprod", "prod"]'), github.event.workflow_run.head_branch))
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,10 +32,11 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const isPush = context.eventName === 'push';
+            const branch = isPush ? context.ref.replace('refs/heads/', '') : context.payload.workflow_run.head_branch;
+            const head_sha = isPush ? context.sha : context.payload.workflow_run.head_sha;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const branch = context.payload.workflow_run.head_branch;
-            const head_sha = context.payload.workflow_run.head_sha;
 
             if (branch === 'prod') {
               core.info('Branche prod : rien à promouvoir.');
@@ -52,18 +57,44 @@ jobs:
               });
               return data.workflow_runs || [];
             };
-            const serverRuns = await getRuns(serverCi.id);
-            const clientRuns = await getRuns(clientCi.id);
-            const serverRun = serverRuns.find(r => r.head_sha === head_sha);
-            const clientRun = clientRuns.find(r => r.head_sha === head_sha);
-
-            if (!serverRun || serverRun.conclusion !== 'success') {
-              core.setFailed('CI Server pas encore OK pour ce commit.');
-              return;
-            }
-            if (!clientRun || clientRun.conclusion !== 'success') {
-              core.setFailed('CI Client pas encore OK pour ce commit.');
-              return;
+            let ok = false;
+            if (isPush) {
+              const maxWait = 30;
+              for (let i = 0; i < maxWait; i++) {
+                const serverRuns = await getRuns(serverCi.id);
+                const clientRuns = await getRuns(clientCi.id);
+                const serverRun = serverRuns.find(r => r.head_sha === head_sha);
+                const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+                if (serverRun?.conclusion === 'success' && clientRun?.conclusion === 'success') {
+                  ok = true;
+                  break;
+                }
+                if (serverRun?.conclusion === 'failure' || clientRun?.conclusion === 'failure') {
+                  core.setFailed('CI Server ou CI Client en échec pour ce commit.');
+                  return;
+                }
+                if (i < maxWait - 1) {
+                  core.info(`Attente des 2 CI (${i + 1}/${maxWait})...`);
+                  await new Promise(r => setTimeout(r, 60000));
+                }
+              }
+              if (!ok) {
+                core.setFailed('Timeout : les 2 CI ne sont pas passés dans le délai.');
+                return;
+              }
+            } else {
+              const serverRuns = await getRuns(serverCi.id);
+              const clientRuns = await getRuns(clientCi.id);
+              const serverRun = serverRuns.find(r => r.head_sha === head_sha);
+              const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+              if (!serverRun || serverRun.conclusion !== 'success') {
+                core.setFailed('CI Server pas encore OK pour ce commit.');
+                return;
+              }
+              if (!clientRun || clientRun.conclusion !== 'success') {
+                core.setFailed('CI Client pas encore OK pour ce commit.');
+                return;
+              }
             }
 
             const base = branch === 'dev' ? 'preprod' : 'prod';
