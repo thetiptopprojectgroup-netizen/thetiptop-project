@@ -1,8 +1,6 @@
 name: CD - Client (Promotion automatique)
 
 on:
-  push:
-    branches: [dev, preprod]
   workflow_run:
     workflows: ["CI - Client (Frontend)"]
     types:
@@ -13,13 +11,14 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Créer PR dev → preprod quand CI passe sur dev
+  # Créer PR dev → preprod uniquement quand le CI a réussi sur dev
   create-preprod-pr:
     name: Créer PR dev → preprod (client)
     runs-on: ubuntu-latest
     if: >
-      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev')
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'dev'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,13 +62,14 @@ jobs:
               core.info(`PR dev → preprod créée: #${pr.number}`);
             }
 
-  # Créer PR preprod → prod quand CI passe sur preprod
+  # Créer PR preprod → prod uniquement quand le CI a réussi sur preprod
   create-prod-pr:
     name: Créer PR preprod → prod (client)
     runs-on: ubuntu-latest
     if: >
-      (github.event_name == 'push' && github.ref == 'refs/heads/preprod') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'preprod')
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'preprod'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

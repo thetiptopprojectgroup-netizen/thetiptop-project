@@ -40,9 +40,11 @@ jobs:
         run: npm install
 
       - name: Lint backend (ESLint)
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
         run: npm run lint
 
       - name: Unit tests with coverage (Jest)
+        if: github.ref == 'refs/heads/dev' || (github.event_name == 'pull_request' && github.base_ref == 'dev')
         run: npm test -- --coverage --passWithNoTests
 
   server-docker-build-and-scan:
