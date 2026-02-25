@@ -1,6 +1,8 @@
 name: CD - Server (Promotion automatique)
 
 on:
+  push:
+    branches: [dev, preprod]
   workflow_run:
     workflows: ["CI - Server (Backend)"]
     types:
@@ -16,8 +18,8 @@ jobs:
     name: Créer PR dev → preprod
     runs-on: ubuntu-latest
     if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'dev'
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,8 +68,8 @@ jobs:
     name: Créer PR preprod → prod
     runs-on: ubuntu-latest
     if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'preprod'
+      (github.event_name == 'push' && github.ref == 'refs/heads/preprod') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'preprod')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
