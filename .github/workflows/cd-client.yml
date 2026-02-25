@@ -79,39 +79,58 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { data: pulls } = await github.rest.pulls.list({
+            let { data: pulls } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               base: 'prod',
-              head: `${context.repo.owner}:preprod`
+              head: context.repo.owner + ':preprod'
             });
 
             if (pulls.length > 0) {
               core.info(`PR preprod → prod déjà existante: #${pulls[0].number}`);
             } else {
-              const { data: pr } = await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                head: 'preprod',
-                base: 'prod',
-                title: '🎯 Promotion preprod → prod',
-                body: [
-                  '## Mise en production',
-                  '',
-                  'Cette PR a été créée automatiquement car tous les tests CI ont passé sur la branche `preprod`.',
-                  '',
-                  '### Checklist avant mise en production',
-                  '- [ ] Tests de pré-production validés',
-                  '- [ ] Revue de code effectuée',
-                  '- [ ] Plan de rollback préparé',
-                  '',
-                  '⚠️ **Attention**: Cette PR déploiera les changements en production.',
-                  '',
-                  '---',
-                  '_Créée par le workflow CD Client_'
-                ].join('\n'),
-                draft: true
-              });
-              core.info(`PR preprod → prod créée (draft): #${pr.number}`);
+              try {
+                const { data: pr } = await github.rest.pulls.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  head: 'preprod',
+                  base: 'prod',
+                  title: '🎯 Promotion preprod → prod',
+                  body: [
+                    '## Mise en production',
+                    '',
+                    'Cette PR a été créée automatiquement car tous les tests CI ont passé sur la branche `preprod`.',
+                    '',
+                    '### Checklist avant mise en production',
+                    '- [ ] Tests de pré-production validés',
+                    '- [ ] Revue de code effectuée',
+                    '- [ ] Plan de rollback préparé',
+                    '',
+                    '⚠️ **Attention**: Cette PR déploiera les changements en production.',
+                    '',
+                    '---',
+                    '_Créée par le workflow CD Client_'
+                  ].join('\n'),
+                  draft: true
+                });
+                core.info(`PR preprod → prod créée (draft): #${pr.number}`);
+              } catch (err) {
+                if (err.status === 422 && err.message && err.message.includes('already exists')) {
+                  pulls = (await github.rest.pulls.list({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    state: 'open',
+                    base: 'prod',
+                    head: context.repo.owner + ':preprod'
+                  })).data;
+                  if (pulls.length > 0) {
+                    core.info(`PR preprod → prod déjà existante: #${pulls[0].number} (ignoré doublon)`);
+                  } else {
+                    core.info('PR preprod → prod déjà existante (ignoré doublon)');
+                  }
+                } else {
+                  throw err;
+                }
+              }
             }
