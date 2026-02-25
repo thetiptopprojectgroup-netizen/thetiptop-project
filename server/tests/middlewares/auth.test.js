@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, beforeAll } from '@jest/globals';
 
 const mockVerify = jest.fn();
 const mockFindById = jest.fn();
@@ -11,7 +11,18 @@ jest.unstable_mockModule('../../src/models/User.js', () => ({
   default: { findById: mockFindById },
 }));
 
-const { protect, restrictTo, employeeOrAdmin, adminOnly } = await import('../../src/middlewares/auth.js');
+let protect;
+let restrictTo;
+let employeeOrAdmin;
+let adminOnly;
+
+beforeAll(async () => {
+  const auth = await import('../../src/middlewares/auth.js');
+  protect = auth.protect;
+  restrictTo = auth.restrictTo;
+  employeeOrAdmin = auth.employeeOrAdmin;
+  adminOnly = auth.adminOnly;
+});
 
 describe('Auth Middleware', () => {
   let req, res, next;

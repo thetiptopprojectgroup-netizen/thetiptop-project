@@ -1,5 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { validationResult } from 'express-validator';
+import { body } from 'express-validator';
 import { validate } from '../../src/middlewares/validate.js';
 
 describe('Validate Middleware', () => {
@@ -16,7 +16,6 @@ describe('Validate Middleware', () => {
   });
 
   it('returns 400 with formatted errors on validation failure', async () => {
-    const { body } = await import('express-validator');
     const middleware = validate([body('email').isEmail().withMessage('Email invalide')]);
 
     const req = { body: { email: 'not-email' }, headers: {}, query: {}, params: {}, cookies: {} };
