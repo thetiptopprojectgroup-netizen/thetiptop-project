@@ -60,7 +60,7 @@ jobs:
             };
             let ok = false;
             if (isPush) {
-              const maxWait = 30;
+              const maxWait = 5;
               for (let i = 0; i < maxWait; i++) {
                 const serverRuns = await getRuns(serverCi.id);
                 const clientRuns = await getRuns(clientCi.id);
