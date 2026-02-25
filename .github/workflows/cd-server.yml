@@ -60,48 +60,26 @@ jobs:
               });
               return data.workflow_runs || [];
             };
-            const status = (r) => r ? (r.status === 'completed' ? r.conclusion : r.status) : 'absent';
-            let ok = false;
-            if (isPush) {
-              const maxWait = 18;
-              const waitSec = 60;
-              for (let i = 0; i < maxWait; i++) {
-                const serverRuns = await getRuns(serverCi.id);
-                const clientRuns = await getRuns(clientCi.id);
-                const serverRun = serverRuns.find(r => r.head_sha === head_sha);
-                const clientRun = clientRuns.find(r => r.head_sha === head_sha);
-                const s = status(serverRun);
-                const c = status(clientRun);
-                core.info(`CI Server: ${s} | CI Client: ${c} (${i + 1}/${maxWait})`);
-                if (serverRun?.conclusion === 'success' && clientRun?.conclusion === 'success') {
-                  ok = true;
-                  break;
-                }
-                if (serverRun?.conclusion === 'failure' || clientRun?.conclusion === 'failure') {
-                  core.setFailed('CI Server ou CI Client en échec pour ce commit.');
-                  return;
-                }
-                if (i < maxWait - 1) {
-                  await new Promise(r => setTimeout(r, waitSec * 1000));
-                }
-              }
-              if (!ok) {
-                core.setFailed('Timeout : les 2 CI ne sont pas passés dans le délai (~' + (maxWait * waitSec / 60) + ' min).');
+            const serverRuns = await getRuns(serverCi.id);
+            const clientRuns = await getRuns(clientCi.id);
+            const serverRun = serverRuns.find(r => r.head_sha === head_sha);
+            const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+
+            if (serverRun?.conclusion === 'failure' || clientRun?.conclusion === 'failure') {
+              core.setFailed('CI Server ou CI Client en échec pour ce commit.');
+              return;
+            }
+            if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
+              if (isPush) {
+                core.info('Les 2 CI ne sont pas encore terminées. La PR sera créée quand les 2 CI auront réussi (relancer le workflow CD ou workflow_run).');
                 return;
               }
-            } else {
-              const serverRuns = await getRuns(serverCi.id);
-              const clientRuns = await getRuns(clientCi.id);
-              const serverRun = serverRuns.find(r => r.head_sha === head_sha);
-              const clientRun = clientRuns.find(r => r.head_sha === head_sha);
               if (!serverRun || serverRun.conclusion !== 'success') {
                 core.setFailed('CI Server pas encore OK pour ce commit.');
                 return;
               }
-              if (!clientRun || clientRun.conclusion !== 'success') {
-                core.setFailed('CI Client pas encore OK pour ce commit.');
-                return;
-              }
+              core.setFailed('CI Client pas encore OK pour ce commit.');
+              return;
             }
 
             const base = branch === 'dev' ? 'preprod' : 'prod';
