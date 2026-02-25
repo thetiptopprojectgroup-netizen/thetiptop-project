@@ -110,10 +110,22 @@ jobs:
       - name: Build multi-stage frontend image
         if: steps.harbor.outputs.configured == 'true'
         run: |
-          docker build \
-            -f client/Dockerfile \
-            -t ${{ secrets.HARBOR_REGISTRY }}/thetiptop/frontend:${{ github.sha }} \
-            client
+          for attempt in 1 2 3; do
+            echo "Docker build attempt $attempt/3"
+            if docker build \
+              -f client/Dockerfile \
+              -t ${{ secrets.HARBOR_REGISTRY }}/thetiptop/frontend:${{ github.sha }} \
+              client; then
+              echo "Build succeeded."
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Build failed (e.g. 504 from Docker Hub). Retrying in 45s..."
+              sleep 45
+            fi
+          done
+          echo "Build failed after 3 attempts."
+          exit 1
 
       - name: Push frontend image to Harbor
         if: steps.harbor.outputs.configured == 'true'
