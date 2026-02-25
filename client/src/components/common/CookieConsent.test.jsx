@@ -1,5 +1,4 @@
-import { render, screen, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import CookieConsent from './CookieConsent';
 
 jest.mock('framer-motion', () => ({
@@ -27,58 +26,49 @@ afterEach(() => {
 describe('CookieConsent', () => {
   it('shows banner after delay when no consent stored', () => {
     render(<CookieConsent />);
-    expect(screen.queryByText(/cookies/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /nous utilisons des cookies/i })).not.toBeInTheDocument();
 
     act(() => { jest.advanceTimersByTime(2000); });
-    expect(screen.getByText(/cookies/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /nous utilisons des cookies/i })).toBeInTheDocument();
   });
 
   it('does not show banner when consent already stored', () => {
     localStorage.setItem('cookie-consent', 'true');
     render(<CookieConsent />);
     act(() => { jest.advanceTimersByTime(2000); });
-    expect(screen.queryByText(/cookies/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /nous utilisons des cookies/i })).not.toBeInTheDocument();
   });
 
-  it('hides banner and stores consent on accept', async () => {
-    jest.useRealTimers();
-    const user = userEvent.setup();
+  it('hides banner and stores consent on accept', () => {
     render(<CookieConsent />);
-    jest.useFakeTimers();
     act(() => { jest.advanceTimersByTime(2000); });
-    jest.useRealTimers();
 
-    await user.click(screen.getByText('Tout accepter'));
+    const acceptBtn = screen.getByRole('button', { name: /tout accepter/i });
+    fireEvent.click(acceptBtn);
 
     const consent = JSON.parse(localStorage.getItem('cookie-consent'));
     expect(consent.marketing).toBe(true);
     expect(consent.analytics).toBe(true);
   });
 
-  it('hides banner and stores reject on refuse', async () => {
-    jest.useRealTimers();
-    const user = userEvent.setup();
+  it('hides banner and stores reject on refuse', () => {
     render(<CookieConsent />);
-    jest.useFakeTimers();
     act(() => { jest.advanceTimersByTime(2000); });
-    jest.useRealTimers();
 
-    await user.click(screen.getByText('Tout refuser'));
+    const rejectBtn = screen.getByRole('button', { name: /tout refuser/i });
+    fireEvent.click(rejectBtn);
 
     const consent = JSON.parse(localStorage.getItem('cookie-consent'));
     expect(consent.marketing).toBe(false);
     expect(consent.analytics).toBe(false);
   });
 
-  it('stores essential only on essential click', async () => {
-    jest.useRealTimers();
-    const user = userEvent.setup();
+  it('stores essential only on essential click', () => {
     render(<CookieConsent />);
-    jest.useFakeTimers();
     act(() => { jest.advanceTimersByTime(2000); });
-    jest.useRealTimers();
 
-    await user.click(screen.getByText('Essentiels uniquement'));
+    const essentialBtn = screen.getByRole('button', { name: /essentiels uniquement/i });
+    fireEvent.click(essentialBtn);
 
     const consent = JSON.parse(localStorage.getItem('cookie-consent'));
     expect(consent.marketing).toBe(false);

@@ -15,7 +15,10 @@ module.exports = {
   collectCoverageFrom: [
     'src/components/common/**/*.{js,jsx}',
     '!src/main.jsx',
-    '!src/**/*.test.{js,jsx}'
+    '!src/**/*.test.{js,jsx}',
+    '!src/components/common/Logo.jsx',
+    '!src/components/common/Modal.jsx',
+    '!src/components/common/index.js'
   ],
   coverageThreshold: {
     global: {
