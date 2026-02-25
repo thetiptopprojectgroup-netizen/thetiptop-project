@@ -193,8 +193,9 @@ jobs:
               body,
             });
 
+  # Crée automatiquement la PR dev→preprod (sur push dev) ou preprod→prod (sur push preprod) quand les 2 CI sont vertes.
   create-promotion-pr:
-    name: Créer PR promotion (auto si les 2 CI vertes)
+    name: Créer PR promotion (dev→preprod ou preprod→prod)
     runs-on: ubuntu-latest
     needs: [client-ci, client-docker-build-and-scan]
     if: |
@@ -212,6 +213,8 @@ jobs:
             const head_sha = context.sha;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            const base = branch === 'dev' ? 'preprod' : 'prod';
+            core.info('Promotion automatique : ' + branch + ' → ' + base + ' (si les 2 CI sont vertes).');
 
             const { data: { workflows } } = await github.rest.actions.listRepoWorkflows({ owner, repo });
             const serverCi = workflows.find(w => w.name === 'CI - Server (Backend)');
@@ -237,7 +240,6 @@ jobs:
               return;
             }
 
-            const base = branch === 'dev' ? 'preprod' : 'prod';
             const head = branch;
             const { data: pulls } = await github.rest.pulls.list({
               owner, repo, state: 'open', base, head: owner + ':' + head
