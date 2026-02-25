@@ -1,0 +1,181 @@
+# CD unique : crée les PR dev→preprod et preprod→prod uniquement quand
+# CI Server ET CI Client ont tous les deux réussi pour le même commit.
+name: CD - Promotion (dev → preprod → prod)
+
+on:
+  workflow_run:
+    workflows:
+      - "CI - Server (Backend)"
+      - "CI - Client (Frontend)"
+    types:
+      - completed
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+jobs:
+  # PR dev → preprod : seulement si CI Server ET CI Client OK sur dev
+  create-preprod-pr:
+    name: Créer PR dev → preprod
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'dev'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Vérifier que CI Server et CI Client ont réussi puis créer PR dev → preprod
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = 'dev';
+            const head_sha = context.payload.workflow_run.head_sha;
+
+            const { data: { workflows } } = await github.rest.actions.listRepoWorkflows({ owner, repo });
+            const serverCi = workflows.find(w => w.name === 'CI - Server (Backend)');
+            const clientCi = workflows.find(w => w.name === 'CI - Client (Frontend)');
+            if (!serverCi || !clientCi) {
+              core.warning('Workflows CI Server ou Client introuvables.');
+              return;
+            }
+
+            const getRuns = async (workflowId) => {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner, repo, workflow_id: workflowId, branch, per_page: 20
+              });
+              return data.workflow_runs || [];
+            };
+            const serverRuns = await getRuns(serverCi.id);
+            const clientRuns = await getRuns(clientCi.id);
+            const serverRun = serverRuns.find(r => r.head_sha === head_sha);
+            const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+
+            if (!serverRun || serverRun.conclusion !== 'success') {
+              core.info('CI Server pas encore OK pour ce commit – attente.');
+              return;
+            }
+            if (!clientRun || clientRun.conclusion !== 'success') {
+              core.info('CI Client pas encore OK pour ce commit – attente.');
+              return;
+            }
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base: 'preprod',
+              head: owner + ':dev'
+            });
+            if (pulls.length > 0) {
+              core.info(`PR dev → preprod déjà existante: #${pulls[0].number}`);
+              return;
+            }
+            const { data: pr } = await github.rest.pulls.create({
+              owner, repo, head: 'dev', base: 'preprod',
+              title: '🚀 Promotion dev → preprod',
+              body: [
+                '## Promotion automatique',
+                '',
+                'Cette PR a été créée car **CI Server** et **CI Client** ont réussi sur `dev`.',
+                '',
+                '### Checklist avant merge',
+                '- [ ] Revue de code',
+                '- [ ] Tests manuels si besoin',
+                '',
+                '---',
+                '_CD Promotion_'
+              ].join('\n'),
+              draft: false
+            });
+            core.info(`PR dev → preprod créée: #${pr.number}`);
+
+  # PR preprod → prod : seulement si CI Server ET CI Client OK sur preprod
+  create-prod-pr:
+    name: Créer PR preprod → prod
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'preprod'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Vérifier que CI Server et CI Client ont réussi puis créer PR preprod → prod
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = 'preprod';
+            const head_sha = context.payload.workflow_run.head_sha;
+
+            const { data: { workflows } } = await github.rest.actions.listRepoWorkflows({ owner, repo });
+            const serverCi = workflows.find(w => w.name === 'CI - Server (Backend)');
+            const clientCi = workflows.find(w => w.name === 'CI - Client (Frontend)');
+            if (!serverCi || !clientCi) {
+              core.warning('Workflows CI Server ou Client introuvables.');
+              return;
+            }
+
+            const getRuns = async (workflowId) => {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner, repo, workflow_id: workflowId, branch, per_page: 20
+              });
+              return data.workflow_runs || [];
+            };
+            const serverRuns = await getRuns(serverCi.id);
+            const clientRuns = await getRuns(clientCi.id);
+            const serverRun = serverRuns.find(r => r.head_sha === head_sha);
+            const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+
+            if (!serverRun || serverRun.conclusion !== 'success') {
+              core.info('CI Server pas encore OK pour ce commit sur preprod – attente.');
+              return;
+            }
+            if (!clientRun || clientRun.conclusion !== 'success') {
+              core.info('CI Client pas encore OK pour ce commit sur preprod – attente.');
+              return;
+            }
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base: 'prod',
+              head: owner + ':preprod'
+            });
+            if (pulls.length > 0) {
+              core.info(`PR preprod → prod déjà existante: #${pulls[0].number}`);
+              return;
+            }
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner, repo, head: 'preprod', base: 'prod',
+                title: '🎯 Promotion preprod → prod',
+                body: [
+                  '## Mise en production',
+                  '',
+                  'Cette PR a été créée car **CI Server** et **CI Client** ont réussi sur `preprod`.',
+                  '',
+                  '### Checklist avant mise en prod',
+                  '- [ ] Validation pré-production',
+                  '- [ ] Plan de rollback prêt',
+                  '',
+                  '⚠️ **Attention** : déploiement en production.',
+                  '',
+                  '---',
+                  '_CD Promotion_'
+                ].join('\n'),
+                draft: true
+              });
+              core.info(`PR preprod → prod créée (draft): #${pr.number}`);
+            } catch (err) {
+              if (err.status === 422 && err.message && err.message.includes('already exists')) {
+                core.info('PR preprod → prod déjà existante (ignoré doublon).');
+              } else {
+                throw err;
+              }
+            }
