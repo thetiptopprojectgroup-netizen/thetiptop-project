@@ -13,6 +13,11 @@ on:
     workflows: ["CI - Client (Frontend)"]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      promote:
+        description: 'Promouvoir (créer la PR dev→preprod ou preprod→prod si les 2 CI sont vertes)'
+        required: false
+        default: 'oui'
 
 permissions:
   contents: read
