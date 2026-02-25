@@ -213,6 +213,7 @@ jobs:
             const head_sha = context.sha;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            // Flux : dev → preprod (PR dev→preprod) puis preprod → prod (PR preprod→prod)
             const base = branch === 'dev' ? 'preprod' : 'prod';
             core.info('Promotion automatique : ' + branch + ' → ' + base + ' (si les 2 CI sont vertes).');
 
@@ -255,7 +256,7 @@ jobs:
             try {
               const { data: pr } = await github.rest.pulls.create({
                 owner, repo, head, base, title, body,
-                draft: branch !== 'dev'
+                draft: false
               });
               core.info('PR ' + head + ' → ' + base + ' créée: #' + pr.number);
             } catch (err) {
