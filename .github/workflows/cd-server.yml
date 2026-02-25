@@ -1,7 +1,6 @@
 # Crée la PR dev→preprod ou preprod→prod quand CI Server ET CI Client sont verts.
-# Déclenché par : fin du CI Server (workflow_run) OU push sur dev/preprod/prod.
-# Note : workflow_run exécute ce workflow depuis la branche par défaut (ex. main).
-# Si les CD ne se déclenchent pas, mergez ce fichier sur la branche par défaut.
+# Déclenché par : push, workflow_run (CI), ou manuellement (workflow_dispatch).
+# Pour créer la PR après les CI : Actions → "CD - Server" ou "CD - Client" → Run workflow (branche dev).
 name: CD - Server (Backend)
 
 on:
@@ -13,6 +12,7 @@ on:
   workflow_run:
     workflows: ["CI - Server (Backend)"]
     types: [completed]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,6 +24,7 @@ jobs:
     name: CD Server (Backend)
     runs-on: ubuntu-latest
     if: |
+      (github.event_name == 'workflow_dispatch') ||
       (github.event_name == 'push' && contains(fromJSON('["dev", "preprod", "prod"]'), github.ref_name)) ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && contains(fromJSON('["dev", "preprod", "prod"]'), github.event.workflow_run.head_branch))
     steps:
@@ -35,9 +36,9 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const isPush = context.eventName === 'push';
-            const branch = isPush ? context.ref.replace('refs/heads/', '') : context.payload.workflow_run.head_branch;
-            const head_sha = isPush ? context.sha : context.payload.workflow_run.head_sha;
+            const isPushOrDispatch = context.eventName === 'push' || context.eventName === 'workflow_dispatch';
+            const branch = isPushOrDispatch ? context.ref.replace('refs/heads/', '') : context.payload.workflow_run.head_branch;
+            const head_sha = isPushOrDispatch ? context.sha : context.payload.workflow_run.head_sha;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
@@ -70,8 +71,8 @@ jobs:
               return;
             }
             if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
-              if (isPush) {
-                core.info('Les 2 CI ne sont pas encore terminées. La PR sera créée quand les 2 CI auront réussi (relancer le workflow CD ou workflow_run).');
+              if (isPushOrDispatch) {
+                core.info('Les 2 CI ne sont pas encore terminées. Une fois les 2 CI vertes : Actions → CD - Client (ou CD - Server) → Run workflow en choisissant la branche dev (ou preprod).');
                 return;
               }
               if (!serverRun || serverRun.conclusion !== 'success') {
