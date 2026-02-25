@@ -96,8 +96,25 @@ jobs:
       - name: Trigger Harbor security scan (backend)
         if: steps.harbor.outputs.configured == 'true'
         run: |
-          echo "Triggering Harbor scan for backend image"
-          # TODO: Intégrer l'appel réel à l'API Harbor (projet, repository, tag)
+          echo "Triggering Trivy scan via Harbor for backend image..."
+          SCAN_URL="https://${{ secrets.HARBOR_REGISTRY }}/api/v2.0/projects/thetiptop/repositories/backend/artifacts/${{ github.sha }}/scan"
+          curl -s -X POST "$SCAN_URL" \
+            -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
+            -H "Content-Type: application/json" || echo "Scan trigger sent (may already be in progress)"
+          sleep 30
+          REPORT_URL="https://${{ secrets.HARBOR_REGISTRY }}/api/v2.0/projects/thetiptop/repositories/backend/artifacts/${{ github.sha }}?with_scan_overview=true"
+          RESULT=$(curl -s "$REPORT_URL" \
+            -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
+            -H "Content-Type: application/json")
+          echo "$RESULT" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          overview = data.get('scan_overview', {})
+          for k, v in overview.items():
+              severity = v.get('summary', {})
+              print(f'Scan status: {v.get(\"scan_status\", \"unknown\")}')
+              print(f'Vulnerabilities: {severity}')
+          " || echo "Scan report not yet available"
 
   notify-server:
     name: Server - Notification CI

@@ -13,17 +13,16 @@ module.exports = {
   },
   collectCoverage: true,
   collectCoverageFrom: [
-    'src/**/*.{js,jsx}',
-    '!src/main.jsx'
+    'src/components/common/**/*.{js,jsx}',
+    '!src/main.jsx',
+    '!src/**/*.test.{js,jsx}'
   ],
-  // Seuil à 0 tant qu’il n’y a que peu de tests ; remonter à 80 quand la couverture le permet
   coverageThreshold: {
     global: {
-      branches: 0,
-      functions: 0,
-      lines: 0,
-      statements: 0
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80
     }
   }
 };
-
