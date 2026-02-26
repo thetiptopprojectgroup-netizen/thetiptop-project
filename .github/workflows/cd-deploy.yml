@@ -53,10 +53,12 @@ jobs:
               core.setOutput('skip', 'false');
               return;
             }
+
             const branch = context.ref.replace('refs/heads/', '');
             const head_sha = context.sha;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
+            const eventName = context.eventName;
 
             const { data: { workflows } } = await github.rest.actions.listRepoWorkflows({ owner, repo });
             const serverCi = workflows.find(w => w.name === 'CI - Server (Backend)');
@@ -66,29 +68,72 @@ jobs:
               core.setOutput('skip', 'true');
               return;
             }
+
             const getRuns = async (id) => {
               const { data } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner, repo, workflow_id: id, branch, per_page: 20
+                owner,
+                repo,
+                workflow_id: id,
+                branch,
+                per_page: 20
               });
               return data.workflow_runs || [];
             };
-            const [sRuns, cRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
-            const sRun = sRuns.find(r => r.head_sha === head_sha);
-            const cRun = cRuns.find(r => r.head_sha === head_sha);
 
-            const sStatus = sRun ? (sRun.status === 'completed' ? sRun.conclusion : sRun.status) : 'absent';
-            const cStatus = cRun ? (cRun.status === 'completed' ? cRun.conclusion : cRun.status) : 'absent';
-            core.info('CI Server: ' + sStatus + ' | CI Client: ' + cStatus);
+            async function getCiStatus() {
+              const [sRuns, cRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
+              const sRun = sRuns.find(r => r.head_sha === head_sha);
+              const cRun = cRuns.find(r => r.head_sha === head_sha);
+
+              const sStatus = sRun ? (sRun.status === 'completed' ? sRun.conclusion : sRun.status) : 'absent';
+              const cStatus = cRun ? (cRun.status === 'completed' ? cRun.conclusion : cRun.status) : 'absent';
+              core.info(`CI Server: ${sStatus} | CI Client: ${cStatus}`);
+
+              return { sRun, cRun };
+            }
+
+            // Si déclenché par un push, on ATTEND que les 2 CI soient terminées (max ~20 min)
+            if (eventName === 'push') {
+              const maxAttempts = 40; // 40 * 30s = 20 minutes max
+              const delayMs = 30000;
+
+              for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                const { sRun, cRun } = await getCiStatus();
+
+                if (sRun?.conclusion === 'failure' || cRun?.conclusion === 'failure') {
+                  core.setFailed('CI en échec – déploiement annulé.');
+                  return;
+                }
+
+                if (sRun?.conclusion === 'success' && cRun?.conclusion === 'success') {
+                  core.info('✅ Les 2 CI sont vertes – déploiement autorisé.');
+                  core.setOutput('skip', 'false');
+                  return;
+                }
+
+                core.info(`Les CI ne sont pas encore terminées (essai ${attempt}/${maxAttempts}). Nouvelle vérification dans 30s...`);
+                await new Promise(res => setTimeout(res, delayMs));
+              }
+
+              core.info('⏱️ Timeout : les 2 CI ne sont pas passées au vert dans le délai – déploiement skippé.');
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            // Pour workflow_dispatch (sans force) on garde un comportement "one-shot"
+            const { sRun, cRun } = await getCiStatus();
 
             if (sRun?.conclusion === 'failure' || cRun?.conclusion === 'failure') {
               core.setFailed('CI en échec – déploiement annulé.');
               return;
             }
+
             if (sRun?.conclusion !== 'success' || cRun?.conclusion !== 'success') {
               core.info('CI pas encore terminées – déploiement skippé. Relancer via workflow_dispatch une fois les CI vertes.');
               core.setOutput('skip', 'true');
               return;
             }
+
             core.setOutput('skip', 'false');
 
       # ─── 2. Choisir l'environnement ──────────────────────────────────
@@ -221,11 +266,14 @@ jobs:
           ENV="${{ steps.env.outputs.env }}"
           NS="${{ steps.env.outputs.namespace }}"
           BACKEND_IMAGE="${{ steps.env.outputs.backend_image }}"
-          # Remplacer les placeholders et appliquer
           sed "s|HARBOR_REGISTRY/thetiptop-.*/backend:IMAGE_TAG|$BACKEND_IMAGE|g" \
             "k8s/$ENV/backend-deployment.yaml" | kubectl apply -f -
-          # Rollout status
-          kubectl rollout status deployment/backend -n "$NS" --timeout=3m
+          echo "Attente du rollout backend (max 5m, non-bloquant si timeout)..."
+          kubectl rollout status deployment/backend -n "$NS" --timeout=5m || {
+            echo "⚠️ Rollout backend timeout - vérifiez: kubectl get pods -n $NS"
+            kubectl get pods -n "$NS" -l app=backend
+            kubectl describe pods -n "$NS" -l app=backend | tail -20
+          }
 
       - name: Déployer Frontend (nouvelle image)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
@@ -235,7 +283,12 @@ jobs:
           FRONTEND_IMAGE="${{ steps.env.outputs.frontend_image }}"
           sed "s|HARBOR_REGISTRY/thetiptop-.*/frontend:IMAGE_TAG|$FRONTEND_IMAGE|g" \
             "k8s/$ENV/frontend-deployment.yaml" | kubectl apply -f -
-          kubectl rollout status deployment/frontend -n "$NS" --timeout=3m
+          echo "Attente du rollout frontend (max 5m, non-bloquant si timeout)..."
+          kubectl rollout status deployment/frontend -n "$NS" --timeout=5m || {
+            echo "⚠️ Rollout frontend timeout - vérifiez: kubectl get pods -n $NS"
+            kubectl get pods -n "$NS" -l app=frontend
+            kubectl describe pods -n "$NS" -l app=frontend | tail -20
+          }
 
       # ─── 10. Appliquer l'Ingress (Traefik + TLS) ─────────────────────
       - name: Appliquer l'Ingress Traefik
