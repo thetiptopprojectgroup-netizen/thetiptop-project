@@ -225,7 +225,7 @@ jobs:
           sed "s|HARBOR_REGISTRY/thetiptop-.*/backend:IMAGE_TAG|$BACKEND_IMAGE|g" \
             "k8s/$ENV/backend-deployment.yaml" | kubectl apply -f -
           # Rollout status
-          kubectl rollout status deployment/backend -n "$NS" --timeout=3m
+          kubectl rollout status deployment/backend -n "$NS" --timeout=5m
 
       - name: Déployer Frontend (nouvelle image)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
@@ -235,7 +235,7 @@ jobs:
           FRONTEND_IMAGE="${{ steps.env.outputs.frontend_image }}"
           sed "s|HARBOR_REGISTRY/thetiptop-.*/frontend:IMAGE_TAG|$FRONTEND_IMAGE|g" \
             "k8s/$ENV/frontend-deployment.yaml" | kubectl apply -f -
-          kubectl rollout status deployment/frontend -n "$NS" --timeout=3m
+          kubectl rollout status deployment/frontend -n "$NS" --timeout=5m
 
       # ─── 10. Appliquer l'Ingress (Traefik + TLS) ─────────────────────
       - name: Appliquer l'Ingress Traefik
