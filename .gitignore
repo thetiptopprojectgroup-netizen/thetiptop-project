@@ -76,5 +76,4 @@ playwright-report/
 *.bak
 *.backup
 
-# Markdown files (documentation handled outside Git)
-*.md
+# Markdown files : ne pas ignorer (README, docs, etc. doivent être versionnés)

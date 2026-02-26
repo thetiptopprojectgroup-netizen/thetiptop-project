@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: thetiptop-preprod
+  labels:
+    env: preprod
+    app.kubernetes.io/part-of: thetiptop

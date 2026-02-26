@@ -34,8 +34,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
         run: npm install
@@ -67,6 +65,21 @@ jobs:
             echo "configured=true" >> $GITHUB_OUTPUT
           fi
 
+      # Choisir le projet Harbor selon la branche (dev/preprod/prod)
+      - name: Déterminer le projet Harbor selon la branche
+        if: steps.harbor.outputs.configured == 'true'
+        id: harbor-project
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          case "$BRANCH" in
+            prod)    PROJECT="thetiptop-prod" ;;
+            preprod) PROJECT="thetiptop-preprod" ;;
+            *)       PROJECT="thetiptop-dev" ;;
+          esac
+          echo "project=$PROJECT" >> $GITHUB_OUTPUT
+          echo "image=${{ secrets.HARBOR_REGISTRY }}/$PROJECT/backend:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "Branche: $BRANCH → Projet Harbor: $PROJECT"
+
       - name: Checkout
         if: steps.harbor.outputs.configured == 'true'
         uses: actions/checkout@v4
@@ -86,12 +99,11 @@ jobs:
       - name: Build multi-stage backend image
         if: steps.harbor.outputs.configured == 'true'
         run: |
+          IMAGE="${{ steps.harbor-project.outputs.image }}"
+          echo "Image cible : $IMAGE"
           for attempt in 1 2 3; do
             echo "Docker build attempt $attempt/3"
-            if docker build \
-              -f server/Dockerfile \
-              -t ${{ secrets.HARBOR_REGISTRY }}/thetiptop/backend:${{ github.sha }} \
-              server; then
+            if docker build -f server/Dockerfile -t "$IMAGE" server; then
               echo "Build succeeded."
               exit 0
             fi
@@ -106,18 +118,19 @@ jobs:
       - name: Push backend image to Harbor
         if: steps.harbor.outputs.configured == 'true'
         run: |
-          docker push ${{ secrets.HARBOR_REGISTRY }}/thetiptop/backend:${{ github.sha }}
+          docker push "${{ steps.harbor-project.outputs.image }}"
 
       - name: Trigger Harbor security scan (backend)
         if: steps.harbor.outputs.configured == 'true'
         run: |
-          echo "Triggering Trivy scan via Harbor for backend image..."
-          SCAN_URL="https://${{ secrets.HARBOR_REGISTRY }}/api/v2.0/projects/thetiptop/repositories/backend/artifacts/${{ github.sha }}/scan"
+          PROJECT="${{ steps.harbor-project.outputs.project }}"
+          echo "Triggering Trivy scan via Harbor for backend image (project: $PROJECT)..."
+          SCAN_URL="https://${{ secrets.HARBOR_REGISTRY }}/api/v2.0/projects/$PROJECT/repositories/backend/artifacts/${{ github.sha }}/scan"
           curl -s -X POST "$SCAN_URL" \
             -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
             -H "Content-Type: application/json" || echo "Scan trigger sent (may already be in progress)"
           sleep 30
-          REPORT_URL="https://${{ secrets.HARBOR_REGISTRY }}/api/v2.0/projects/thetiptop/repositories/backend/artifacts/${{ github.sha }}?with_scan_overview=true"
+          REPORT_URL="https://${{ secrets.HARBOR_REGISTRY }}/api/v2.0/projects/$PROJECT/repositories/backend/artifacts/${{ github.sha }}?with_scan_overview=true"
           RESULT=$(curl -s "$REPORT_URL" \
             -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
             -H "Content-Type: application/json")
