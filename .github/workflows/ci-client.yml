@@ -128,7 +128,7 @@ jobs:
           echo "Image cible : $IMAGE"
           for attempt in 1 2 3; do
             echo "Docker build attempt $attempt/3"
-            if docker build -f client/Dockerfile -t "$IMAGE" client; then
+            if docker build -f client/Dockerfile --target production -t "$IMAGE" client; then
               echo "Build succeeded."
               exit 0
             fi
