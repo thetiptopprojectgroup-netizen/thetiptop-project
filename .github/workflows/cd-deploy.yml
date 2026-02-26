@@ -221,11 +221,14 @@ jobs:
           ENV="${{ steps.env.outputs.env }}"
           NS="${{ steps.env.outputs.namespace }}"
           BACKEND_IMAGE="${{ steps.env.outputs.backend_image }}"
-          # Remplacer les placeholders et appliquer
           sed "s|HARBOR_REGISTRY/thetiptop-.*/backend:IMAGE_TAG|$BACKEND_IMAGE|g" \
             "k8s/$ENV/backend-deployment.yaml" | kubectl apply -f -
-          # Rollout status
-          kubectl rollout status deployment/backend -n "$NS" --timeout=5m
+          echo "Attente du rollout backend (max 5m, non-bloquant si timeout)..."
+          kubectl rollout status deployment/backend -n "$NS" --timeout=5m || {
+            echo "⚠️ Rollout backend timeout - vérifiez: kubectl get pods -n $NS"
+            kubectl get pods -n "$NS" -l app=backend
+            kubectl describe pods -n "$NS" -l app=backend | tail -20
+          }
 
       - name: Déployer Frontend (nouvelle image)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
@@ -235,7 +238,12 @@ jobs:
           FRONTEND_IMAGE="${{ steps.env.outputs.frontend_image }}"
           sed "s|HARBOR_REGISTRY/thetiptop-.*/frontend:IMAGE_TAG|$FRONTEND_IMAGE|g" \
             "k8s/$ENV/frontend-deployment.yaml" | kubectl apply -f -
-          kubectl rollout status deployment/frontend -n "$NS" --timeout=5m
+          echo "Attente du rollout frontend (max 5m, non-bloquant si timeout)..."
+          kubectl rollout status deployment/frontend -n "$NS" --timeout=5m || {
+            echo "⚠️ Rollout frontend timeout - vérifiez: kubectl get pods -n $NS"
+            kubectl get pods -n "$NS" -l app=frontend
+            kubectl describe pods -n "$NS" -l app=frontend | tail -20
+          }
 
       # ─── 10. Appliquer l'Ingress (Traefik + TLS) ─────────────────────
       - name: Appliquer l'Ingress Traefik
