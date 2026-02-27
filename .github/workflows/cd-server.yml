@@ -43,6 +43,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            // Branche et SHA : depuis le push/dispatch ou depuis le workflow_run qui nous a déclenchés
             const isPushOrDispatch = context.eventName === 'push' || context.eventName === 'workflow_dispatch';
             const branch = isPushOrDispatch ? context.ref.replace('refs/heads/', '') : context.payload.workflow_run.head_branch;
             const head_sha = isPushOrDispatch ? context.sha : context.payload.workflow_run.head_sha;
@@ -68,20 +69,22 @@ jobs:
               });
               return data.workflow_runs || [];
             };
-            const serverRuns = await getRuns(serverCi.id);
-            const clientRuns = await getRuns(clientCi.id);
+            const [serverRuns, clientRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
             const serverRun = serverRuns.find(r => r.head_sha === head_sha);
             const clientRun = clientRuns.find(r => r.head_sha === head_sha);
 
+            // 1) Au moins une CI en échec → on fait échouer le job
             if (serverRun?.conclusion === 'failure' || clientRun?.conclusion === 'failure') {
               core.setFailed('CI Server ou CI Client en échec pour ce commit.');
               return;
             }
+            // 2) Les deux ne sont pas encore en succès (en cours ou pas trouvées) → succès sans PR (l’autre CI relancera le CD)
             if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
-              core.info('Les 2 CI ne sont pas encore toutes les deux en succès (ou pas encore terminées). Aucune PR créée pour l’instant.');
+              core.info('Les 2 CI ne sont pas encore toutes les deux en succès. Aucune PR créée ; le CD sera relancé à la fin de l’autre CI.');
               return;
             }
 
+            // 3) Les deux CI sont vertes → créer la PR dev→preprod ou preprod→prod
             const base = branch === 'dev' ? 'preprod' : 'prod';
             const head = branch;
             let { data: pulls } = await github.rest.pulls.list({
