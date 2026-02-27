@@ -99,8 +99,8 @@ cp server/.env.example server/.env
 cd server && npm install
 cd ../client && npm install
 
-# Génération des 500 000 tickets
-cd ../server && npm run seed
+# Génération des 500 000 tickets et création des utilisateurs admin/employé
+cd ../server && npm run seed:all
 
 # Démarrage en développement (2 terminaux)
 # Terminal 1 - Backend
@@ -119,8 +119,8 @@ cp .env.example .env
 # Démarrer les services
 docker-compose up -d
 
-# Générer les tickets
-docker-compose exec api npm run seed
+# À la première création de la base : générer les 500 000 tickets et créer admin/employé
+docker-compose exec api npm run seed:all
 
 # L'application est accessible sur:
 # - Frontend: http://localhost:3000
@@ -133,8 +133,9 @@ docker-compose exec api npm run seed
 ```bash
 npm run dev        # Démarrage en mode développement
 npm run start      # Démarrage en production
-npm run seed       # Génération des 500 000 tickets
+npm run seed       # Génération des 500 000 tickets (codes du jeu)
 npm run seed:admin # Création des comptes admin/employé de test
+npm run seed:all   # Les deux : 500k tickets + admin/employé (à lancer une fois à la création de la BD)
 ```
 
 ### Client
