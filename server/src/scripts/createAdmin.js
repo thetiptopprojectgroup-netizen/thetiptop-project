@@ -24,8 +24,9 @@ const createAdmin = async () => {
     await mongoose.connect(rawUri, { maxPoolSize: 10 });
     console.log('✅ Connecté à MongoDB');
 
-    const adminEmail = process.argv[2] || 'admin@thetiptop.fr';
-    const adminPassword = process.argv[3] || 'Admin123!';
+    // En K8s le workflow injecte ADMIN_EMAIL / ADMIN_PASSWORD par env (dev/preprod/prod). Sinon argv ou défaut dev.
+    const adminEmail = process.env.ADMIN_EMAIL || process.argv[2] || 'admin@thetiptop.fr';
+    const adminPassword = process.env.ADMIN_PASSWORD || process.argv[3] || 'Admin123!';
 
     // === Administrateur (MCD: Administrateur) ===
     const existingAdmin = await User.findOne({ email: adminEmail });
