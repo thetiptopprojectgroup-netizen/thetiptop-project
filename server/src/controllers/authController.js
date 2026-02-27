@@ -251,16 +251,17 @@ export const resetPassword = async (req, res, next) => {
 
 // @desc    OAuth callback
 export const oauthCallback = async (req, res) => {
+  const baseUrl = (process.env.CLIENT_URL || '').replace(/\/$/, '');
   try {
     if (!req.user) {
-      return res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
+      return res.redirect(`${baseUrl}/login?error=oauth_failed`);
     }
     const token = generateToken(req.user._id);
     req.user.date_derniere_connexion = new Date();
     await req.user.save({ validateBeforeSave: false });
-    res.redirect(`${process.env.CLIENT_URL}/oauth/callback?token=${token}`);
+    res.redirect(`${baseUrl}/oauth/callback?token=${token}`);
   } catch (error) {
-    res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_error`);
+    res.redirect(`${baseUrl}/login?error=oauth_error`);
   }
 };
 
