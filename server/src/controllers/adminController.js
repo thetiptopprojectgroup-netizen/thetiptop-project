@@ -1,4 +1,5 @@
 import Code, { PRIZES } from '../models/Ticket.js';
+import Lot from '../models/Lot.js';
 import Participation from '../models/Participation.js';
 import User from '../models/User.js';
 import TirageAuSort from '../models/TirageAuSort.js';
@@ -678,6 +679,42 @@ export const getGameStats = async (req, res, next) => {
           claimed: tirage.est_reclame,
         } : { drawn: false },
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    2 tickets par variété (lot) pour aperçu admin — ordre déterministe (_id)
+// @route   GET /api/admin/sample-tickets
+export const getSampleTicketsByVariety = async (req, res, next) => {
+  try {
+    const lots = await Lot.find().sort({ type_lot: 1 }).lean();
+    const byVariety = [];
+
+    for (const lot of lots) {
+      const codes = await Code.find({ lot: lot._id })
+        .sort({ _id: 1 })
+        .limit(2)
+        .lean();
+      byVariety.push({
+        type_lot: lot.type_lot,
+        libelle: lot.libelle,
+        valeur_euro: lot.valeur_euro,
+        image_url: lot.image_url,
+        tickets: codes.map((c) => ({
+          _id: c._id,
+          code: c.code,
+          etat: c.etat,
+          prize: c.prize,
+          date_generation: c.date_generation,
+        })),
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { byVariety },
     });
   } catch (error) {
     next(error);
