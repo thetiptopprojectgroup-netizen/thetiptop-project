@@ -1,0 +1,116 @@
+# Crée la PR dev→preprod ou preprod→prod quand CI Server ET CI Client sont verts.
+# Déclenché par : push, workflow_run (CI), ou manuellement (workflow_dispatch).
+# Pour créer la PR après les CI : Actions → "CD - Client" ou "CD - Server" → Run workflow (branche dev).
+name: CD - Client (Frontend)
+
+on:
+  push:
+    branches:
+      - dev
+      - preprod
+      - prod
+  workflow_run:
+    workflows: ["CI - Server (Backend)", "CI - Client (Frontend)"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      promote:
+        description: 'Promouvoir (créer la PR dev→preprod ou preprod→prod si les 2 CI sont vertes)'
+        required: false
+        default: 'oui'
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+jobs:
+  cd-client:
+    name: CD Client (Frontend)
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'push' && contains(fromJSON('["dev", "preprod", "prod"]'), github.ref_name)) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && contains(fromJSON('["dev", "preprod", "prod"]'), github.event.workflow_run.head_branch))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Vérifier les 2 CI puis créer la PR si besoin
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const isPushOrDispatch = context.eventName === 'push' || context.eventName === 'workflow_dispatch';
+            const branch = isPushOrDispatch ? context.ref.replace('refs/heads/', '') : context.payload.workflow_run.head_branch;
+            const head_sha = isPushOrDispatch ? context.sha : context.payload.workflow_run.head_sha;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            if (branch === 'prod') {
+              core.info('Branche prod : rien à promouvoir.');
+              return;
+            }
+
+            const { data: { workflows } } = await github.rest.actions.listRepoWorkflows({ owner, repo });
+            const serverCi = workflows.find(w => w.name === 'CI - Server (Backend)');
+            const clientCi = workflows.find(w => w.name === 'CI - Client (Frontend)');
+            if (!serverCi || !clientCi) {
+              core.setFailed('Workflows CI introuvables.');
+              return;
+            }
+
+            const getRuns = async (workflowId) => {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner, repo, workflow_id: workflowId, branch, per_page: 20
+              });
+              return data.workflow_runs || [];
+            };
+            const serverRuns = await getRuns(serverCi.id);
+            const clientRuns = await getRuns(clientCi.id);
+            const serverRun = serverRuns.find(r => r.head_sha === head_sha);
+            const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+
+            if (serverRun?.conclusion === 'failure' || clientRun?.conclusion === 'failure') {
+              core.setFailed('CI Server ou CI Client en échec pour ce commit.');
+              return;
+            }
+            if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
+              if (isPushOrDispatch) {
+                core.info('Les 2 CI ne sont pas encore terminées. Une fois les 2 CI vertes : Actions → CD - Client (ou CD - Server) → Run workflow en choisissant la branche dev (ou preprod).');
+                return;
+              }
+              if (!serverRun || serverRun.conclusion !== 'success') {
+                core.setFailed('CI Server pas encore OK pour ce commit.');
+                return;
+              }
+              core.setFailed('CI Client pas encore OK pour ce commit.');
+              return;
+            }
+
+            const base = branch === 'dev' ? 'preprod' : 'prod';
+            const head = branch;
+            let { data: pulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base, head: owner + ':' + head
+            });
+            if (pulls.length > 0) {
+              core.info(`PR ${head} → ${base} déjà existante: #${pulls[0].number}`);
+              return;
+            }
+            const title = branch === 'dev' ? '🚀 Promotion dev → preprod' : '🎯 Promotion preprod → prod';
+            const body = branch === 'dev'
+              ? 'Promotion automatique : CI Server et CI Client ont réussi sur `dev`.'
+              : 'Mise en production : CI Server et CI Client ont réussi sur `preprod`.';
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner, repo, head, base, title, body,
+                draft: branch !== 'dev'
+              });
+              core.info(`PR ${head} → ${base} créée: #${pr.number}`);
+            } catch (err) {
+              if (err.status === 422 && err.message && err.message.includes('already exists')) {
+                core.info('PR déjà existante (ignoré).');
+              } else {
+                throw err;
+              }
+            }

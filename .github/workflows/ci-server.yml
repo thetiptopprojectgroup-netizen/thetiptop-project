@@ -244,7 +244,7 @@ jobs:
             try {
               const { data: pr } = await github.rest.pulls.create({
                 owner, repo, head, base, title, body,
-                draft: false
+                draft: branch !== 'dev'
               });
               core.info('PR ' + head + ' → ' + base + ' créée: #' + pr.number);
             } catch (err) {

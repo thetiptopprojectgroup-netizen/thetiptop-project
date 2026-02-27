@@ -9,6 +9,7 @@
     "dev": "node --watch src/index.js",
     "seed": "node src/scripts/seedTickets.js",
     "seed:admin": "node src/scripts/createAdmin.js",
+    "seed:all": "node src/scripts/seedTickets.js && node src/scripts/createAdmin.js",
     "seed:admin:prompt": "powershell -ExecutionPolicy Bypass -File ./src/scripts/run-seed-admin.ps1",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "lint": "eslint . --ext js --max-warnings=0"

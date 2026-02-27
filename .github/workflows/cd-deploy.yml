@@ -220,6 +220,7 @@ jobs:
           kubectl apply -f "k8s/$ENV/configmap.yaml"
 
       # ─── 7. Créer/mettre à jour les secrets applicatifs ──────────────
+      # MongoDB : MONGODB_URI_* doit pointer vers mongodb.<namespace>.svc.cluster.local (voir .github/MONGODB-K8S.md)
       - name: Créer les secrets applicatifs (MongoDB + Backend)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         env:
