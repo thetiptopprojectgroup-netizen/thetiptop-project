@@ -246,7 +246,8 @@ export const drawGrandPrize = async (req, res, next) => {
       return next(new AppError('Le tirage au sort a déjà été effectué', 400));
     }
 
-    const contestEnd = new Date(process.env.CONTEST_END_DATE || '2026-03-30');
+    const config = await ContestConfig.findOne();
+    const contestEnd = config?.contest_end_date ? new Date(config.contest_end_date) : new Date('2026-03-30');
     const now = new Date();
     if (now < contestEnd) {
       return next(new AppError("Le jeu-concours n'est pas encore terminé", 400));
@@ -589,13 +590,18 @@ export const getGameSession = async (req, res, next) => {
       total: Math.round((prize.percentage / 100) * totalCodes),
     }));
 
+    const contestConfig = await ContestConfig.findOne().lean();
+    const startDate = contestConfig?.contest_start_date ? new Date(contestConfig.contest_start_date).toISOString().slice(0, 10) : '2026-03-01';
+    const endDate = contestConfig?.contest_end_date ? new Date(contestConfig.contest_end_date).toISOString().slice(0, 10) : '2026-03-30';
+    const claimEndDate = contestConfig?.claim_end_date ? new Date(contestConfig.claim_end_date).toISOString().slice(0, 10) : '2026-04-29';
+
     res.status(200).json({
       success: true,
       data: {
         session: {
-          startDate: process.env.CONTEST_START_DATE || '2026-03-01',
-          endDate: process.env.CONTEST_END_DATE || '2026-03-30',
-          claimEndDate: process.env.CLAIM_END_DATE || '2026-04-29',
+          startDate,
+          endDate,
+          claimEndDate,
           maxTickets: parseInt(process.env.MAX_TICKETS) || 500000,
           totalCodes,
           usedCodes,
