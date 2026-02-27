@@ -20,6 +20,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import CookieConsent from './components/common/CookieConsent';
+import InstallPrompt from './components/common/InstallPrompt';
 import useAuthStore from './store/authStore';
 
 function ProtectedRoute({ children }) {
@@ -94,6 +95,7 @@ function App() {
       />
 
       <CookieConsent />
+      <InstallPrompt />
 
       <Routes>
         {/* Public routes with layout */}
