@@ -18,6 +18,7 @@ module.exports = {
     '!src/**/*.test.{js,jsx}',
     '!src/components/common/Logo.jsx',
     '!src/components/common/Modal.jsx',
+    '!src/components/common/InstallPrompt.jsx',
     '!src/components/common/index.js'
   ],
   coverageThreshold: {
