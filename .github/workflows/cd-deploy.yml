@@ -248,6 +248,12 @@ jobs:
               MONGO_URI="$DECODED"
             fi
           fi
+          # Supprimer espaces en fin de ligne (fréquent après décodage base64)
+          MONGO_URI=$(echo "$MONGO_URI" | sed 's/[[:space:]]*$//')
+          # En preprod, forcer le host preprod (éviter thetiptop-prod au lieu de thetiptop-preprod)
+          if [ "$BRANCH" = "preprod" ]; then
+            MONGO_URI=$(echo "$MONGO_URI" | sed 's/mongodb\.thetiptop-prod\.svc/mongodb.thetiptop-preprod.svc/g')
+          fi
           # Secret MongoDB (root credentials)
           kubectl create secret generic mongodb-secret \
             --from-literal=root-username="$MONGO_ROOT_USERNAME" \

@@ -142,3 +142,18 @@ kubectl logs deployment/backend -n thetiptop-preprod | grep -i mongo
 ```
 
 Si le backend affiche `MongoDB connecté`, la connexion est correcte.
+
+## Dépannage : MongoDB reste 0/1 Ready
+
+Si le pod `mongodb-0` reste en `Running` mais jamais `Ready` (timeout après 5 min) :
+
+1. **Cause** : La sonde **tcpSocket** (port 27017) peut échouer tant que MongoDB n’a pas fini d’initialiser (auth, volume lent). Le pod est donc considéré “non prêt” et le rollout attend indéfiniment.
+
+2. **Solution dans ce repo** : La readiness utilise une sonde **exec** avec `mongosh ... db.adminCommand('ping')` pour vérifier que MongoDB accepte vraiment les connexions, pas seulement que le port est ouvert. La startup probe laisse jusqu’à ~5 min à MongoDB pour ouvrir le port.
+
+3. **Après mise à jour du StatefulSet** : recréer le pod pour prendre la nouvelle config :
+   ```bash
+   kubectl delete pod mongodb-0 -n thetiptop-preprod
+   ```
+
+4. **URI preprod** : L’URI doit pointer vers `mongodb.thetiptop-**preprod**.svc.cluster.local` (pas `thetiptop-prod`). Si ton secret contient par erreur le host “prod”, le workflow CD remplace automatiquement par “preprod” lors du déploiement sur la branche preprod.
