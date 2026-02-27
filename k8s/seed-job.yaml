@@ -8,8 +8,9 @@ metadata:
   labels:
     app: seed-db
 spec:
-  ttlSecondsAfterFinished: 600
+  ttlSecondsAfterFinished: 3600
   backoffLimit: 4
+  activeDeadlineSeconds: 2400
   template:
     metadata:
       labels:
@@ -35,8 +36,8 @@ spec:
               value: "ADMIN_PASSWORD_PLACEHOLDER"
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 500m
+              memory: 512Mi
             limits:
-              cpu: 1000m
-              memory: 1Gi
+              cpu: 2000m
+              memory: 2Gi
