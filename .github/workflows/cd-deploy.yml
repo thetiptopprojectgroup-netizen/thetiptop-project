@@ -296,10 +296,13 @@ jobs:
               -e "s|ADMIN_EMAIL_PLACEHOLDER|$ADMIN_EMAIL|g" \
               -e "s|ADMIN_PASSWORD_PLACEHOLDER|$ADMIN_PASS|g" \
               k8s/seed-admin-job.yaml | kubectl apply -f -
-          echo "Attente seed-admin (max 2 min) – comme en dev..."
-          if ! kubectl wait --for=condition=complete job/seed-admin -n "$NS" --timeout=120s; then
-            echo "⚠️ Job seed-admin en échec – logs:"
-            kubectl logs job/seed-admin -n "$NS" --tail=80 2>/dev/null || true
+          echo "Attente seed-admin (max 4 min, MongoDB peut être lent au démarrage)..."
+          if ! kubectl wait --for=condition=complete job/seed-admin -n "$NS" --timeout=240s; then
+            echo "⚠️ Job seed-admin en échec ou timeout – logs:"
+            kubectl get pods -n "$NS" -l job-name=seed-admin 2>/dev/null || true
+            kubectl logs job/seed-admin -n "$NS" --tail=100 2>/dev/null || true
+            POD=$(kubectl get pods -n "$NS" -l job-name=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+            [ -n "$POD" ] && kubectl logs "$POD" -n "$NS" --tail=100
             exit 1
           fi
           echo "✅ Admin/employés créés (connexion possible)."

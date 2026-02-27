@@ -49,7 +49,6 @@ const employeBoutiqueSchema = new mongoose.Schema(
   }
 );
 
-employeBoutiqueSchema.index({ email: 1 }, { unique: true });
 employeBoutiqueSchema.index({ boutique: 1 });
 
 employeBoutiqueSchema.pre('save', async function (next) {
