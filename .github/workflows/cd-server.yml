@@ -1,8 +1,10 @@
 # Crée la PR dev→preprod ou preprod→prod quand CI Server ET CI Client sont verts.
-# Déclenché par : push, workflow_run (CI), ou manuellement (workflow_dispatch).
-# Pour créer la PR après les CI : Actions → "CD - Server" ou "CD - Client" → Run workflow (branche dev).
+# Déclenché par : push (dev/preprod/prod) ou manuellement (workflow_dispatch).
+# Sans workflow_run pour que la colonne Branch affiche dev / preprod / prod en bleu.
 name: CD - Server (Backend)
 
+# Déclenché par push, à la fin de chaque CI (workflow_run), ou manuellement.
+# workflow_run : quand une des 2 CI se termine, on revérifie les 2 ; si les 2 sont vertes, on crée la PR.
 on:
   push:
     branches:
@@ -29,9 +31,9 @@ jobs:
     name: CD Server (Backend)
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'workflow_dispatch') ||
-      (github.event_name == 'push' && contains(fromJSON('["dev", "preprod", "prod"]'), github.ref_name)) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && contains(fromJSON('["dev", "preprod", "prod"]'), github.event.workflow_run.head_branch))
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'workflow_run' ||
+      (github.event_name == 'push' && contains(fromJSON('["dev", "preprod", "prod"]'), github.ref_name))
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,6 +43,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            // Branche et SHA : depuis le push/dispatch ou depuis le workflow_run qui nous a déclenchés
             const isPushOrDispatch = context.eventName === 'push' || context.eventName === 'workflow_dispatch';
             const branch = isPushOrDispatch ? context.ref.replace('refs/heads/', '') : context.payload.workflow_run.head_branch;
             const head_sha = isPushOrDispatch ? context.sha : context.payload.workflow_run.head_sha;
@@ -66,28 +69,22 @@ jobs:
               });
               return data.workflow_runs || [];
             };
-            const serverRuns = await getRuns(serverCi.id);
-            const clientRuns = await getRuns(clientCi.id);
+            const [serverRuns, clientRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
             const serverRun = serverRuns.find(r => r.head_sha === head_sha);
             const clientRun = clientRuns.find(r => r.head_sha === head_sha);
 
+            // 1) Au moins une CI en échec → on fait échouer le job
             if (serverRun?.conclusion === 'failure' || clientRun?.conclusion === 'failure') {
               core.setFailed('CI Server ou CI Client en échec pour ce commit.');
               return;
             }
+            // 2) Les deux ne sont pas encore en succès (en cours ou pas trouvées) → succès sans PR (l’autre CI relancera le CD)
             if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
-              if (isPushOrDispatch) {
-                core.info('Les 2 CI ne sont pas encore terminées. Une fois les 2 CI vertes : Actions → CD - Client (ou CD - Server) → Run workflow en choisissant la branche dev (ou preprod).');
-                return;
-              }
-              if (!serverRun || serverRun.conclusion !== 'success') {
-                core.setFailed('CI Server pas encore OK pour ce commit.');
-                return;
-              }
-              core.setFailed('CI Client pas encore OK pour ce commit.');
+              core.info('Les 2 CI ne sont pas encore toutes les deux en succès. Aucune PR créée ; le CD sera relancé à la fin de l’autre CI.');
               return;
             }
 
+            // 3) Les deux CI sont vertes → créer la PR dev→preprod ou preprod→prod
             const base = branch === 'dev' ? 'preprod' : 'prod';
             const head = branch;
             let { data: pulls } = await github.rest.pulls.list({
