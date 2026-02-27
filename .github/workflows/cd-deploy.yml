@@ -260,6 +260,14 @@ jobs:
           ENV="${{ steps.env.outputs.env }}"
           kubectl apply -f "k8s/$ENV/mongodb-statefulset.yaml"
 
+      - name: Attendre que MongoDB soit prêt (rollout + readiness)
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          NS="${{ steps.env.outputs.namespace }}"
+          echo "Attente du StatefulSet MongoDB (max 5 min)..."
+          kubectl rollout status statefulset/mongodb -n "$NS" --timeout=300s
+          echo "✅ MongoDB prêt (pod Ready)."
+
       # ─── 9. Déployer Backend & Frontend avec la nouvelle image ────────
       - name: Déployer Backend (nouvelle image)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
