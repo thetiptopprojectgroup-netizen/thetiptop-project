@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Eye, EyeOff, Check } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Check, AlertCircle } from 'lucide-react';
 import Logo from '../components/common/Logo';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
@@ -11,6 +11,8 @@ import useAuthStore from '../store/authStore';
 
 export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [registerError, setRegisterError] = useState(null);
+  const [registerErrorsList, setRegisterErrorsList] = useState([]);
   const navigate = useNavigate();
   const { register: registerUser, isLoading } = useAuthStore();
 
@@ -22,6 +24,16 @@ export default function RegisterPage() {
   } = useForm();
 
   const password = watch('password', '');
+  const emailValue = watch('email', '');
+  const firstNameValue = watch('firstName', '');
+  const lastNameValue = watch('lastName', '');
+
+  useEffect(() => {
+    if (registerError || registerErrorsList.length > 0) {
+      setRegisterError(null);
+      setRegisterErrorsList([]);
+    }
+  }, [emailValue, firstNameValue, lastNameValue, password]);
 
   const passwordRequirements = [
     { label: 'Au moins 8 caractères', valid: password.length >= 8 },
@@ -31,16 +43,30 @@ export default function RegisterPage() {
   ];
 
   const onSubmit = async (data) => {
-    const result = await registerUser({
-      ...data,
-      acceptedTerms: true,
-    });
+    setRegisterError(null);
+    setRegisterErrorsList([]);
+    try {
+      const result = await registerUser({
+        ...data,
+        acceptedTerms: true,
+      });
 
-    if (result.success) {
-      toast.success('Inscription réussie ! Bienvenue 🎉');
-      navigate('/play');
-    } else {
-      toast.error(result.error);
+      if (result.success) {
+        toast.success('Inscription réussie ! Bienvenue 🎉');
+        navigate('/play');
+      } else {
+        setRegisterError(result.error);
+        if (result.errors?.length) {
+          setRegisterErrorsList(result.errors.map((e) => e.message || e.msg));
+        }
+        toast.error(result.error);
+      }
+    } catch (err) {
+      const message = err?.response?.data?.message || err?.message || 'Erreur lors de la création du compte';
+      const list = err?.response?.data?.errors?.map((e) => e.message || e.msg) || [];
+      setRegisterError(message);
+      setRegisterErrorsList(list);
+      toast.error(message);
     }
   };
 
@@ -138,6 +164,25 @@ export default function RegisterPage() {
               <span className="px-4 bg-cream-50 text-tea-500">ou avec votre email</span>
             </div>
           </div>
+
+          {/* Message d'erreur à l'inscription */}
+          {registerError && (
+            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200" role="alert">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">{registerError}</p>
+                  {registerErrorsList.length > 0 && (
+                    <ul className="mt-2 list-disc list-inside text-sm text-red-700 space-y-1">
+                      {registerErrorsList.map((msg, i) => (
+                        <li key={i}>{msg}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
