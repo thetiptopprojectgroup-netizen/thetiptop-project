@@ -232,6 +232,8 @@ jobs:
           JWT_SECRET_PROD:     ${{ secrets.JWT_SECRET_PROD }}
           MONGO_ROOT_USERNAME: ${{ secrets.MONGO_ROOT_USERNAME }}
           MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: |
           BRANCH="${{ github.ref_name }}"
           NS="${{ steps.env.outputs.namespace }}"
@@ -260,10 +262,14 @@ jobs:
             --from-literal=root-password="$MONGO_ROOT_PASSWORD" \
             --namespace="$NS" \
             --dry-run=client -o yaml | kubectl apply -f -
-          # Secret Backend (URI MongoDB + JWT)
+          # Secret Backend (URI MongoDB + JWT + optionnel Google OAuth)
+          EXTRA_SECRETS=()
+          [ -n "$GOOGLE_CLIENT_ID" ] && EXTRA_SECRETS+=(--from-literal=google-client-id="$GOOGLE_CLIENT_ID")
+          [ -n "$GOOGLE_CLIENT_SECRET" ] && EXTRA_SECRETS+=(--from-literal=google-client-secret="$GOOGLE_CLIENT_SECRET")
           kubectl create secret generic backend-secret \
             --from-literal=mongodb-uri="$MONGO_URI" \
             --from-literal=jwt-secret="$JWT" \
+            "${EXTRA_SECRETS[@]}" \
             --namespace="$NS" \
             --dry-run=client -o yaml | kubectl apply -f -
 
