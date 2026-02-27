@@ -28,7 +28,7 @@ export default function LoginPage() {
   const emailValue = watch('email', '');
   const passwordValue = watch('password', '');
   useEffect(() => {
-    if (loginError) setLoginError(null);
+    setLoginError(null);
   }, [emailValue, passwordValue]);
 
   const onSubmit = async (data) => {

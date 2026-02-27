@@ -29,10 +29,8 @@ export default function RegisterPage() {
   const lastNameValue = watch('lastName', '');
 
   useEffect(() => {
-    if (registerError || registerErrorsList.length > 0) {
-      setRegisterError(null);
-      setRegisterErrorsList([]);
-    }
+    setRegisterError(null);
+    setRegisterErrorsList([]);
   }, [emailValue, firstNameValue, lastNameValue, password]);
 
   const passwordRequirements = [
