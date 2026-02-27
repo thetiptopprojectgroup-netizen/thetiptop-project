@@ -3,14 +3,17 @@
 # Sans workflow_run pour que la colonne Branch affiche dev / preprod / prod en bleu.
 name: CD - Server (Backend)
 
-# Déclenché uniquement par push (ou workflow_dispatch) pour que la colonne Branch affiche
-# dev / preprod / prod en bleu. workflow_run exécute depuis la branche par défaut (Branch vide).
+# Déclenché par push, à la fin de chaque CI (workflow_run), ou manuellement.
+# workflow_run : quand une des 2 CI se termine, on revérifie les 2 ; si les 2 sont vertes, on crée la PR.
 on:
   push:
     branches:
       - dev
       - preprod
       - prod
+  workflow_run:
+    workflows: ["CI - Server (Backend)", "CI - Client (Frontend)"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       promote:
@@ -29,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'workflow_run' ||
       (github.event_name == 'push' && contains(fromJSON('["dev", "preprod", "prod"]'), github.ref_name))
     steps:
       - name: Checkout
@@ -74,15 +78,7 @@ jobs:
               return;
             }
             if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
-              if (isPushOrDispatch) {
-                core.info('Les 2 CI ne sont pas encore terminées. Une fois les 2 CI vertes : Actions → CD - Client (ou CD - Server) → Run workflow en choisissant la branche dev (ou preprod).');
-                return;
-              }
-              if (!serverRun || serverRun.conclusion !== 'success') {
-                core.setFailed('CI Server pas encore OK pour ce commit.');
-                return;
-              }
-              core.setFailed('CI Client pas encore OK pour ce commit.');
+              core.info('Les 2 CI ne sont pas encore toutes les deux en succès (ou pas encore terminées). Aucune PR créée pour l’instant.');
               return;
             }
 
