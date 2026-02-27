@@ -20,7 +20,10 @@ function setDismissedUntil() {
   try {
     const t = Date.now() + DISMISS_DAYS * 24 * 60 * 60 * 1000;
     localStorage.setItem(STORAGE_KEY, String(t));
-  } catch {}
+  } catch {
+    // Ignorer les erreurs localStorage (mode privé, quota, etc.) — pas d'action requise
+    return;
+  }
 }
 
 export default function InstallPrompt() {
