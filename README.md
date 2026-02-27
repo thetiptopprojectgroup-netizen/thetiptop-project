@@ -386,7 +386,8 @@ MONGODB_URI=mongodb://localhost:27017/thetiptop
 JWT_SECRET=votre_secret_jwt_super_securise
 JWT_EXPIRES_IN=7d
 
-# OAuth Google
+# OAuth Google (voir .github/OAUTH-GOOGLE.md pour la configuration détaillée)
+BACKEND_URL=http://localhost:5000
 GOOGLE_CLIENT_ID=votre_client_id
 GOOGLE_CLIENT_SECRET=votre_client_secret
 

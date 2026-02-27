@@ -14,6 +14,8 @@ const configurePassport = () => {
     }
   });
 
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+
   // Google
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     passport.use(
@@ -21,7 +23,7 @@ const configurePassport = () => {
         {
           clientID: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          callbackURL: 'http://localhost:5000/api/auth/google/callback',
+          callbackURL: `${backendUrl}/api/auth/google/callback`,
           scope: ['profile', 'email'],
         },
         async (accessToken, refreshToken, profile, done) => {
@@ -65,7 +67,7 @@ const configurePassport = () => {
         {
           clientID: process.env.FACEBOOK_APP_ID,
           clientSecret: process.env.FACEBOOK_APP_SECRET,
-          callbackURL: 'http://localhost:5000/api/auth/facebook/callback',
+          callbackURL: `${backendUrl}/api/auth/facebook/callback`,
           profileFields: ['id', 'emails', 'name', 'picture.type(large)'],
         },
         async (accessToken, refreshToken, profile, done) => {
