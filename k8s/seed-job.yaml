@@ -29,6 +29,10 @@ spec:
                 secretKeyRef:
                   name: backend-secret
                   key: mongodb-uri
+            - name: ADMIN_EMAIL
+              value: "ADMIN_EMAIL_PLACEHOLDER"
+            - name: ADMIN_PASSWORD
+              value: "ADMIN_PASSWORD_PLACEHOLDER"
           resources:
             requests:
               cpu: 100m

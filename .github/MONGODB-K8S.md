@@ -29,6 +29,18 @@ Le `mongo-init.js` utilisé en Docker Compose n’est pas exécuté par le State
 1. **Utiliser le compte root** (recommandé pour simplifier) : `authSource=admin` dans l’URI ci-dessus.
 2. **Créer l’utilisateur `thetiptop`** : ajouter un Job Kubernetes qui s’exécute après le StatefulSet et exécute un script équivalent à `mongo-init.js` (création de l’utilisateur + index).
 
+## Comptes admin par environnement
+
+Le job de seed (`npm run seed:all`) crée un admin par environnement avec des identifiants distincts :
+
+| Environnement | Email admin              | Mot de passe |
+|---------------|--------------------------|--------------|
+| **dev**       | `admin@thetiptop.fr`     | Admin123!    |
+| **preprod**   | `preprodadmin@thetiptop.fr` | Admin123! |
+| **prod**      | `prodadmin@thetiptop.fr`   | Admin123! |
+
+L’employé de test reste `employe@thetiptop.fr` / `Employe123!` dans tous les environnements.
+
 ## Vérification
 
 Après déploiement :
