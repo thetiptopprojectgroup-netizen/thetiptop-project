@@ -24,13 +24,19 @@ export default function LoginPage() {
   } = useForm();
 
   const onSubmit = async (data) => {
-    const result = await login(data.email, data.password);
-    
-    if (result.success) {
-      toast.success('Connexion réussie ! 🎉');
-      navigate(from, { replace: true });
-    } else {
-      toast.error(result.error);
+    const apiBase = import.meta.env.VITE_API_URL ?? '/api';
+    console.log('[Login] Soumission formulaire → API:', apiBase);
+    try {
+      const result = await login(data.email, data.password);
+      if (result.success) {
+        toast.success('Connexion réussie ! 🎉');
+        navigate(from, { replace: true });
+      } else {
+        toast.error(result.error);
+      }
+    } catch (err) {
+      console.error('[Login] Erreur:', err);
+      toast.error(err?.message || 'Erreur lors de la connexion');
     }
   };
 

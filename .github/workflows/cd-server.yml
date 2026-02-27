@@ -1,17 +1,16 @@
 # Crée la PR dev→preprod ou preprod→prod quand CI Server ET CI Client sont verts.
-# Déclenché par : push, workflow_run (CI), ou manuellement (workflow_dispatch).
-# Pour créer la PR après les CI : Actions → "CD - Server" ou "CD - Client" → Run workflow (branche dev).
+# Déclenché par : push (dev/preprod/prod) ou manuellement (workflow_dispatch).
+# Sans workflow_run pour que la colonne Branch affiche dev / preprod / prod en bleu.
 name: CD - Server (Backend)
 
+# Déclenché uniquement par push (ou workflow_dispatch) pour que la colonne Branch affiche
+# dev / preprod / prod en bleu. workflow_run exécute depuis la branche par défaut (Branch vide).
 on:
   push:
     branches:
       - dev
       - preprod
       - prod
-  workflow_run:
-    workflows: ["CI - Server (Backend)", "CI - Client (Frontend)"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       promote:
@@ -29,9 +28,8 @@ jobs:
     name: CD Server (Backend)
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'workflow_dispatch') ||
-      (github.event_name == 'push' && contains(fromJSON('["dev", "preprod", "prod"]'), github.ref_name)) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && contains(fromJSON('["dev", "preprod", "prod"]'), github.event.workflow_run.head_branch))
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && contains(fromJSON('["dev", "preprod", "prod"]'), github.ref_name))
     steps:
       - name: Checkout
         uses: actions/checkout@v4

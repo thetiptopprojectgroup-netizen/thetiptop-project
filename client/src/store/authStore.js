@@ -14,6 +14,8 @@ const useAuthStore = create(
       // Actions
       login: async (email, password) => {
         set({ isLoading: true, error: null });
+        const apiUrl = import.meta.env.VITE_API_URL || '/api';
+        console.log('[Auth] Appel login →', apiUrl + '/auth/login');
         try {
           const response = await authService.login({ email, password });
           const { user, token } = response.data.data;

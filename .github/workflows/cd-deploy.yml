@@ -276,6 +276,24 @@ jobs:
             kubectl describe pods -n "$NS" -l app=backend | tail -20
           }
 
+      # ─── 9b. Initialiser la base (seed: 500k tickets + admin/employés) ───
+      - name: Exécuter seed DB (npm run seed:all)
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          NS="${{ steps.env.outputs.namespace }}"
+          BACKEND_IMAGE="${{ steps.env.outputs.backend_image }}"
+          kubectl delete job seed-db -n "$NS" --ignore-not-found=true
+          sed -e "s|BACKEND_IMAGE_PLACEHOLDER|$BACKEND_IMAGE|g" \
+              -e "s|NAMESPACE_PLACEHOLDER|$NS|g" \
+              k8s/seed-job.yaml | kubectl apply -f -
+          echo "Attente de la fin du job seed-db (max 20 min)..."
+          if ! kubectl wait --for=condition=complete job/seed-db -n "$NS" --timeout=1200s; then
+            echo "⚠️ Job seed-db en échec ou timeout - logs:"
+            kubectl logs job/seed-db -n "$NS" --tail=100 || true
+            exit 1
+          fi
+          echo "✅ Seed DB terminé (500k tickets + admin/employés)."
+
       - name: Déployer Frontend (nouvelle image)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         run: |
