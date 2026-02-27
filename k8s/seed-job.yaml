@@ -1,0 +1,38 @@
+# Job d'initialisation de la base (500k tickets + admin/employés).
+# Utilisé par le CD après déploiement backend. Les placeholders sont remplacés par le workflow.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-db
+  namespace: NAMESPACE_PLACEHOLDER
+  labels:
+    app: seed-db
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        app: seed-db
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: harbor-secret
+      containers:
+        - name: seed
+          image: BACKEND_IMAGE_PLACEHOLDER
+          imagePullPolicy: Always
+          command: ["npm", "run", "seed:all"]
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: mongodb-uri
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi

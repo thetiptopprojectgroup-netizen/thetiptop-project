@@ -9,7 +9,7 @@ spec:
   ports:
     - port: 27017
       targetPort: 27017
-  clusterIP: None
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -51,9 +51,11 @@ spec:
               mountPath: /data/db
           readinessProbe:
             exec:
-              command: ["mongosh", "--quiet", "--eval", "db.runCommand('ping').ok"]
-            initialDelaySeconds: 20
-            periodSeconds: 10
+              command: ["mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 5
           resources:
             requests:
               cpu: 100m

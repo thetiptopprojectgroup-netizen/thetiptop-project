@@ -8,7 +8,7 @@ spec:
     app: mongodb
   ports:
     - port: 27017
-  clusterIP: None
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: StatefulSet
