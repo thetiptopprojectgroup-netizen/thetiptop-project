@@ -276,9 +276,9 @@ jobs:
             kubectl describe pods -n "$NS" -l app=backend | tail -20
           }
 
-      # ─── 9b. Initialiser la base (seed: 500k tickets + admin/employés) ───
+      # ─── 9b. Seed DB : même technique qu'en dev (admin d'abord, puis tickets en arrière-plan) ───
       # Admin par env : dev = admin@thetiptop.fr, preprod = preprodadmin@thetiptop.fr, prod = prodadmin@thetiptop.fr
-      - name: Exécuter seed DB (npm run seed:all)
+      - name: Créer admin/employés (npm run seed:admin) – on attend
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         run: |
           NS="${{ steps.env.outputs.namespace }}"
@@ -290,23 +290,30 @@ jobs:
             *)       ADMIN_EMAIL="admin@thetiptop.fr"       ;;
           esac
           ADMIN_PASS='Admin123!'
-          kubectl delete job seed-db -n "$NS" --ignore-not-found=true
+          kubectl delete job seed-admin -n "$NS" --ignore-not-found=true
           sed -e "s|BACKEND_IMAGE_PLACEHOLDER|$BACKEND_IMAGE|g" \
               -e "s|NAMESPACE_PLACEHOLDER|$NS|g" \
               -e "s|ADMIN_EMAIL_PLACEHOLDER|$ADMIN_EMAIL|g" \
               -e "s|ADMIN_PASSWORD_PLACEHOLDER|$ADMIN_PASS|g" \
-              k8s/seed-job.yaml | kubectl apply -f -
-          echo "Attente de la fin du job seed-db (max 35 min, 500k tickets + admin)..."
-          if ! kubectl wait --for=condition=complete job/seed-db -n "$NS" --timeout=2100s; then
-            echo "⚠️ Job seed-db en échec ou timeout - état et logs:"
-            kubectl get job seed-db -n "$NS" 2>/dev/null || true
-            kubectl get pods -n "$NS" -l job-name=seed-db 2>/dev/null || true
-            POD=$(kubectl get pods -n "$NS" -l job-name=seed-db -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-            if [ -n "$POD" ]; then kubectl logs "$POD" -n "$NS" --tail=150; fi
-            kubectl logs job/seed-db -n "$NS" --tail=150 2>/dev/null || true
+              k8s/seed-admin-job.yaml | kubectl apply -f -
+          echo "Attente seed-admin (max 2 min) – comme en dev..."
+          if ! kubectl wait --for=condition=complete job/seed-admin -n "$NS" --timeout=120s; then
+            echo "⚠️ Job seed-admin en échec – logs:"
+            kubectl logs job/seed-admin -n "$NS" --tail=80 2>/dev/null || true
             exit 1
           fi
-          echo "✅ Seed DB terminé (500k tickets + admin/employés)."
+          echo "✅ Admin/employés créés (connexion possible)."
+
+      - name: Lancer génération 500k tickets (npm run seed) en arrière-plan
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          NS="${{ steps.env.outputs.namespace }}"
+          BACKEND_IMAGE="${{ steps.env.outputs.backend_image }}"
+          kubectl delete job seed-tickets -n "$NS" --ignore-not-found=true
+          sed -e "s|BACKEND_IMAGE_PLACEHOLDER|$BACKEND_IMAGE|g" \
+              -e "s|NAMESPACE_PLACEHOLDER|$NS|g" \
+              k8s/seed-tickets-job.yaml | kubectl apply -f -
+          echo "✅ Job seed-tickets lancé (500k tickets en arrière-plan, même technique qu'en dev)."
 
       - name: Déployer Frontend (nouvelle image)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'

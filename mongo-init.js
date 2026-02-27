@@ -34,3 +34,5 @@ db.participations.createIndex({ status: 1 });
 
 print('✅ MongoDB initialized successfully!');
 print('→ Exécuter ensuite : npm run seed puis npm run seed:admin (dans server/) pour les 500k codes et les utilisateurs admin/employé.');
+
+

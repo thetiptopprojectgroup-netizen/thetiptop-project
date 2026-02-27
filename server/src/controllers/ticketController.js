@@ -3,6 +3,7 @@ import Participation from '../models/Participation.js';
 import RemiseLot from '../models/RemiseLot.js';
 import User from '../models/User.js';
 import { AppError } from '../middlewares/errorHandler.js';
+import { getContestDates } from '../utils/contestConfig.js';
 
 // @desc    Valider un ticket et participer au jeu
 // @route   POST /api/tickets/validate
@@ -12,13 +13,12 @@ export const validateTicket = async (req, res, next) => {
     const userId = req.user._id;
 
     const now = new Date();
-    const contestStart = new Date(process.env.CONTEST_START_DATE || '2026-03-01');
-    const claimEnd = new Date(process.env.CLAIM_END_DATE || '2026-04-29');
+    const { contest_start_date, claim_end_date } = await getContestDates();
 
-    if (now < contestStart) {
+    if (now < contest_start_date) {
       return next(new AppError("Le jeu-concours n'a pas encore commencé", 400));
     }
-    if (now > claimEnd) {
+    if (now > claim_end_date) {
       return next(new AppError('La période de participation est terminée', 400));
     }
 

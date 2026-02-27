@@ -1,29 +1,29 @@
-# Job seed:all (500k tickets + admin) en une fois. Le CD utilise plutôt seed-admin-job + seed-tickets-job
-# (même technique qu'en dev : admin d'abord, tickets en arrière-plan). Ce fichier reste pour usage manuel.
+# Même technique qu'en dev : création admin/employés uniquement (rapide).
+# On attend la fin de ce job avant de continuer le déploiement.
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: seed-db
+  name: seed-admin
   namespace: NAMESPACE_PLACEHOLDER
   labels:
-    app: seed-db
+    app: seed-admin
 spec:
-  ttlSecondsAfterFinished: 3600
+  ttlSecondsAfterFinished: 600
   backoffLimit: 4
-  activeDeadlineSeconds: 2400
+  activeDeadlineSeconds: 300
   template:
     metadata:
       labels:
-        app: seed-db
+        app: seed-admin
     spec:
       restartPolicy: Never
       imagePullSecrets:
         - name: harbor-secret
       containers:
-        - name: seed
+        - name: seed-admin
           image: BACKEND_IMAGE_PLACEHOLDER
           imagePullPolicy: Always
-          command: ["npm", "run", "seed:all"]
+          command: ["npm", "run", "seed:admin"]
           env:
             - name: MONGODB_URI
               valueFrom:
@@ -36,8 +36,8 @@ spec:
               value: "ADMIN_PASSWORD_PLACEHOLDER"
           resources:
             requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
               cpu: 500m
               memory: 512Mi
-            limits:
-              cpu: 2000m
-              memory: 2Gi

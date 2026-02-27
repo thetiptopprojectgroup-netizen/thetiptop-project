@@ -37,7 +37,6 @@ const ticketSchema = new mongoose.Schema(
   }
 );
 
-ticketSchema.index({ numero_ticket: 1 }, { unique: true });
 ticketSchema.index({ boutique: 1 });
 ticketSchema.index({ date_achat: 1 });
 
@@ -90,7 +89,6 @@ const codeSchema = new mongoose.Schema(
   }
 );
 
-codeSchema.index({ code: 1 }, { unique: true });
 codeSchema.index({ etat: 1 });
 codeSchema.index({ utilise_par: 1 });
 codeSchema.index({ lot: 1 });
@@ -105,11 +103,11 @@ codeSchema.statics.generateUniqueCode = function () {
   return code;
 };
 
-// Check if code can be used
+// Check if code can be used (date de fin : défaut si pas de config en base ; la vraie validation utilise getContestDates() dans le controller)
 codeSchema.methods.canBeUsed = function () {
   const now = new Date();
-  const contestEnd = new Date(process.env.CLAIM_END_DATE || '2026-04-29');
-  return this.etat === 'disponible' && now <= contestEnd;
+  const claimEndDefault = new Date('2026-04-29');
+  return this.etat === 'disponible' && now <= claimEndDefault;
 };
 
 const Code = mongoose.model('Code', codeSchema);
