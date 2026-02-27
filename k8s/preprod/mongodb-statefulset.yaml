@@ -49,16 +49,18 @@ spec:
           volumeMounts:
             - name: mongodb-data
               mountPath: /data/db
+          # TCP uniquement : Ready dès que le port 27017 écoute (pas de dépendance mongosh/auth).
+          startupProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 24
           readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - 'mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand(\"ping\").ok"'
-            initialDelaySeconds: 30
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 5
             periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 12
           resources:
             requests:
               cpu: 100m
