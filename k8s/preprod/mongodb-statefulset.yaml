@@ -51,9 +51,14 @@ spec:
               mountPath: /data/db
           readinessProbe:
             exec:
-              command: ["mongosh", "--quiet", "--eval", "db.runCommand('ping').ok"]
-            initialDelaySeconds: 20
+              command:
+                - sh
+                - -c
+                - 'mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand(\"ping\").ok"'
+            initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
           resources:
             requests:
               cpu: 100m
