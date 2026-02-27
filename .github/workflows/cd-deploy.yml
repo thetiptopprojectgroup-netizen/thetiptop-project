@@ -1,0 +1,314 @@
+# Déploiement automatique vers les 3 clusters Kubernetes après validation des 2 CI.
+# Architecture : 3 clusters distincts (un par environnement dev / preprod / prod).
+#
+# Secrets GitHub requis :
+#   KUBECONFIG_DEV      – kubeconfig base64 du cluster dev
+#   KUBECONFIG_PREPROD  – kubeconfig base64 du cluster preprod
+#   KUBECONFIG_PROD     – kubeconfig base64 du cluster prod
+#   MONGODB_URI_DEV / MONGODB_URI_PREPROD / MONGODB_URI_PROD
+#   JWT_SECRET_DEV / JWT_SECRET_PREPROD / JWT_SECRET_PROD
+#   MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD (ou par env)
+#   HARBOR_REGISTRY / HARBOR_USERNAME / HARBOR_PASSWORD (déjà configurés)
+#
+# Encoder un kubeconfig : base64 -w0 ~/.kube/config-<env>
+name: CD - Deploy (Kubernetes)
+
+on:
+  push:
+    branches:
+      - dev
+      - preprod
+      - prod
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forcer le déploiement même si les CI ne sont pas vérifiées'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    name: Déploiement → ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ─── 1. Vérifier les 2 CI (sauf si force=true) ─────────────────
+      - name: Vérifier que les 2 CI sont vertes pour ce commit
+        id: ci-check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const force = '${{ github.event.inputs.force }}' === 'true';
+            if (force) {
+              core.info('⚠️ Déploiement forcé : vérification CI ignorée.');
+              core.setOutput('skip', 'false');
+              return;
+            }
+
+            const branch = context.ref.replace('refs/heads/', '');
+            const head_sha = context.sha;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const eventName = context.eventName;
+
+            const { data: { workflows } } = await github.rest.actions.listRepoWorkflows({ owner, repo });
+            const serverCi = workflows.find(w => w.name === 'CI - Server (Backend)');
+            const clientCi = workflows.find(w => w.name === 'CI - Client (Frontend)');
+            if (!serverCi || !clientCi) {
+              core.info('Workflows CI introuvables – déploiement skippé.');
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            const getRuns = async (id) => {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                workflow_id: id,
+                branch,
+                per_page: 20
+              });
+              return data.workflow_runs || [];
+            };
+
+            async function getCiStatus() {
+              const [sRuns, cRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
+              const sRun = sRuns.find(r => r.head_sha === head_sha);
+              const cRun = cRuns.find(r => r.head_sha === head_sha);
+
+              const sStatus = sRun ? (sRun.status === 'completed' ? sRun.conclusion : sRun.status) : 'absent';
+              const cStatus = cRun ? (cRun.status === 'completed' ? cRun.conclusion : cRun.status) : 'absent';
+              core.info(`CI Server: ${sStatus} | CI Client: ${cStatus}`);
+
+              return { sRun, cRun };
+            }
+
+            // Si déclenché par un push, on ATTEND que les 2 CI soient terminées (max ~20 min)
+            if (eventName === 'push') {
+              const maxAttempts = 40; // 40 * 30s = 20 minutes max
+              const delayMs = 30000;
+
+              for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                const { sRun, cRun } = await getCiStatus();
+
+                if (sRun?.conclusion === 'failure' || cRun?.conclusion === 'failure') {
+                  core.setFailed('CI en échec – déploiement annulé.');
+                  return;
+                }
+
+                if (sRun?.conclusion === 'success' && cRun?.conclusion === 'success') {
+                  core.info('✅ Les 2 CI sont vertes – déploiement autorisé.');
+                  core.setOutput('skip', 'false');
+                  return;
+                }
+
+                core.info(`Les CI ne sont pas encore terminées (essai ${attempt}/${maxAttempts}). Nouvelle vérification dans 30s...`);
+                await new Promise(res => setTimeout(res, delayMs));
+              }
+
+              core.info('⏱️ Timeout : les 2 CI ne sont pas passées au vert dans le délai – déploiement skippé.');
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            // Pour workflow_dispatch (sans force) on garde un comportement "one-shot"
+            const { sRun, cRun } = await getCiStatus();
+
+            if (sRun?.conclusion === 'failure' || cRun?.conclusion === 'failure') {
+              core.setFailed('CI en échec – déploiement annulé.');
+              return;
+            }
+
+            if (sRun?.conclusion !== 'success' || cRun?.conclusion !== 'success') {
+              core.info('CI pas encore terminées – déploiement skippé. Relancer via workflow_dispatch une fois les CI vertes.');
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            core.setOutput('skip', 'false');
+
+      # ─── 2. Choisir l'environnement ──────────────────────────────────
+      - name: Déterminer l'environnement et le projet Harbor
+        if: steps.ci-check.outputs.skip != 'true'
+        id: env
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          case "$BRANCH" in
+            prod)
+              ENV="prod"
+              NAMESPACE="thetiptop-prod"
+              HARBOR_PROJECT="thetiptop-prod"
+              ;;
+            preprod)
+              ENV="preprod"
+              NAMESPACE="thetiptop-preprod"
+              HARBOR_PROJECT="thetiptop-preprod"
+              ;;
+            *)
+              ENV="dev"
+              NAMESPACE="thetiptop-dev"
+              HARBOR_PROJECT="thetiptop-dev"
+              ;;
+          esac
+          echo "env=$ENV"                   >> $GITHUB_OUTPUT
+          echo "namespace=$NAMESPACE"       >> $GITHUB_OUTPUT
+          echo "harbor_project=$HARBOR_PROJECT" >> $GITHUB_OUTPUT
+          echo "frontend_image=${{ secrets.HARBOR_REGISTRY }}/$HARBOR_PROJECT/frontend:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "backend_image=${{ secrets.HARBOR_REGISTRY }}/$HARBOR_PROJECT/backend:${{ github.sha }}"   >> $GITHUB_OUTPUT
+          echo "Environnement : $ENV | Namespace : $NAMESPACE | Harbor : $HARBOR_PROJECT"
+
+      # ─── 3. Configurer kubectl avec le bon cluster ───────────────────
+      - name: Configurer kubectl pour le cluster ${{ steps.env.outputs.env }}
+        if: steps.ci-check.outputs.skip != 'true'
+        id: kubectl
+        env:
+          KC_DEV:     ${{ secrets.KUBECONFIG_DEV }}
+          KC_PREPROD: ${{ secrets.KUBECONFIG_PREPROD }}
+          KC_PROD:    ${{ secrets.KUBECONFIG_PROD }}
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          case "$BRANCH" in
+            prod)    KC="$KC_PROD" ;;
+            preprod) KC="$KC_PREPROD" ;;
+            *)       KC="$KC_DEV" ;;
+          esac
+          if [ -z "$KC" ]; then
+            echo "⚠️ KUBECONFIG non configuré pour l'environnement $BRANCH. Déploiement skippé."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          mkdir -p ~/.kube
+          echo "$KC" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl cluster-info
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      # ─── 4. Créer le namespace si absent ─────────────────────────────
+      - name: Créer le namespace si absent
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          NS="${{ steps.env.outputs.namespace }}"
+          kubectl get namespace "$NS" || kubectl create namespace "$NS" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # ─── 5. Créer/mettre à jour le secret Harbor (imagePullSecret) ────
+      - name: Configurer le secret Harbor (imagePullSecret)
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          NS="${{ steps.env.outputs.namespace }}"
+          kubectl create secret docker-registry harbor-secret \
+            --docker-server="${{ secrets.HARBOR_REGISTRY }}" \
+            --docker-username="${{ secrets.HARBOR_USERNAME }}" \
+            --docker-password="${{ secrets.HARBOR_PASSWORD }}" \
+            --namespace="$NS" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # ─── 6. Appliquer les ConfigMaps ─────────────────────────────────
+      - name: Appliquer la ConfigMap
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          ENV="${{ steps.env.outputs.env }}"
+          kubectl apply -f "k8s/$ENV/configmap.yaml"
+
+      # ─── 7. Créer/mettre à jour les secrets applicatifs ──────────────
+      # MongoDB : MONGODB_URI_* doit pointer vers mongodb.<namespace>.svc.cluster.local (voir .github/MONGODB-K8S.md)
+      - name: Créer les secrets applicatifs (MongoDB + Backend)
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        env:
+          MONGODB_URI_DEV:     ${{ secrets.MONGODB_URI_DEV }}
+          MONGODB_URI_PREPROD: ${{ secrets.MONGODB_URI_PREPROD }}
+          MONGODB_URI_PROD:    ${{ secrets.MONGODB_URI_PROD }}
+          JWT_SECRET_DEV:      ${{ secrets.JWT_SECRET_DEV }}
+          JWT_SECRET_PREPROD:  ${{ secrets.JWT_SECRET_PREPROD }}
+          JWT_SECRET_PROD:     ${{ secrets.JWT_SECRET_PROD }}
+          MONGO_ROOT_USERNAME: ${{ secrets.MONGO_ROOT_USERNAME }}
+          MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          NS="${{ steps.env.outputs.namespace }}"
+          case "$BRANCH" in
+            prod)    MONGO_URI="$MONGODB_URI_PROD";    JWT="$JWT_SECRET_PROD" ;;
+            preprod) MONGO_URI="$MONGODB_URI_PREPROD"; JWT="$JWT_SECRET_PREPROD" ;;
+            *)       MONGO_URI="$MONGODB_URI_DEV";     JWT="$JWT_SECRET_DEV" ;;
+          esac
+          # Secret MongoDB (root credentials)
+          kubectl create secret generic mongodb-secret \
+            --from-literal=root-username="$MONGO_ROOT_USERNAME" \
+            --from-literal=root-password="$MONGO_ROOT_PASSWORD" \
+            --namespace="$NS" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          # Secret Backend (URI MongoDB + JWT)
+          kubectl create secret generic backend-secret \
+            --from-literal=mongodb-uri="$MONGO_URI" \
+            --from-literal=jwt-secret="$JWT" \
+            --namespace="$NS" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # ─── 8. Déployer MongoDB (StatefulSet) ───────────────────────────
+      - name: Appliquer MongoDB StatefulSet
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          ENV="${{ steps.env.outputs.env }}"
+          kubectl apply -f "k8s/$ENV/mongodb-statefulset.yaml"
+
+      # ─── 9. Déployer Backend & Frontend avec la nouvelle image ────────
+      - name: Déployer Backend (nouvelle image)
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          ENV="${{ steps.env.outputs.env }}"
+          NS="${{ steps.env.outputs.namespace }}"
+          BACKEND_IMAGE="${{ steps.env.outputs.backend_image }}"
+          sed "s|HARBOR_REGISTRY/thetiptop-.*/backend:IMAGE_TAG|$BACKEND_IMAGE|g" \
+            "k8s/$ENV/backend-deployment.yaml" | kubectl apply -f -
+          echo "Attente du rollout backend (max 5m, non-bloquant si timeout)..."
+          kubectl rollout status deployment/backend -n "$NS" --timeout=5m || {
+            echo "⚠️ Rollout backend timeout - vérifiez: kubectl get pods -n $NS"
+            kubectl get pods -n "$NS" -l app=backend
+            kubectl describe pods -n "$NS" -l app=backend | tail -20
+          }
+
+      - name: Déployer Frontend (nouvelle image)
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          ENV="${{ steps.env.outputs.env }}"
+          NS="${{ steps.env.outputs.namespace }}"
+          FRONTEND_IMAGE="${{ steps.env.outputs.frontend_image }}"
+          sed "s|HARBOR_REGISTRY/thetiptop-.*/frontend:IMAGE_TAG|$FRONTEND_IMAGE|g" \
+            "k8s/$ENV/frontend-deployment.yaml" | kubectl apply -f -
+          echo "Attente du rollout frontend (max 5m, non-bloquant si timeout)..."
+          kubectl rollout status deployment/frontend -n "$NS" --timeout=5m || {
+            echo "⚠️ Rollout frontend timeout - vérifiez: kubectl get pods -n $NS"
+            kubectl get pods -n "$NS" -l app=frontend
+            kubectl describe pods -n "$NS" -l app=frontend | tail -20
+          }
+
+      # ─── 10. Appliquer l'Ingress (Traefik + TLS) ─────────────────────
+      - name: Appliquer l'Ingress Traefik
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          ENV="${{ steps.env.outputs.env }}"
+          kubectl apply -f "k8s/$ENV/ingress.yaml"
+
+      # ─── 11. Résumé ───────────────────────────────────────────────────
+      - name: Résumé du déploiement
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          NS="${{ steps.env.outputs.namespace }}"
+          echo "========================================="
+          echo " Déploiement terminé"
+          echo " Environnement : ${{ steps.env.outputs.env }}"
+          echo " Namespace     : $NS"
+          echo " SHA           : ${{ github.sha }}"
+          echo " Backend image : ${{ steps.env.outputs.backend_image }}"
+          echo " Frontend image: ${{ steps.env.outputs.frontend_image }}"
+          echo "========================================="
+          kubectl get pods -n "$NS"

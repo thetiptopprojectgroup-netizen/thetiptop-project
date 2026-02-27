@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: thetiptop-dev
+  labels:
+    app: frontend
+    env: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        env: dev
+    spec:
+      containers:
+        - name: frontend
+          image: HARBOR_REGISTRY/thetiptop-dev/frontend:IMAGE_TAG
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      imagePullSecrets:
+        - name: harbor-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: thetiptop-dev
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
