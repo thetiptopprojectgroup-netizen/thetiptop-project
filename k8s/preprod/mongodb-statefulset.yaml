@@ -49,17 +49,17 @@ spec:
           volumeMounts:
             - name: mongodb-data
               mountPath: /data/db
-          # TCP uniquement : Ready dès que le port 27017 écoute (pas de dépendance mongosh/auth).
+          # TCP : port 27017. On retarde la readiness pour laisser MongoDB finir l'init du compte root (sinon backend/seed se connectent trop tôt et crashent).
           startupProbe:
             tcpSocket:
               port: 27017
-            initialDelaySeconds: 10
+            initialDelaySeconds: 15
             periodSeconds: 5
-            failureThreshold: 24
+            failureThreshold: 30
           readinessProbe:
             tcpSocket:
               port: 27017
-            initialDelaySeconds: 5
+            initialDelaySeconds: 25
             periodSeconds: 10
           resources:
             requests:

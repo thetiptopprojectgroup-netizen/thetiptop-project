@@ -93,7 +93,7 @@ mongodb://root:MonMotDePasse123@mongodb.thetiptop-preprod.svc.cluster.local:2701
 | `MONGO_ROOT_PASSWORD`| Mot de passe de cet utilisateur |
 | `MONGODB_URI_PREPROD`| URI ci-dessus avec ces identifiants |
 
-Le workflow CD injecte `MONGODB_URI_PREPROD` dans le secret K8s `backend-secret` (clé `mongodb-uri`), utilisé par le backend et le job seed.
+Le workflow CD injecte `MONGODB_URI_PREPROD` dans le secret K8s `backend-secret` (clé `mongodb-uri`), utilisé par le backend et le job seed. Si la valeur du secret GitHub est encodée en base64, le workflow la décode automatiquement avant de créer le secret K8s (sinon le backend recevrait la chaîne base64 et ne pourrait pas se connecter).
 
 **Note :** On utilise bien **root** (pas `thetiptop`). Si tu as une URI encodée en Base64 qui pointe vers `thetiptop`/`thetiptop123`, ne l'utilise pas : mets à la place l'URI avec `root` et `MONGO_ROOT_PASSWORD`, et `authSource=admin` (voir exemples ci-dessus).
 

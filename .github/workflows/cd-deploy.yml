@@ -240,6 +240,14 @@ jobs:
             preprod) MONGO_URI="$MONGODB_URI_PREPROD"; JWT="$JWT_SECRET_PREPROD" ;;
             *)       MONGO_URI="$MONGODB_URI_DEV";     JWT="$JWT_SECRET_DEV" ;;
           esac
+          # Si l'URI est stockée en base64 dans le secret, la décoder (sinon le backend reçoit la chaîne base64 et ne peut pas se connecter)
+          if [ -n "$MONGO_URI" ] && ! echo "$MONGO_URI" | grep -q '^mongodb://'; then
+            DECODED=$(echo "$MONGO_URI" | base64 -d 2>/dev/null || true)
+            if echo "$DECODED" | grep -q '^mongodb://'; then
+              echo "MONGODB_URI était en base64, utilisation de la valeur décodée."
+              MONGO_URI="$DECODED"
+            fi
+          fi
           # Secret MongoDB (root credentials)
           kubectl create secret generic mongodb-secret \
             --from-literal=root-username="$MONGO_ROOT_USERNAME" \
@@ -267,6 +275,8 @@ jobs:
           echo "Attente du StatefulSet MongoDB (max 5 min)..."
           if kubectl rollout status statefulset/mongodb -n "$NS" --timeout=300s; then
             echo "✅ MongoDB prêt (pod Ready)."
+            echo "Attente de 15s pour que l'auth MongoDB soit opérationnelle..."
+            sleep 15
           else
             echo "⚠️ MongoDB pas encore Ready après 5 min (PVC/storage ou probe). Le job seed attendra via init container + retry."
             kubectl get pods -n "$NS" -l app=mongodb 2>/dev/null || true
