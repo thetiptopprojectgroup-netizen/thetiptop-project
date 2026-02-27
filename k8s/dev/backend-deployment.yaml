@@ -45,6 +45,23 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: client-url
+            - name: BACKEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: client-url
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: google-client-id
+                  optional: true
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: google-client-secret
+                  optional: true
           readinessProbe:
             httpGet:
               path: /api/health
