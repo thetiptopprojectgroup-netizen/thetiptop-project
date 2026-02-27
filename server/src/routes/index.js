@@ -2,6 +2,7 @@ import express from 'express';
 import authRoutes from './authRoutes.js';
 import ticketRoutes from './ticketRoutes.js';
 import adminRoutes from './adminRoutes.js';
+import { getContestDates } from '../utils/contestConfig.js';
 
 const router = express.Router();
 
@@ -20,34 +21,36 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Informations sur le concours
-router.get('/contest-info', (req, res) => {
-  const now = new Date();
-  const contestStart = new Date(process.env.CONTEST_START_DATE || '2026-03-01');
-  const contestEnd = new Date(process.env.CONTEST_END_DATE || '2026-03-30');
-  const claimEnd = new Date(process.env.CLAIM_END_DATE || '2026-04-29');
+// Informations sur le concours (dates définies par l'admin dans /admin)
+router.get('/contest-info', async (req, res, next) => {
+  try {
+    const { contest_start_date, contest_end_date, claim_end_date } = await getContestDates();
+    const now = new Date();
 
-  let status = 'upcoming';
-  if (now >= contestStart && now <= contestEnd) {
-    status = 'active';
-  } else if (now > contestEnd && now <= claimEnd) {
-    status = 'claiming';
-  } else if (now > claimEnd) {
-    status = 'ended';
-  }
+    let status = 'upcoming';
+    if (now >= contest_start_date && now <= contest_end_date) {
+      status = 'active';
+    } else if (now > contest_end_date && now <= claim_end_date) {
+      status = 'claiming';
+    } else if (now > claim_end_date) {
+      status = 'ended';
+    }
 
-  res.status(200).json({
-    success: true,
-    data: {
-      status,
-      dates: {
-        start: contestStart,
-        end: contestEnd,
-        claimEnd: claimEnd,
+    res.status(200).json({
+      success: true,
+      data: {
+        status,
+        dates: {
+          start: contest_start_date,
+          end: contest_end_date,
+          claimEnd: claim_end_date,
+        },
+        maxTickets: parseInt(process.env.MAX_TICKETS) || 500000,
       },
-      maxTickets: parseInt(process.env.MAX_TICKETS) || 500000,
-    },
-  });
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

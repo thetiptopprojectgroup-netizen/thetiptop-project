@@ -45,21 +45,6 @@ spec:
                 configMapKeyRef:
                   name: backend-config
                   key: client-url
-            - name: CONTEST_START_DATE
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config
-                  key: contest-start-date
-            - name: CONTEST_END_DATE
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config
-                  key: contest-end-date
-            - name: CLAIM_END_DATE
-              valueFrom:
-                configMapKeyRef:
-                  name: backend-config
-                  key: claim-end-date
           readinessProbe:
             httpGet:
               path: /api/health

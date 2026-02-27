@@ -49,11 +49,25 @@ spec:
           volumeMounts:
             - name: mongodb-data
               mountPath: /data/db
+          # Startup : on laisse jusqu'à ~5 min à MongoDB pour ouvrir le port (PVC lent, premier démarrage).
+          startupProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+          # Readiness : exec avec mongosh pour être sûr que MongoDB accepte les connexions (pas seulement le port ouvert).
+          # tcpSocket seul peut réussir alors que l'auth n'est pas prête, ou échouer selon le réseau ; mongosh ping est fiable.
           readinessProbe:
             exec:
-              command: ["mongosh", "--quiet", "--eval", "db.runCommand('ping').ok"]
-            initialDelaySeconds: 20
+              command:
+                - sh
+                - -c
+                - 'mongosh "mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@localhost:27017/admin" --eval "db.adminCommand(\"ping\")" --quiet'
+            initialDelaySeconds: 25
             periodSeconds: 10
+            failureThreshold: 12
+            timeoutSeconds: 10
           resources:
             requests:
               cpu: 100m

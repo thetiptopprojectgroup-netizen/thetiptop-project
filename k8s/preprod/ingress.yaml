@@ -18,9 +18,17 @@ spec:
         - api.preprod.thetiptop-jeu.fr
       secretName: thetiptop-preprod-tls
   rules:
+    # Sur le même host que le frontend : /api → backend (évite 502 quand le front utilise baseURL /api)
     - host: preprod.thetiptop-jeu.fr
       http:
         paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
           - path: /
             pathType: Prefix
             backend:

@@ -7,6 +7,30 @@ import Huissier from '../models/Huissier.js';
 
 dotenv.config();
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Connexion avec retry pour K8s : MongoDB peut être lent au démarrage (ECONNREFUSED). */
+async function connectWithRetry(uri, options = {}, maxAttempts = 48, delayMs = 5000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await mongoose.connect(uri, { ...options, maxPoolSize: 10 });
+      return;
+    } catch (err) {
+      const isConnectionError =
+        err.name === 'MongooseServerSelectionError' ||
+        err.code === 'ECONNREFUSED' ||
+        (err.cause && (err.cause.code === 'ECONNREFUSED' || err.cause.code === 'ENOTFOUND'));
+      if (isConnectionError && attempt < maxAttempts) {
+        await mongoose.disconnect().catch(() => {});
+        console.log(`⏳ MongoDB pas encore prêt (tentative ${attempt}/${maxAttempts}), nouvel essai dans ${delayMs / 1000}s...`);
+        await sleep(delayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 const createAdmin = async () => {
   try {
     const rawUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/thetiptop';
@@ -21,11 +45,12 @@ const createAdmin = async () => {
 
     console.log('🚀 Connexion à MongoDB...');
     console.log(`🔎 URI utilisée: ${maskUri(rawUri)}`);
-    await mongoose.connect(rawUri, { maxPoolSize: 10 });
+    await connectWithRetry(rawUri, {}, 48, 5000); // ~4 min max (aligné timeout job CD)
     console.log('✅ Connecté à MongoDB');
 
-    const adminEmail = process.argv[2] || 'admin@thetiptop.fr';
-    const adminPassword = process.argv[3] || 'Admin123!';
+    // En K8s le workflow injecte ADMIN_EMAIL / ADMIN_PASSWORD par env (dev/preprod/prod). Sinon argv ou défaut dev.
+    const adminEmail = process.env.ADMIN_EMAIL || process.argv[2] || 'admin@thetiptop.fr';
+    const adminPassword = process.env.ADMIN_PASSWORD || process.argv[3] || 'Admin123!';
 
     // === Administrateur (MCD: Administrateur) ===
     const existingAdmin = await User.findOne({ email: adminEmail });
