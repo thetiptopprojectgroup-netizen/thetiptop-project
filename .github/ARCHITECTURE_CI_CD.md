@@ -63,6 +63,11 @@ Le projet utilise **4 pipelines GitHub Actions distincts** pour garantir la qual
 - Si l'autre CI n'est pas encore terminée, le CD se termine sans erreur
 - Le second CD (celui qui termine en dernier) crée la PR
 
+### 5. **⚠️ Branche par défaut et CD déclenchés par `workflow_run`**
+Quand un CD est déclenché par **`workflow_run`** (fin d'une CI), GitHub exécute le fichier du workflow CD (**cd-server.yml**, **cd-client.yml**) depuis la **branche par défaut** du dépôt (souvent `main`), et non depuis `dev` ou `preprod`.  
+**Conséquence** : si les corrections des workflows CD ne sont que sur `dev`, les runs CD continueront d’utiliser l’ancienne version et peuvent échouer avec « CI Server pas encore OK ».  
+**À faire** : après toute modification des workflows CD, les **fusionner (merge) sur la branche par défaut** (ex. merge `dev` → `main`) pour que les runs déclenchés par `workflow_run` utilisent la bonne version.
+
 ---
 
 ## 📁 Structure des workflows

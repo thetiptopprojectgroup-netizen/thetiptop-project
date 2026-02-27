@@ -1,6 +1,7 @@
 # Crée la PR dev→preprod ou preprod→prod quand CI Server ET CI Client sont verts.
-# Déclenché par : push (dev/preprod/prod) ou manuellement (workflow_dispatch).
-# Sans workflow_run pour que la colonne Branch affiche dev / preprod / prod en bleu.
+# IMPORTANT : Quand le CD est déclenché par workflow_run (fin d'une CI), GitHub exécute ce fichier
+# depuis la BRANCHE PAR DÉFAUT du dépôt (souvent main). Il faut que ce fichier soit à jour sur la
+# branche par défaut, sinon le CD utilisera une ancienne version et peut échouer ("CI Server pas encore OK").
 name: CD - Server (Backend)
 
 # Déclenché par push, à la fin de chaque CI (workflow_run), ou manuellement.
