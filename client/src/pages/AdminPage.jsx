@@ -14,6 +14,7 @@ import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
 import ContestDateManager from '../components/admin/ContestDateManager';
 import { adminService } from '../services/api';
+import useAuthStore from '../store/authStore';
 import toast from 'react-hot-toast';
 
 export default function AdminPage() {
@@ -50,6 +51,10 @@ export default function AdminPage() {
   const [showGrandPrizeModal, setShowGrandPrizeModal] = useState(false);
   const [grandPrizeResult, setGrandPrizeResult] = useState(null);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // Aperçu tickets : 2 par variété (admin uniquement)
+  const [sampleTickets, setSampleTickets] = useState(null);
+  const { user } = useAuthStore();
 
   useEffect(() => { fetchStats(); }, []);
 
@@ -134,6 +139,19 @@ export default function AdminPage() {
       fetchGameSession();
       fetchGameStats();
     }
+  }, [activeTab]);
+
+  const fetchSampleTickets = async () => {
+    try {
+      const response = await adminService.getSampleTickets();
+      setSampleTickets(response.data.data.byVariety);
+    } catch (error) {
+      toast.error('Erreur chargement aperçu tickets');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'sample-tickets') fetchSampleTickets();
   }, [activeTab]);
 
   // User actions
@@ -274,15 +292,17 @@ export default function AdminPage() {
     }
   };
 
-  const tabs = [
+  const allTabs = [
     { id: 'overview', label: 'Vue d\'ensemble', icon: BarChart3 },
     { id: 'contest-config', label: 'Dates du concours', icon: CalendarDays },
     { id: 'users', label: 'Utilisateurs', icon: Users },
     { id: 'boutiques', label: 'Boutiques', icon: Store },
     { id: 'employees', label: 'Employés', icon: UserPlus },
     { id: 'game', label: 'Gestion du jeu', icon: Settings },
+    { id: 'sample-tickets', label: 'Aperçu tickets', icon: Ticket, adminOnly: true },
     { id: 'grandprize', label: 'Gros lot', icon: Trophy },
   ];
+  const tabs = user?.role === 'admin' ? allTabs : allTabs.filter((t) => !t.adminOnly);
 
   if (isLoading) {
     return (
@@ -833,6 +853,57 @@ export default function AdminPage() {
                 </div>
               </Card>
             )}
+          </motion.div>
+        )}
+
+        {/* ==================== APERÇU TICKETS (2 par variété, admin uniquement) ==================== */}
+        {activeTab === 'sample-tickets' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <Card>
+              <Card.Header>
+                <Card.Title className="flex items-center gap-2"><Ticket className="w-5 h-5" /> Aperçu des tickets par variété</Card.Title>
+                <Card.Description>2 tickets de chaque variété (ordre déterministe, pas aléatoire). Réservé à l’administrateur.</Card.Description>
+              </Card.Header>
+              {sampleTickets === null ? (
+                <div className="flex justify-center py-12">
+                  <div className="w-10 h-10 border-2 border-matcha-600 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {sampleTickets.map((variety) => (
+                    <div key={variety.type_lot} className="border border-cream-300 rounded-xl p-4 bg-white">
+                      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-cream-200">
+                        <span className="font-display font-semibold text-tea-900">{variety.libelle}</span>
+                        <span className="text-sm text-tea-500">({variety.valeur_euro}€)</span>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        {variety.tickets.length === 0 ? (
+                          <p className="text-tea-500 text-sm col-span-2">Aucun ticket pour cette variété.</p>
+                        ) : (
+                          variety.tickets.map((t) => (
+                            <div key={t._id} className="flex items-center justify-between p-3 bg-cream-50 rounded-lg">
+                              <div>
+                                <div className="font-mono font-bold text-tea-900 tracking-wider">{t.code}</div>
+                                <div className="text-xs text-tea-500 mt-1">
+                                  État : {t.etat} · Généré le {format(new Date(t.date_generation), 'dd/MM/yyyy HH:mm', { locale: fr })}
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                t.etat === 'disponible' ? 'bg-matcha-100 text-matcha-700' :
+                                t.etat === 'utilise' ? 'bg-gold-100 text-gold-700' :
+                                t.etat === 'reclame' ? 'bg-tea-100 text-tea-700' : 'bg-cream-200 text-tea-600'
+                              }`}>
+                                {t.etat}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
           </motion.div>
         )}
 
