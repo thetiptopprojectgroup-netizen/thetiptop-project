@@ -37,7 +37,6 @@ const ticketSchema = new mongoose.Schema(
   }
 );
 
-ticketSchema.index({ numero_ticket: 1 }, { unique: true });
 ticketSchema.index({ boutique: 1 });
 ticketSchema.index({ date_achat: 1 });
 
@@ -90,7 +89,6 @@ const codeSchema = new mongoose.Schema(
   }
 );
 
-codeSchema.index({ code: 1 }, { unique: true });
 codeSchema.index({ etat: 1 });
 codeSchema.index({ utilise_par: 1 });
 codeSchema.index({ lot: 1 });
