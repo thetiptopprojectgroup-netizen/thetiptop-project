@@ -265,8 +265,13 @@ jobs:
         run: |
           NS="${{ steps.env.outputs.namespace }}"
           echo "Attente du StatefulSet MongoDB (max 5 min)..."
-          kubectl rollout status statefulset/mongodb -n "$NS" --timeout=300s
-          echo "✅ MongoDB prêt (pod Ready)."
+          if kubectl rollout status statefulset/mongodb -n "$NS" --timeout=300s; then
+            echo "✅ MongoDB prêt (pod Ready)."
+          else
+            echo "⚠️ MongoDB pas encore Ready après 5 min (PVC/storage ou probe). Le job seed attendra via init container + retry."
+            kubectl get pods -n "$NS" -l app=mongodb 2>/dev/null || true
+            kubectl describe statefulset mongodb -n "$NS" 2>/dev/null | tail -30
+          fi
 
       # ─── 9. Déployer Backend & Frontend avec la nouvelle image ────────
       - name: Déployer Backend (nouvelle image)
