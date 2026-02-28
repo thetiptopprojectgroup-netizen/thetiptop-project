@@ -1,6 +1,7 @@
-# CronJobs backup MongoDB : 18h00 FR (17h00 UTC) + 18h15 UTC.
-# Appliqué avec sed NAMESPACE_PLACEHOLDER et SCHEDULE_PLACEHOLDER (→ 0 17 * * *).
-# Secret requis : restic-s3-secret.
+# Backup MongoDB : mongodump → Restic → MinIO (S3).
+# Planifié 18h00 FR (17h00 UTC) + 18h15 UTC.
+# Secret requis dans le namespace : restic-s3-secret (restic-repository, restic-password, access-key-id, secret-access-key).
+# RESTIC_REPOSITORY = s3:http://minio.minio.svc.cluster.local:9000/BUCKET/mongodb-ENV (créé par le CD).
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -58,8 +59,13 @@ spec:
                 - -c
                 - |
                   set -e
-                  restic backup /backup --tag mongodb
-                  restic forget --keep-daily 7 --keep-weekly 4 --prune
+                  echo "Initialisation repo restic si besoin..."
+                  restic snapshots 2>/dev/null || restic init
+                  echo "Backup vers MinIO..."
+                  restic backup /backup --tag mongodb -v
+                  echo "Rétention: garder 7 quotidiens, 4 hebdomadaires..."
+                  restic forget --keep-daily 7 --keep-weekly 4 --prune -v
+                  echo "Backup Restic terminé."
               env:
                 - name: RESTIC_REPOSITORY
                   valueFrom:
@@ -148,8 +154,10 @@ spec:
                 - -c
                 - |
                   set -e
-                  restic backup /backup --tag mongodb
-                  restic forget --keep-daily 7 --keep-weekly 4 --prune
+                  restic snapshots 2>/dev/null || restic init
+                  restic backup /backup --tag mongodb -v
+                  restic forget --keep-daily 7 --keep-weekly 4 --prune -v
+                  echo "Backup Restic terminé."
               env:
                 - name: RESTIC_REPOSITORY
                   valueFrom:
@@ -180,5 +188,3 @@ spec:
           volumes:
             - name: backup
               emptyDir: {}
-
-
