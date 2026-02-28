@@ -78,3 +78,5 @@ playwright-report/
 *.backup
 
 # Markdown files : ne pas ignorer (README, docs, etc. doivent être versionnés)
+.github/workflow-diagram.html
+.github/WORKFLOW-DIAGRAM.md
