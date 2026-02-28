@@ -1,4 +1,4 @@
-# Accéder à MinIO par URL (minio.dev.thetiptop-jeu.fr, etc.)
+# Accéder à MinIO par URL (minio.dev.thetiptop-jeu.fr, etc.) — **Guide unique** : [BACKUP-MINIO-RESTIC.md](BACKUP-MINIO-RESTIC.md)
 
 L’Ingress MinIO est déjà défini dans le dépôt et appliqué par le CD au push. Pour accéder à la console MinIO via le navigateur, il suffit de **configurer le DNS** pour que chaque URL pointe vers le bon cluster.
 
@@ -6,7 +6,7 @@ L’Ingress MinIO est déjà défini dans le dépôt et appliqué par le CD au p
 
 ## 1. Ce qui est déjà en place
 
-- **Ingress** : `k8s/minio/ingress.yaml` expose MinIO sur les 3 hostnames avec TLS (cert-manager).
+- **Ingress** : `k8s/minio/ingress.yaml` appliqué par le CD avec **un seul host par cluster** (TLS Let's Encrypt valide).
 - **URLs** :
   - **Dev** : `https://minio.dev.thetiptop-jeu.fr`
   - **Preprod** : `https://minio.preprod.thetiptop-jeu.fr`
