@@ -69,9 +69,8 @@ export default function RegisterPage() {
   };
 
   const handleOAuth = (provider) => {
-    const apiUrl = import.meta.env.VITE_API_URL || '/api';
-    const baseUrl = apiUrl.replace('/api', '');
-    window.location.href = `${baseUrl}/api/auth/${provider}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    window.location.href = `${origin}/api/auth/${provider}`;
   };
 
   return (

@@ -14,7 +14,8 @@ const configurePassport = () => {
     }
   });
 
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+  const rawBackend = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:5000';
+  const backendUrl = String(rawBackend).trim().replace(/\/+$/, '');
 
   // Google
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {

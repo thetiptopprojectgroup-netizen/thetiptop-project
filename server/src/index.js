@@ -9,6 +9,7 @@ import passport from 'passport';
 import connectDB from './config/database.js';
 import configurePassport from './config/passport.js';
 import routes from './routes/index.js';
+import authRoutes from './routes/authRoutes.js';
 import errorHandler, { notFound } from './middlewares/errorHandler.js';
 
 // Configuration des variables d'environnement
@@ -78,6 +79,9 @@ app.use(passport.initialize());
 
 // Routes API
 app.use('/api', routes);
+
+// Routes OAuth aussi sous /auth (si le proxy/ingress enlève le préfixe /api → évite 404)
+app.use('/auth', authRoutes);
 
 // Route de bienvenue
 app.get('/', (req, res) => {

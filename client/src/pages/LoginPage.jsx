@@ -51,9 +51,9 @@ export default function LoginPage() {
   };
 
   const handleOAuth = (provider) => {
-    const apiUrl = import.meta.env.VITE_API_URL || '/api';
-    const baseUrl = apiUrl.replace('/api', '');
-    window.location.href = `${baseUrl}/api/auth/${provider}`;
+    // URL complète vers l’API sur le même domaine pour éviter 404 (ingress/proxy)
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    window.location.href = `${origin}/api/auth/${provider}`;
   };
 
   return (
