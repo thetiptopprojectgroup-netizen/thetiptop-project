@@ -5,6 +5,7 @@ metadata:
   namespace: thetiptop-preprod
 data:
   client-url: "https://preprod.thetiptop-jeu.fr"
+  backend-url: "https://api.preprod.thetiptop-jeu.fr"
   contest-start-date: "2026-03-01"
   contest-end-date: "2026-03-30"
   claim-end-date: "2026-04-29"
