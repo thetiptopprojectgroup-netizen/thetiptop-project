@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X } from 'lucide-react';
 
 const STORAGE_KEY = 'pwa-install-dismissed';
 const DISMISS_LATER_HOURS = 24;
 const DISMISS_DAYS = 7;
-/** Délai avant d’afficher le bandeau : l’utilisateur voit d’abord le site. */
-const SHOW_DELAY_MS = 6000;
+/** Délai avant d’afficher le bandeau (court pour que la proposition soit visible). */
+const SHOW_DELAY_MS = 2500;
 
 function getDismissedUntil() {
   try {
@@ -35,7 +35,6 @@ export default function InstallPrompt() {
   const [visible, setVisible] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
   const [delayPassed, setDelayPassed] = useState(false);
-  const canShowRef = useRef(false);
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches
@@ -51,19 +50,15 @@ export default function InstallPrompt() {
     const ua = window.navigator.userAgent;
     const ios = /iPad|iPhone|iPod/.test(ua) || (ua.includes('Mac') && 'ontouchend' in document);
     setIsIOS(ios);
-    if (ios) canShowRef.current = true;
 
     const onBeforeInstall = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      canShowRef.current = true;
     };
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
 
-    const timer = setTimeout(() => {
-      setDelayPassed(true);
-    }, SHOW_DELAY_MS);
+    const timer = setTimeout(() => setDelayPassed(true), SHOW_DELAY_MS);
 
     return () => {
       clearTimeout(timer);
@@ -71,11 +66,10 @@ export default function InstallPrompt() {
     };
   }, []);
 
-  // Afficher le bandeau quand le délai est passé ET (iOS ou navigateur a proposé l’install).
+  // Afficher le bandeau pour tous après le délai (pas seulement si beforeinstallprompt a été reçu).
   useEffect(() => {
-    if (!delayPassed || isStandalone) return;
-    if (isIOS || deferredPrompt) setVisible(true);
-  }, [delayPassed, isStandalone, isIOS, deferredPrompt]);
+    if (delayPassed && !isStandalone) setVisible(true);
+  }, [delayPassed, isStandalone]);
 
   const handleInstall = async () => {
     if (deferredPrompt) {
@@ -121,7 +115,9 @@ export default function InstallPrompt() {
               <p className="text-sm text-cream-200 mt-0.5">
                 {isIOS
                   ? 'Accédez au jeu plus vite : ajoutez Thé Tip Top sur l’écran d’accueil. Safari → Partager → « Sur l’écran d’accueil ».'
-                  : 'Accédez au jeu comme une app depuis votre bureau ou votre téléphone, sans repasser par le navigateur.'}
+                  : deferredPrompt
+                    ? 'Installez l’app pour y accéder depuis votre bureau ou votre téléphone.'
+                    : 'Pour installer : menu du navigateur (⋮ ou ⋯) → « Installer l’application » ou « Ajouter à l’écran d’accueil ». Ou revenez plus tard, le navigateur pourra proposer l’installation.'}
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 {deferredPrompt && !isIOS ? (
