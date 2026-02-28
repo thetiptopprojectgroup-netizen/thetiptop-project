@@ -113,3 +113,27 @@ Tu arrives sur la console MinIO (buckets, objets). Les backups Restic apparaisse
 | https://minio.thetiptop-jeu.fr | `minio` (A ou CNAME) | Load Balancer cluster **prod** |
 
 L’Ingress et le TLS sont déjà gérés par le CD ; il ne reste que ces 3 entrées DNS à configurer chez ton hébergeur de domaine.
+
+---
+
+## Dépannage : « Votre connexion n'est pas privée » (ERR_CERT_AUTHORITY_INVALID)
+
+Si le navigateur affiche cette erreur sur https://minio.dev.thetiptop-jeu.fr (ou les autres URLs MinIO) :
+
+1. **Vérifier que le correctif est déployé**  
+   L’Ingress MinIO doit exposer **un seul hostname par cluster** (ex. sur le cluster dev uniquement `minio.dev.thetiptop-jeu.fr`) pour que Let's Encrypt puisse émettre le certificat. Un push récent avec le correctif applique déjà cette config.
+
+2. **Forcer une nouvelle émission du certificat** (si l’erreur reste après un push)  
+   Sur le cluster concerné (ex. dev) :
+   ```bash
+   kubectl delete secret minio-tls -n minio
+   kubectl delete certificate -n minio --all
+   ```
+   Puis refaire un **push** (ou relancer le CD) pour que l’Ingress soit réappliqué. cert-manager recréera le certificat pour le bon hostname.
+
+3. **Vérifier le certificat**  
+   ```bash
+   kubectl get certificate -n minio
+   kubectl describe certificate minio-tls -n minio
+   ```
+   Le champ **Ready** doit être **True**. Si ce n’est pas le cas, regarder les **Events** dans `describe` pour voir l’erreur Let's Encrypt (DNS, challenge HTTP, etc.).
