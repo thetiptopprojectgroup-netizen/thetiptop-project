@@ -117,7 +117,7 @@ export default function InstallPrompt() {
                   ? 'Accédez au jeu plus vite : ajoutez Thé Tip Top sur l’écran d’accueil. Safari → Partager → « Sur l’écran d’accueil ».'
                   : deferredPrompt
                     ? 'Installez l’app pour y accéder depuis votre bureau ou votre téléphone.'
-                    : 'Pour installer : menu du navigateur (⋮ ou ⋯) → « Installer l’application » ou « Ajouter à l’écran d’accueil ». Ou revenez plus tard, le navigateur pourra proposer l’installation.'}
+                    : 'Sur Chrome/Edge : cliquez sur l’icône ⊕ ou « Installer » dans la barre d’adresse, ou menu ⋮ → « Installer Thé Tip Top ». Sur mobile : menu ⋯ → « Ajouter à l’écran d’accueil ». Le site doit être en HTTPS.'}
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 {deferredPrompt && !isIOS ? (
