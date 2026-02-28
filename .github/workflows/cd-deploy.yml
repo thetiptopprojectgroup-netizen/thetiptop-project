@@ -300,8 +300,8 @@ jobs:
             kubectl describe statefulset mongodb -n "$NS" 2>/dev/null | tail -30
           fi
 
-      # ─── 8a. MinIO : namespace + secret + déploiement + Ingress (tout au push, pas de commandes manuelles)
-      - name: Déployer MinIO (stockage backups + URLs dev/preprod/prod)
+      # ─── 8a. MinIO : ClusterIssuer d'abord, puis namespace + secret + déploiement + Ingress (1 host = TLS OK)
+      - name: Déployer MinIO (stockage backups + HTTPS par env)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         env:
           RESTIC_S3_ACCESS_KEY_ID: ${{ secrets.RESTIC_S3_ACCESS_KEY_ID }}
@@ -311,20 +311,24 @@ jobs:
             echo "Secrets Restic/MinIO absents : déploiement MinIO ignoré (backup désactivé)."
             exit 0
           fi
-          echo "Application namespace MinIO..."
+          echo "1/6 ClusterIssuer Let's Encrypt (pour certificat MinIO)..."
+          kubectl apply -f k8s/traefik/letsencrypt-issuer.yaml
+          echo "2/6 Namespace minio..."
           kubectl apply -f k8s/minio/namespace.yaml
-          echo "Création secret minio-credentials (identifiants = ceux utilisés par Restic)..."
+          echo "3/6 Secret minio-credentials..."
           kubectl create secret generic minio-credentials --namespace=minio \
             --from-literal=root-user="$RESTIC_S3_ACCESS_KEY_ID" \
             --from-literal=root-password="$RESTIC_S3_SECRET_ACCESS_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
-          echo "Application MinIO (PVC + Deployment + Service)..."
+          echo "4/6 MinIO (PVC + Deployment + Service)..."
           kubectl apply -f k8s/minio/deployment.yaml
           ENV="${{ steps.env.outputs.env }}"
           if [ "$ENV" = "prod" ]; then MINIO_HOST="minio.thetiptop-jeu.fr"; else MINIO_HOST="minio.${ENV}.thetiptop-jeu.fr"; fi
-          echo "Application Ingress MinIO (host: $MINIO_HOST) pour certificat Let's Encrypt..."
+          echo "5/6 Ingress MinIO (un seul host = $MINIO_HOST pour Let's Encrypt)..."
           sed -e "s|MINIO_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/ingress.yaml | kubectl apply -f -
-          echo "MinIO déployé (https://$MINIO_HOST après propagation TLS)."
+          echo "6/6 Forcer recréation du certificat (aligné sur l'Ingress)..."
+          kubectl delete certificate minio-tls -n minio --ignore-not-found=true
+          echo "MinIO déployé. HTTPS disponible sous 1–2 min : https://$MINIO_HOST"
 
       # ─── 8b. Backup MongoDB : CronJobs Restic vers MinIO
       - name: Appliquer Backup MongoDB (Restic MinIO)
