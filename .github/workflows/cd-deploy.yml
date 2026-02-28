@@ -25,6 +25,10 @@ on:
         description: 'Forcer le déploiement même si les CI ne sont pas vérifiées'
         required: false
         default: 'false'
+      fix_tls_prod:
+        description: "Réinitialiser le certificat TLS en prod (une fois, pour corriger ERR_CERT_AUTHORITY_INVALID)"
+        required: false
+        default: 'false'
 
 permissions:
   contents: read
@@ -368,7 +372,21 @@ jobs:
             kubectl describe pods -n "$NS" -l app=frontend | tail -20
           }
 
-      # ─── 10. Appliquer l'Ingress (Traefik + TLS) ─────────────────────
+      # ─── 10. Certificats TLS : s'assurer que le ClusterIssuer Let's Encrypt existe ───
+      - name: Appliquer ClusterIssuer Let's Encrypt (cert-manager)
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          kubectl apply -f k8s/traefik/letsencrypt-issuer.yaml
+          echo "ClusterIssuer letsencrypt-prod / letsencrypt-staging à jour."
+
+      # ─── 11. (Prod, optionnel) Forcer réémission du certificat TLS ───
+      - name: Réinitialiser le secret TLS en prod pour forcer Let's Encrypt
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true' && steps.env.outputs.env == 'prod' && github.event.inputs.fix_tls_prod == 'true'
+        run: |
+          kubectl delete secret thetiptop-prod-tls -n thetiptop-prod --ignore-not-found=true
+          echo "Secret TLS prod supprimé : cert-manager réémettra le certificat à l’étape suivante."
+
+      # ─── 12. Appliquer l'Ingress (Traefik + TLS) ─────────────────────
       - name: Appliquer l'Ingress Traefik
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         run: |
@@ -376,7 +394,7 @@ jobs:
           kubectl apply -f "k8s/$ENV/ingress.yaml"
           if [ -f "k8s/$ENV/ingress-api.yaml" ]; then kubectl apply -f "k8s/$ENV/ingress-api.yaml"; fi
 
-      # ─── 11. Résumé ───────────────────────────────────────────────────
+      # ─── 12. Résumé ───────────────────────────────────────────────────
       - name: Résumé du déploiement
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         run: |
