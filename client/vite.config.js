@@ -8,8 +8,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      devOptions: { enabled: true },
       includeAssets: ['favicon.svg', 'images/logo/logo.png'],
       manifest: {
+        id: '/',
         name: 'Thé Tip Top - Jeu-Concours',
         short_name: 'Thé Tip Top',
         description: 'Jeu-concours 100% gagnant. Participez et remportez des lots exceptionnels.',
@@ -17,6 +19,7 @@ export default defineConfig({
         background_color: '#faf8f5',
         display: 'standalone',
         start_url: '/',
+        scope: '/',
         lang: 'fr',
         icons: [
           {
