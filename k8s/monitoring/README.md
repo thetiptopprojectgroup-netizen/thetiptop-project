@@ -110,7 +110,7 @@ Une fois l’Ingress créé et le certificat TLS émis par cert-manager :
 2. **Connexion** :  
    - URL : `https://grafana.dev.thetiptop-jeu.fr`  
    - Utilisateur : `admin`  
-   - Mot de passe : défini dans `values-dev.yaml` (par défaut `admin` — **à changer en prod**).
+   - Mot de passe : défini dans `values-dev.yaml` (par défaut `admin` — **TheTipTop_Grafana2026!**).
 
 3. **Premiers pas** :  
    - Dans Grafana : **Explore** (icône boussole) → choisir la source de données **Prometheus** (déjà configurée par le chart).  
