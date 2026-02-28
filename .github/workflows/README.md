@@ -2,12 +2,12 @@
 
 ## 🎯 Architecture globale
 
-Le projet utilise **4 pipelines distincts** pour orchestrer le cycle de vie du code :
+Le projet utilise **3 pipelines** (+ 1 manuel) pour orchestrer le cycle de vie du code :
 
-1. **CI - Server (Backend)** : Tests, lint, build Docker backend
-2. **CI - Client (Frontend)** : Tests, lint, E2E, build Docker frontend  
-3. **CD - Server (Backend)** : Promotion automatique (création PR)
-4. **CD - Client (Frontend)** : Promotion automatique (création PR)
+1. **CI - Server (Backend)** : Tests, lint, build Docker backend + création PR de promotion en fin de run
+2. **CI - Client (Frontend)** : Tests, lint, E2E, build Docker frontend + création PR de promotion en fin de run
+3. **CD - Deploy** : Déploiement Kubernetes (dev / preprod / prod)
+4. **Create promotion PR (manual)** : Création manuelle de la PR dev→preprod ou preprod→prod
 
 ---
 
@@ -18,15 +18,12 @@ Le projet utilise **4 pipelines distincts** pour orchestrer le cycle de vie du c
 **Déclenchement** : `git push origin dev`
 
 **Pipelines exécutés** :
-- ✅ **CI - Server** : Pipeline complet (lint, tests unitaires, build, Docker, scan)
-- ✅ **CI - Client** : Pipeline complet (lint, tests unitaires, E2E Playwright, build, Docker, scan)
-- 🔄 **CD - Server** : Attend que CI Server ET CI Client soient verts
-- 🔄 **CD - Client** : Attend que CI Server ET CI Client soient verts
+- ✅ **CI - Server** : Pipeline complet (lint, tests unitaires, build, Docker, scan) puis job « Créer PR promotion » si les 2 CI sont vertes
+- ✅ **CI - Client** : Pipeline complet (lint, tests unitaires, E2E Playwright, build, Docker, scan) puis job « Créer PR promotion » si les 2 CI sont vertes
 
 **Résultat** :
 - Si les 2 CI passent → **PR automatique `dev` → `preprod`** (draft: false)
-- La PR est créée par le premier CD qui termine (Server ou Client)
-- L'autre CD détecte la PR existante et se termine avec succès
+- La PR est créée par le job `create-promotion-pr` du premier pipeline CI qui termine (Server ou Client) une fois les 2 CI vertes
 
 ---
 
@@ -35,15 +32,13 @@ Le projet utilise **4 pipelines distincts** pour orchestrer le cycle de vie du c
 **Déclenchement** : Merge de la PR `dev` → `preprod`
 
 **Pipelines exécutés** :
-- ✅ **CI - Server** : Pipeline allégé (build, Docker, scan uniquement - **pas de lint/tests**)
-- ✅ **CI - Client** : Pipeline allégé (build, Docker, scan uniquement - **pas de lint/E2E**)
-- 🔄 **CD - Server** : Attend que CI Server ET CI Client soient verts
-- 🔄 **CD - Client** : Attend que CI Server ET CI Client soient verts
+- ✅ **CI - Server** : Pipeline allégé (build, Docker, scan uniquement - **pas de lint/tests**) puis job « Créer PR promotion » si les 2 CI sont vertes
+- ✅ **CI - Client** : Pipeline allégé (build, Docker, scan uniquement - **pas de lint/E2E**) puis job « Créer PR promotion » si les 2 CI sont vertes
 
 **Résultat** :
 - Si les **2 CI** passent sur `preprod` → **PR automatique `preprod` → `prod`** (draft: true)
-- La PR est créée par le **dernier** des deux CD qui termine (car il voit alors les 2 CI vertes)
-- **Important** : après le merge, attendre que **CI - Server** et **CI - Client** soient toutes les deux vertes sur la branche `preprod` ; la PR preprod→prod apparaît ensuite (ou relancer manuellement le workflow CD avec « Promouvoir »)
+- La PR est créée par le job `create-promotion-pr` du pipeline CI qui termine en dernier (il voit alors les 2 CI vertes)
+- Si la PR n’apparaît pas : **Actions** → **Create promotion PR (manual)** → Run workflow → branche **preprod**
 
 ---
 
@@ -54,8 +49,7 @@ Le projet utilise **4 pipelines distincts** pour orchestrer le cycle de vie du c
 **Pipelines exécutés** :
 - ✅ **CI - Server** : Pipeline allégé (build, Docker, scan uniquement)
 - ✅ **CI - Client** : Pipeline allégé (build, Docker, scan uniquement)
-- ⏹️ **CD - Server** : Ne s'exécute pas (rien à promouvoir)
-- ⏹️ **CD - Client** : Ne s'exécute pas (rien à promouvoir)
+- Le job « Créer PR promotion » dans chaque CI ne fait rien sur `prod` (rien à promouvoir)
 
 **Résultat** :
 - Images Docker taguées avec le SHA du commit et `prod`
@@ -87,21 +81,20 @@ Le projet utilise **4 pipelines distincts** pour orchestrer le cycle de vie du c
 
 ## 🔄 Logique de promotion automatique
 
-Les workflows **CD - Server** et **CD - Client** :
+Le job **create-promotion-pr** (dans **CI - Server** et **CI - Client**) :
 
-1. **Attendent** que les 2 CI (Server + Client) soient terminées avec succès
-2. **Vérifient** qu'aucune PR n'existe déjà pour cette promotion
-3. **Créent** la PR automatiquement :
+1. S’exécute en fin de chaque pipeline CI (Server et Client), uniquement sur les branches `dev` et `preprod`
+2. **Vérifie** que les 2 CI (Server + Client) sont vertes pour le même commit
+3. **Vérifie** qu’aucune PR ouverte n’existe déjà pour cette promotion
+4. **Crée** la PR si tout est OK :
    - `dev` → `preprod` : PR normale (draft: false)
    - `preprod` → `prod` : PR en brouillon (draft: true)
 
-### Gestion de la concurrence et création des PR de promotion
+### Gestion de la concurrence
 
-- **CI** : le job « Créer PR promotion » attend jusqu'à **8 × 45 s** (~6 min) que l'autre CI soit verte, avec logs à chaque essai (`CI Server: success | CI Client: in_progress`, etc.).
-- **CD** : chaque CD (déclenché par la fin d'une CI) attend jusqu'à **5 × 45 s** que les 2 CI soient vertes. Si les workflows CI sont introuvables (ex. CD lancé depuis une branche sans ces workflows), le job ne fait pas échouer le workflow.
-- La détection d'une PR déjà existante se fait en listant les PR ouvertes vers `base` puis en filtrant par `head.ref` (plus fiable que le paramètre `head` de l’API).
-- **Important** : quand le CD est déclenché par `workflow_run`, GitHub exécute le workflow depuis la **branche par défaut**. Pour que la PR soit créée automatiquement, les workflows doivent être à jour sur cette branche.
-- **Si aucune PR n’apparaît** : aller dans **Actions** → **Create promotion PR (manuel)** → **Run workflow**, choisir la branche source (`dev` ou `preprod`). La PR est créée sans vérifier les CI (à utiliser une fois les CI vertes).
+- Les 2 pipelines CI s’exécutent en parallèle ; chacun a un job `create-promotion-pr` en fin de run
+- Celui qui termine **après** que les 2 CI soient vertes crée la PR ; l’autre voit que les 2 CI ne sont pas encore vertes ou que la PR existe déjà
+- Si la PR preprod→prod n’apparaît pas : **Actions** → **Create promotion PR (manual)** → Run workflow → branche **preprod**. Si le workflow indique « Aucun commit à promouvoir », faire un nouveau merge dev→preprod pour avoir des commits à promouvoir
 
 ---
 

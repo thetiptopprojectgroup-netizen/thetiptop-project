@@ -1,18 +1,21 @@
-# Créer à la main la PR de promotion (dev→preprod ou preprod→prod).
-# À lancer si la PR n'apparaît pas après les CI : Actions → Create promotion PR → Run workflow.
-name: Create promotion PR (manuel)
+# Création manuelle de la PR de promotion (dev→preprod ou preprod→prod).
+# Utile quand la création automatique n'a pas eu lieu (ex. une CI en échec, ou délai).
+#
+# Actions → Create promotion PR → Run workflow → Choisir la branche (preprod ou dev) → Run workflow
+
+name: Create promotion PR (manual)
 
 on:
   workflow_dispatch:
     inputs:
-      source_branch:
-        description: 'Branche source (dev ou preprod)'
+      branch:
+        description: 'Branche source (preprod = PR preprod→prod, dev = PR dev→preprod)'
         required: true
         type: choice
         options:
-          - dev
           - preprod
-        default: 'dev'
+          - dev
+        default: 'preprod'
 
 permissions:
   contents: read
@@ -20,37 +23,53 @@ permissions:
 
 jobs:
   create-pr:
-    name: Créer la PR de promotion
+    name: Créer PR promotion
     runs-on: ubuntu-latest
     steps:
-      - name: Créer la PR
+      - name: Créer la PR de promotion
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const head = '${{ github.event.inputs.source_branch }}';
-            const base = head === 'dev' ? 'preprod' : 'prod';
+            const branch = '${{ github.event.inputs.branch }}';
+            const base = branch === 'dev' ? 'preprod' : 'prod';
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
-            const { data: allPulls } = await github.rest.pulls.list({
-              owner, repo, state: 'open', base, per_page: 30
+            core.info('Création manuelle de la PR : ' + branch + ' → ' + base);
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base, head: owner + ':' + branch
             });
-            const existing = allPulls.find(p => p.head.ref === head);
-            if (existing) {
-              core.info('PR ' + head + ' → ' + base + ' déjà existante: #' + existing.number);
-              core.info('Lien: ' + existing.html_url);
+            if (pulls.length > 0) {
+              core.info('PR ' + branch + ' → ' + base + ' déjà existante : #' + pulls[0].number);
               return;
             }
 
-            const title = head === 'dev' ? '🚀 Promotion dev → preprod' : '🎯 Promotion preprod → prod';
-            const body = head === 'dev'
-              ? 'Promotion manuelle : CI Server et CI Client ont réussi sur `dev`.'
-              : 'Mise en production : CI Server et CI Client ont réussi sur `preprod`.';
+            const title = branch === 'dev' ? '🚀 Promotion dev → preprod' : '🎯 Promotion preprod → prod';
+            const body = branch === 'dev'
+              ? 'Promotion automatique (création manuelle). CI Server et Client à vérifier sur `dev`.'
+              : 'Mise en production (création manuelle). CI Server et Client à vérifier sur `preprod`.';
 
-            const { data: pr } = await github.rest.pulls.create({
-              owner, repo, head, base, title, body,
-              draft: head !== 'dev'
-            });
-            core.info('PR créée: #' + pr.number + ' – ' + pr.html_url);
-            core.summary.addRaw('**PR créée** : [' + pr.title + '](' + pr.html_url + ')').write();
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner, repo, head: branch, base, title, body,
+                draft: branch !== 'dev'
+              });
+              core.info('PR créée : #' + pr.number + ' ' + pr.html_url);
+            } catch (err) {
+              if (err.status === 422) {
+                const msg = (err.message || '').toLowerCase();
+                if (msg.includes('already exists')) {
+                  core.info('Une PR ouverte existe déjà (ou fermée récemment).');
+                } else if (msg.includes('no commits between')) {
+                  core.info('Aucun commit à promouvoir entre ' + branch + ' et ' + base + '.');
+                  core.info('Pour preprod→prod : fusionnez d’abord dev→preprod pour avoir de nouveaux commits sur preprod.');
+                  core.info('Pour dev→preprod : faites des commits sur dev puis relancez.');
+                } else {
+                  throw err;
+                }
+              } else {
+                throw err;
+              }
+            }

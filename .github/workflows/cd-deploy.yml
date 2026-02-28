@@ -68,8 +68,8 @@ jobs:
             const serverCi = workflows.find(w => w.name === 'CI - Server (Backend)');
             const clientCi = workflows.find(w => w.name === 'CI - Client (Frontend)');
             if (!serverCi || !clientCi) {
-              core.info('Workflows CI introuvables – on continue le déploiement.');
-              core.setOutput('skip', 'false');
+              core.info('Workflows CI introuvables – déploiement skippé.');
+              core.setOutput('skip', 'true');
               return;
             }
 
@@ -96,9 +96,9 @@ jobs:
               return { sRun, cRun };
             }
 
-            // Si déclenché par un push : on attend un peu que les 2 CI passent ; après timeout on continue le déploiement
+            // Si déclenché par un push, on ATTEND que les 2 CI soient terminées (max ~20 min)
             if (eventName === 'push') {
-              const maxAttempts = 10; // 10 * 30s = 5 min max, puis on déploie quand même
+              const maxAttempts = 40; // 40 * 30s = 20 minutes max
               const delayMs = 30000;
 
               for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -119,8 +119,8 @@ jobs:
                 await new Promise(res => setTimeout(res, delayMs));
               }
 
-              core.info('⏱️ Timeout : les 2 CI ne sont pas encore vertes après le délai – on continue le déploiement quand même.');
-              core.setOutput('skip', 'false');
+              core.info('⏱️ Timeout : les 2 CI ne sont pas passées au vert dans le délai – déploiement skippé.');
+              core.setOutput('skip', 'true');
               return;
             }
 
@@ -133,8 +133,8 @@ jobs:
             }
 
             if (sRun?.conclusion !== 'success' || cRun?.conclusion !== 'success') {
-              core.info('CI pas encore terminées – on continue le déploiement quand même.');
-              core.setOutput('skip', 'false');
+              core.info('CI pas encore terminées – déploiement skippé. Relancer via workflow_dispatch une fois les CI vertes.');
+              core.setOutput('skip', 'true');
               return;
             }
 

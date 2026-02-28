@@ -215,36 +215,26 @@ jobs:
 
             const getRuns = async (workflowId) => {
               const { data } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner, repo, workflow_id: workflowId, branch, per_page: 25
+                owner, repo, workflow_id: workflowId, branch, per_page: 20
               });
               return data.workflow_runs || [];
             };
-            let serverRun, clientRun;
-            const maxAttempts = 8;
-            const delayMs = 45000;
-            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-              const [serverRuns, clientRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
-              serverRun = serverRuns.find(r => r.head_sha === head_sha);
-              clientRun = clientRuns.find(r => r.head_sha === head_sha);
-              const sStatus = serverRun ? (serverRun.status === 'completed' ? serverRun.conclusion : serverRun.status) : 'absent';
-              const cStatus = clientRun ? (clientRun.status === 'completed' ? clientRun.conclusion : clientRun.status) : 'absent';
-              core.info(`[${attempt}/${maxAttempts}] CI Server: ${sStatus} | CI Client: ${cStatus}`);
-              if (serverRun?.conclusion === 'success' && clientRun?.conclusion === 'success') break;
-              if (attempt < maxAttempts) {
-                core.info('Attente ' + (delayMs/1000) + 's avant nouvel essai...');
-                await new Promise(r => setTimeout(r, delayMs));
-              }
-            }
+            const serverRuns = await getRuns(serverCi.id);
+            const clientRuns = await getRuns(clientCi.id);
+            const serverRun = serverRuns.find(r => r.status === 'completed' && r.head_sha === head_sha);
+            const clientRun = clientRuns.find(r => r.status === 'completed' && r.head_sha === head_sha);
+
             if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
-              core.info('Les 2 CI ne sont pas vertes pour ce commit. Relancez le workflow CD manuellement (Actions → CD - Server → Run workflow, branche ' + branch + ') pour créer la PR.');
+              core.info('Les 2 CI ne sont pas encore vertes pour ce commit (server=' + (serverRun?.conclusion || '?') + ', client=' + (clientRun?.conclusion || '?') + '). La PR sera créée quand l\'autre CI aura terminé.');
               return;
             }
 
             const head = branch;
-            const { data: allPulls } = await github.rest.pulls.list({ owner, repo, state: 'open', base, per_page: 30 });
-            const existing = allPulls.find(p => p.head.ref === head);
-            if (existing) {
-              core.info('PR ' + head + ' → ' + base + ' déjà existante: #' + existing.number);
+            const { data: pulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base, head: owner + ':' + head
+            });
+            if (pulls.length > 0) {
+              core.info('PR ' + head + ' → ' + base + ' déjà existante: #' + pulls[0].number);
               return;
             }
             const title = branch === 'dev' ? '🚀 Promotion dev → preprod' : '🎯 Promotion preprod → prod';
@@ -260,9 +250,13 @@ jobs:
             } catch (err) {
               if (err.status === 422) {
                 const msg = (err.message || '').toLowerCase();
-                if (msg.includes('already exists')) core.info('PR déjà existante (ignoré).');
-                else if (msg.includes('no commits between')) core.info('Aucun commit à promouvoir entre ' + head + ' et ' + base + '. Aucune PR créée.');
-                else core.info('Création PR refusée (422): ' + (err.message || err));
+                if (msg.includes('already exists')) {
+                  core.info('PR déjà existante (ignoré).');
+                } else if (msg.includes('no commits between')) {
+                  core.info('Aucun commit à promouvoir entre ' + head + ' et ' + base + ' (ex. après reset). Aucune PR créée.');
+                } else {
+                  throw err;
+                }
               } else {
                 throw err;
               }
