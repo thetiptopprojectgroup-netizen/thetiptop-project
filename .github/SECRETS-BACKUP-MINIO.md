@@ -1,6 +1,8 @@
 # Obtenir les 5 secrets pour le backup MongoDB (Restic + MinIO)
 
-Ce guide explique **étape par étape** comment obtenir ou choisir chaque valeur, puis comment les ajouter dans GitHub.
+**Référence principale** : [.github/BACKUP-MINIO-RESTIC.md](BACKUP-MINIO-RESTIC.md) (prérequis, DNS, HTTPS, backup).
+
+Ce guide détaille **étape par étape** chaque valeur des 5 secrets et comment les ajouter dans GitHub.
 
 ---
 
