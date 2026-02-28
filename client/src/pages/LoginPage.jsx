@@ -51,7 +51,6 @@ export default function LoginPage() {
   };
 
   const handleOAuth = (provider) => {
-    // URL complète vers l’API sur le même domaine pour éviter 404 (ingress/proxy)
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     window.location.href = `${origin}/api/auth/${provider}`;
   };
