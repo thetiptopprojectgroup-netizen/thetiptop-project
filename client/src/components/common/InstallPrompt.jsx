@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X } from 'lucide-react';
 
 const STORAGE_KEY = 'pwa-install-dismissed';
+const DISMISS_LATER_HOURS = 24;
 const DISMISS_DAYS = 7;
+/** Délai avant d’afficher le bandeau : l’utilisateur voit d’abord le site. */
+const SHOW_DELAY_MS = 6000;
 
 function getDismissedUntil() {
   try {
@@ -16,12 +19,11 @@ function getDismissedUntil() {
   }
 }
 
-function setDismissedUntil() {
+function setDismissedUntil(hours = DISMISS_DAYS * 24) {
   try {
-    const t = Date.now() + DISMISS_DAYS * 24 * 60 * 60 * 1000;
+    const t = Date.now() + hours * 60 * 60 * 1000;
     localStorage.setItem(STORAGE_KEY, String(t));
   } catch {
-    // Ignorer les erreurs localStorage (mode privé, quota, etc.) — pas d'action requise
     return;
   }
 }
@@ -32,6 +34,8 @@ export default function InstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [visible, setVisible] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
+  const [delayPassed, setDelayPassed] = useState(false);
+  const canShowRef = useRef(false);
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches
@@ -47,21 +51,31 @@ export default function InstallPrompt() {
     const ua = window.navigator.userAgent;
     const ios = /iPad|iPhone|iPod/.test(ua) || (ua.includes('Mac') && 'ontouchend' in document);
     setIsIOS(ios);
+    if (ios) canShowRef.current = true;
 
     const onBeforeInstall = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setVisible(true);
+      canShowRef.current = true;
     };
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
 
-    if (ios) {
-      setVisible(true);
-    }
+    const timer = setTimeout(() => {
+      setDelayPassed(true);
+    }, SHOW_DELAY_MS);
 
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+    };
   }, []);
+
+  // Afficher le bandeau quand le délai est passé ET (iOS ou navigateur a proposé l’install).
+  useEffect(() => {
+    if (!delayPassed || isStandalone) return;
+    if (isIOS || deferredPrompt) setVisible(true);
+  }, [delayPassed, isStandalone, isIOS, deferredPrompt]);
 
   const handleInstall = async () => {
     if (deferredPrompt) {
@@ -76,9 +90,14 @@ export default function InstallPrompt() {
     }
   };
 
-  const handleDismiss = () => {
+  const handleDismissLater = () => {
     setVisible(false);
-    setDismissedUntil();
+    setDismissedUntil(DISMISS_LATER_HOURS);
+  };
+
+  const handleDismissNotNow = () => {
+    setVisible(false);
+    setDismissedUntil(DISMISS_DAYS * 24);
   };
 
   if (!visible || isStandalone) return null;
@@ -86,11 +105,11 @@ export default function InstallPrompt() {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.25 }}
-        className="fixed bottom-0 left-0 right-0 z-[100] p-4 pb-6"
+        exit={{ opacity: 0, y: 20 }}
+        transition={{ duration: 0.3 }}
+        className="fixed bottom-0 left-0 right-0 z-[100] p-4 pb-6 safe-area-pb"
       >
         <div className="mx-auto max-w-lg rounded-2xl bg-tea-900 text-white shadow-xl border border-tea-700 overflow-hidden">
           <div className="p-4 flex items-start gap-4">
@@ -98,13 +117,13 @@ export default function InstallPrompt() {
               <Download className="w-6 h-6 text-matcha-300" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-display font-semibold text-lg">Installer Thé Tip Top</h3>
+              <h3 className="font-display font-semibold text-lg">Installer l’application</h3>
               <p className="text-sm text-cream-200 mt-0.5">
                 {isIOS
-                  ? 'Ajoutez l\'app à votre écran d\'accueil : menu ⋮ ou Partager → « Sur l\'écran d\'accueil ».'
-                  : 'Installez l\'application pour y accéder plus vite depuis votre bureau ou votre téléphone.'}
+                  ? 'Accédez au jeu plus vite : ajoutez Thé Tip Top sur l’écran d’accueil. Safari → Partager → « Sur l’écran d’accueil ».'
+                  : 'Accédez au jeu comme une app depuis votre bureau ou votre téléphone, sans repasser par le navigateur.'}
               </p>
-              <div className="flex items-center gap-2 mt-3">
+              <div className="flex flex-wrap items-center gap-2 mt-3">
                 {deferredPrompt && !isIOS ? (
                   <button
                     type="button"
@@ -115,14 +134,16 @@ export default function InstallPrompt() {
                     {isInstalling ? 'Installation…' : 'Installer'}
                   </button>
                 ) : null}
-                {isIOS && (
-                  <span className="text-xs text-cream-300">
-                    Safari → Partager → Sur l&apos;écran d&apos;accueil
-                  </span>
-                )}
                 <button
                   type="button"
-                  onClick={handleDismiss}
+                  onClick={handleDismissLater}
+                  className="px-3 py-2 rounded-xl text-cream-200 hover:bg-white/10 text-sm transition-colors"
+                >
+                  Plus tard
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDismissNotNow}
                   className="p-2 rounded-lg hover:bg-white/10 transition-colors"
                   aria-label="Fermer"
                 >
