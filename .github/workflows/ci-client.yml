@@ -273,8 +273,15 @@ jobs:
               });
               core.info('PR ' + head + ' → ' + base + ' créée: #' + pr.number);
             } catch (err) {
-              if (err.status === 422 && err.message && err.message.includes('already exists')) {
-                core.info('PR déjà existante (ignoré).');
+              if (err.status === 422) {
+                const msg = (err.message || '').toLowerCase();
+                if (msg.includes('already exists')) {
+                  core.info('PR déjà existante (ignoré).');
+                } else if (msg.includes('no commits between')) {
+                  core.info('Aucun commit à promouvoir entre ' + head + ' et ' + base + ' (ex. après reset). Aucune PR créée.');
+                } else {
+                  throw err;
+                }
               } else {
                 throw err;
               }
