@@ -69,9 +69,8 @@ export default function RegisterPage() {
   };
 
   const handleOAuth = (provider) => {
-    // Toujours rediriger vers l’origine actuelle + /api/auth/… pour éviter 404 (SPA / proxy)
-    const base = typeof window !== 'undefined' ? window.location.origin : '';
-    window.location.href = `${base}/api/auth/${provider}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    window.location.href = `${origin}/api/auth/${provider}`;
   };
 
   return (
