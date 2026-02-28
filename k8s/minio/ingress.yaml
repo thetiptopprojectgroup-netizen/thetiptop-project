@@ -1,6 +1,5 @@
-# MinIO accessible via URL (un hostname par cluster pour que Let's Encrypt puisse émettre le certificat).
-# Remplacer MINIO_HOST_PLACEHOLDER par le CD : minio.dev.thetiptop-jeu.fr (dev), minio.preprod... (preprod), minio.thetiptop-jeu.fr (prod).
-# TLS via cert-manager (Let's Encrypt). Entrypoint websecure pour utiliser le certificat.
+# Un seul host par cluster (remplacé par le CD : MINIO_HOST_PLACEHOLDER).
+# Dev: minio.dev.thetiptop-jeu.fr | Preprod: minio.preprod.thetiptop-jeu.fr | Prod: minio.thetiptop-jeu.fr
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

@@ -87,16 +87,16 @@ Créer les enregistrements DNS **A** chez votre registrar (OVH, Gandi, etc.) :
 
 | Cluster | Sous-domaine | → IP |
 |---------|-------------|------|
-| **dev** | `dev.thetiptop-jeu.fr` | IP du LoadBalancer dev |
-| **dev** | `api.dev.thetiptop-jeu.fr` | IP du LoadBalancer dev |
-| **dev** | `minio.dev.thetiptop-jeu.fr` | IP du LoadBalancer dev (console MinIO) |
-| **preprod** | `preprod.thetiptop-jeu.fr` | IP du LoadBalancer preprod |
-| **preprod** | `api.preprod.thetiptop-jeu.fr` | IP du LoadBalancer preprod |
-| **preprod** | `minio.preprod.thetiptop-jeu.fr` | IP du LoadBalancer preprod (console MinIO) |
-| **prod** | `thetiptop-jeu.fr` | IP du LoadBalancer prod |
-| **prod** | `www.thetiptop-jeu.fr` | IP du LoadBalancer prod |
-| **prod** | `api.thetiptop-jeu.fr` | IP du LoadBalancer prod |
-| **prod** | `minio.thetiptop-jeu.fr` | IP du LoadBalancer prod (console MinIO) |
+| **dev** | `dev.thetiptop-jeu.fr` | 129.212.168.6 |
+| **dev** | `api.dev.thetiptop-jeu.fr` | 129.212.168.6 |
+| **dev** | `minio.dev.thetiptop-jeu.fr` | 129.212.168.6 |
+| **preprod** | `preprod.thetiptop-jeu.fr` | 146.190.206.155 |
+| **preprod** | `api.preprod.thetiptop-jeu.fr` | 146.190.206.155 |
+| **preprod** | `minio.preprod.thetiptop-jeu.fr` | 146.190.206.155 |
+| **prod** | `thetiptop-jeu.fr` | 164.92.132.29 |
+| **prod** | `www.thetiptop-jeu.fr` | 164.92.132.29 |
+| **prod** | `api.thetiptop-jeu.fr` | 164.92.132.29 |
+| **prod** | `minio.thetiptop-jeu.fr` | 164.92.132.29 |
 
 ---
 

@@ -300,48 +300,40 @@ jobs:
             kubectl describe statefulset mongodb -n "$NS" 2>/dev/null | tail -30
           fi
 
-      # ─── 8a. MinIO : ClusterIssuer d'abord, puis namespace + secret + déploiement + Ingress (1 host = TLS OK)
-      - name: Déployer MinIO (stockage backups + HTTPS par env)
+      # ─── 8a. MinIO + Ingress (1 host par cluster pour HTTPS valide)
+      - name: Déployer MinIO (dev / preprod / prod)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         env:
           RESTIC_S3_ACCESS_KEY_ID: ${{ secrets.RESTIC_S3_ACCESS_KEY_ID }}
           RESTIC_S3_SECRET_ACCESS_KEY: ${{ secrets.RESTIC_S3_SECRET_ACCESS_KEY }}
         run: |
           if [ -z "$RESTIC_S3_ACCESS_KEY_ID" ] || [ -z "$RESTIC_S3_SECRET_ACCESS_KEY" ]; then
-            echo "Secrets Restic/MinIO absents : déploiement MinIO ignoré (backup désactivé)."
+            echo "Secrets MinIO absents, étape MinIO ignorée."
             exit 0
           fi
-          echo "1/6 ClusterIssuer Let's Encrypt (pour certificat MinIO)..."
           kubectl apply -f k8s/traefik/letsencrypt-issuer.yaml
-          echo "2/6 Namespace minio..."
           kubectl apply -f k8s/minio/namespace.yaml
-          echo "3/6 Secret minio-credentials..."
           kubectl create secret generic minio-credentials --namespace=minio \
             --from-literal=root-user="$RESTIC_S3_ACCESS_KEY_ID" \
             --from-literal=root-password="$RESTIC_S3_SECRET_ACCESS_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
-          echo "4/6 MinIO (PVC + Deployment + Service)..."
           kubectl apply -f k8s/minio/deployment.yaml
           ENV="${{ steps.env.outputs.env }}"
           if [ "$ENV" = "prod" ]; then MINIO_HOST="minio.thetiptop-jeu.fr"; else MINIO_HOST="minio.${ENV}.thetiptop-jeu.fr"; fi
-          echo "5/6 Ingress MinIO (un seul host = $MINIO_HOST pour Let's Encrypt)..."
           sed -e "s|MINIO_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/ingress.yaml | kubectl apply -f -
-          echo "6/6 Forcer recréation du certificat (aligné sur l'Ingress)..."
           kubectl delete certificate minio-tls -n minio --ignore-not-found=true
-          echo "MinIO déployé. HTTPS disponible sous 1–2 min : https://$MINIO_HOST"
+          echo "MinIO déployé: https://$MINIO_HOST"
 
-      # ─── 8b. Backup MongoDB : CronJobs Restic vers MinIO
-      - name: Appliquer Backup MongoDB (Restic MinIO)
+      # ─── 8b. Backup MongoDB (Restic vers MinIO)
+      - name: Appliquer CronJobs backup + test restauration
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         run: |
           NS="${{ steps.env.outputs.namespace }}"
-          SCHEDULE="0 17 * * *"
-          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" -e "s|SCHEDULE_PLACEHOLDER|$SCHEDULE|g" \
-              k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
+          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" -e "s|SCHEDULE_PLACEHOLDER|0 17 * * *|g" k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
           sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" k8s/mongodb-restore-test-cronjob.yaml | kubectl apply -f -
-          echo "Backup MongoDB (Restic+MinIO) + test restauration hebdo appliqués."
+          echo "CronJobs backup appliqués."
 
-      - name: Créer secret Restic/MinIO (backup MongoDB)
+      - name: Créer secret Restic (backup MongoDB)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         env:
           RESTIC_MINIO_ENDPOINT: ${{ secrets.RESTIC_MINIO_ENDPOINT }}
@@ -353,12 +345,11 @@ jobs:
           NS="${{ steps.env.outputs.namespace }}"
           ENV="${{ steps.env.outputs.env }}"
           if [ -z "$RESTIC_MINIO_ENDPOINT" ] || [ -z "$RESTIC_MINIO_BUCKET" ] || [ -z "$RESTIC_PASSWORD" ] || [ -z "$RESTIC_S3_ACCESS_KEY_ID" ] || [ -z "$RESTIC_S3_SECRET_ACCESS_KEY" ]; then
-            echo "Restic/MinIO non configuré (secrets GitHub manquants). Backup désactivé ; aucun impact sur le déploiement."
+            echo "Secrets Restic manquants, secret restic non créé."
             exit 0
           fi
           REPO="s3:${RESTIC_MINIO_ENDPOINT}/${RESTIC_MINIO_BUCKET}/mongodb-${ENV}"
-          kubectl create secret generic restic-s3-secret \
-            --namespace="$NS" \
+          kubectl create secret generic restic-s3-secret --namespace="$NS" \
             --from-literal=restic-repository="$REPO" \
             --from-literal=restic-password="$RESTIC_PASSWORD" \
             --from-literal=access-key-id="$RESTIC_S3_ACCESS_KEY_ID" \

@@ -1,6 +1,4 @@
-# Test de restauration régulier : vérifie que le repo Restic est lisible et qu'un snapshot peut être restauré.
-# Planifié chaque dimanche à 6h00 UTC. Utilise le même secret restic-s3-secret.
-# Ne restaure pas dans MongoDB, seulement vérifie restic restore vers un volume temporaire.
+# Test restauration : dimanche 6h UTC. Vérifie que le dépôt Restic est lisible.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -26,15 +24,10 @@ spec:
                 - -c
                 - |
                   set -e
-                  echo "=== Liste des snapshots Restic ==="
                   restic snapshots
-                  echo ""
-                  echo "=== Restauration du dernier snapshot vers /verify ==="
                   restic restore latest --target /verify
-                  echo ""
-                  echo "=== Contenu restauré (premiers fichiers) ==="
                   find /verify -type f | head -20
-                  echo "Test de restauration OK."
+                  echo "Test restauration OK."
               env:
                 - name: RESTIC_REPOSITORY
                   valueFrom:
