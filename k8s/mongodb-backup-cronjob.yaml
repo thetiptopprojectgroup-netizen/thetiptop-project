@@ -1,15 +1,14 @@
-# CronJobs backup MongoDB : 3 créneaux (1h00, 17h15, 17h30 heure française = 0h00, 16h15, 16h30 UTC).
-# Appliqué avec sed NAMESPACE_PLACEHOLDER, NAME_1/SCHEDULE_1, NAME_2/SCHEDULE_2, NAME_3/SCHEDULE_3.
+# CronJobs backup MongoDB : 18h00 FR (17h00 UTC) + 18h15 UTC.
+# Appliqué avec sed NAMESPACE_PLACEHOLDER et SCHEDULE_PLACEHOLDER (→ 0 17 * * *).
 # Secret requis : restic-s3-secret.
----
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: NAME_1
+  name: mongodb-backup
   namespace: NAMESPACE_PLACEHOLDER
 spec:
-  schedule: "SCHEDULE_1"
-  successfulJobsHistoryLimit: 2
+  schedule: "SCHEDULE_PLACEHOLDER"
+  successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 2
   concurrencyPolicy: Forbid
   jobTemplate:
@@ -95,101 +94,11 @@ spec:
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: NAME_2
+  name: mongodb-backup-1815
   namespace: NAMESPACE_PLACEHOLDER
 spec:
-  schedule: "SCHEDULE_2"
-  successfulJobsHistoryLimit: 2
-  failedJobsHistoryLimit: 2
-  concurrencyPolicy: Forbid
-  jobTemplate:
-    spec:
-      ttlSecondsAfterFinished: 86400
-      backoffLimit: 2
-      template:
-        spec:
-          restartPolicy: OnFailure
-          initContainers:
-            - name: mongodump
-              image: mongo:7.0
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  set -e
-                  BACKUP_DIR="/backup/$(date +%Y-%m-%d_%H%M%S)"
-                  mkdir -p "$BACKUP_DIR"
-                  mongodump \
-                    --uri="mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin" \
-                    --out="$BACKUP_DIR" \
-                    --gzip
-                  echo "Backup dump terminé: $BACKUP_DIR"
-              env:
-                - name: MONGO_INITDB_ROOT_USERNAME
-                  valueFrom:
-                    secretKeyRef:
-                      name: mongodb-secret
-                      key: root-username
-                - name: MONGO_INITDB_ROOT_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: mongodb-secret
-                      key: root-password
-              volumeMounts:
-                - name: backup
-                  mountPath: /backup
-              resources:
-                requests: { cpu: 100m, memory: 256Mi }
-                limits: { cpu: 500m, memory: 512Mi }
-          containers:
-            - name: restic
-              image: restic/restic:0.16
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  set -e
-                  restic backup /backup --tag mongodb
-                  restic forget --keep-daily 7 --keep-weekly 4 --prune
-              env:
-                - name: RESTIC_REPOSITORY
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: restic-repository
-                - name: RESTIC_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: restic-password
-                - name: AWS_ACCESS_KEY_ID
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: access-key-id
-                - name: AWS_SECRET_ACCESS_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: secret-access-key
-              volumeMounts:
-                - name: backup
-                  mountPath: /backup
-              resources:
-                requests: { cpu: 100m, memory: 256Mi }
-                limits: { cpu: 500m, memory: 512Mi }
-          volumes:
-            - name: backup
-              emptyDir: {}
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: NAME_3
-  namespace: NAMESPACE_PLACEHOLDER
-spec:
-  schedule: "SCHEDULE_3"
-  successfulJobsHistoryLimit: 2
+  schedule: "15 18 * * *"
+  successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 2
   concurrencyPolicy: Forbid
   jobTemplate:

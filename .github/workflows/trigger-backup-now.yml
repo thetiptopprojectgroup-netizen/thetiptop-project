@@ -1,0 +1,88 @@
+# Lancer un backup MongoDB maintenant (test ou exécution manuelle).
+# Actions → Trigger backup now → Run workflow → Choisir l'environnement (dev/preprod/prod).
+name: Trigger backup now
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environnement (dev, preprod, prod)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - preprod
+          - prod
+        default: 'dev'
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Backup MongoDB (${{ github.event.inputs.env }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurer kubectl
+        env:
+          KC_DEV:     ${{ secrets.KUBECONFIG_DEV }}
+          KC_PREPROD: ${{ secrets.KUBECONFIG_PREPROD }}
+          KC_PROD:    ${{ secrets.KUBECONFIG_PROD }}
+        run: |
+          ENV="${{ github.event.inputs.env }}"
+          case "$ENV" in
+            prod)    KC="$KC_PROD";    NS="thetiptop-prod"    ;;
+            preprod) KC="$KC_PREPROD"; NS="thetiptop-preprod" ;;
+            *)       KC="$KC_DEV";     NS="thetiptop-dev"     ;;
+          esac
+          if [ -z "$KC" ]; then
+            echo "KUBECONFIG manquant pour $ENV. Vérifiez les secrets GitHub."
+            exit 1
+          fi
+          echo "$KC" | base64 -d > kubeconfig
+          echo "KUBECONFIG_PATH=$PWD/kubeconfig" >> $GITHUB_ENV
+          echo "NAMESPACE=$NS" >> $GITHUB_ENV
+          echo "ENV=$ENV" >> $GITHUB_ENV
+
+      - name: Vérifier les CronJobs et le secret
+        id: check
+        env:
+          KUBECONFIG: ${{ env.KUBECONFIG_PATH }}
+        run: |
+          echo "=== CronJobs backup ==="
+          kubectl get cronjob -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "=== Secret restic-s3-secret existe ? ==="
+          if kubectl get secret restic-s3-secret -n ${{ env.NAMESPACE }} 2>/dev/null; then echo "Oui"; else echo "NON - le backup échouera sans ce secret (relancer un déploiement CD avec les 5 secrets GitHub configurés)"; fi
+          echo ""
+          echo "=== Derniers Jobs backup ==="
+          kubectl get jobs -n ${{ env.NAMESPACE }} --sort-by=.metadata.creationTimestamp 2>/dev/null | tail -10
+
+      - name: Lancer un backup maintenant
+        id: backup-run
+        env:
+          KUBECONFIG: ${{ env.KUBECONFIG_PATH }}
+        run: |
+          NS="${{ env.NAMESPACE }}"
+          JOB_NAME="backup-manual-$(date +%s)"
+          echo "job_name=$JOB_NAME" >> $GITHUB_OUTPUT
+          kubectl create job "$JOB_NAME" -n "$NS" --from=cronjob/mongodb-backup
+          echo "Job $JOB_NAME créé. Attente de la fin (max 10 min)..."
+          kubectl wait --for=condition=complete job/"$JOB_NAME" -n "$NS" --timeout=600s || true
+
+      - name: Afficher les logs du backup
+        if: always()
+        env:
+          KUBECONFIG: ${{ env.KUBECONFIG_PATH }}
+        run: |
+          JOB="${{ steps.backup-run.outputs.job_name }}"
+          if [ -n "$JOB" ]; then
+            echo "=== Logs du job $JOB ==="
+            kubectl logs job/"$JOB" -n ${{ env.NAMESPACE }} --all-containers=true 2>/dev/null || echo "Logs non disponibles."
+            echo ""
+            echo "=== Statut du job ==="
+            kubectl get job "$JOB" -n ${{ env.NAMESPACE }} -o wide 2>/dev/null || true
+          fi
