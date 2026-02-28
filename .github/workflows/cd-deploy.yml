@@ -365,7 +365,8 @@ jobs:
             *)       ADMIN_EMAIL="admin@thetiptop.fr"       ;;
           esac
           ADMIN_PASS='Admin123!'
-          kubectl delete job seed-admin -n "$NS" --ignore-not-found=true
+          kubectl delete job seed-admin -n "$NS" --ignore-not-found=true --wait=true
+          until ! kubectl get job seed-admin -n "$NS" 2>/dev/null; do echo "Attente suppression du job seed-admin..."; sleep 2; done
           sed -e "s|BACKEND_IMAGE_PLACEHOLDER|$BACKEND_IMAGE|g" \
               -e "s|NAMESPACE_PLACEHOLDER|$NS|g" \
               -e "s|ADMIN_EMAIL_PLACEHOLDER|$ADMIN_EMAIL|g" \
@@ -387,7 +388,8 @@ jobs:
         run: |
           NS="${{ steps.env.outputs.namespace }}"
           BACKEND_IMAGE="${{ steps.env.outputs.backend_image }}"
-          kubectl delete job seed-tickets -n "$NS" --ignore-not-found=true
+          kubectl delete job seed-tickets -n "$NS" --ignore-not-found=true --wait=true
+          until ! kubectl get job seed-tickets -n "$NS" 2>/dev/null; do echo "Attente suppression du job seed-tickets..."; sleep 2; done
           sed -e "s|BACKEND_IMAGE_PLACEHOLDER|$BACKEND_IMAGE|g" \
               -e "s|NAMESPACE_PLACEHOLDER|$NS|g" \
               k8s/seed-tickets-job.yaml | kubectl apply -f -
