@@ -69,8 +69,15 @@ export default function RegisterPage() {
   };
 
   const handleOAuth = (provider) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    window.location.href = `${origin}/api/auth/${provider}`;
+    if (typeof window === 'undefined') return;
+    const origin = window.location.origin;
+    const apiOrigin =
+      origin.startsWith('https://dev.') ? origin.replace('https://dev.', 'https://api.dev.') :
+      origin.startsWith('https://preprod.') ? origin.replace('https://preprod.', 'https://api.preprod.') :
+      origin === 'https://www.thetiptop-jeu.fr' || origin === 'https://thetiptop-jeu.fr' ? 'https://api.thetiptop-jeu.fr' :
+      origin;
+    const path = apiOrigin !== origin ? '/auth' : '/api/auth';
+    window.location.href = `${apiOrigin}${path}/${provider}`;
   };
 
   return (

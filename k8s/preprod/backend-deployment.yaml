@@ -49,7 +49,7 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: backend-config
-                  key: client-url
+                  key: backend-url
             - name: GOOGLE_CLIENT_ID
               valueFrom:
                 secretKeyRef:
