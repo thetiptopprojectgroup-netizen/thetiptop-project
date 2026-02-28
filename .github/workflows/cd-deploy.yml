@@ -320,9 +320,11 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
           echo "Application MinIO (PVC + Deployment + Service)..."
           kubectl apply -f k8s/minio/deployment.yaml
-          echo "Application Ingress MinIO (URLs minio.dev / minio.preprod / minio.thetiptop-jeu.fr)..."
-          kubectl apply -f k8s/minio/ingress.yaml
-          echo "MinIO déployé (accessible via les liens selon DNS + TLS)."
+          ENV="${{ steps.env.outputs.env }}"
+          if [ "$ENV" = "prod" ]; then MINIO_HOST="minio.thetiptop-jeu.fr"; else MINIO_HOST="minio.${ENV}.thetiptop-jeu.fr"; fi
+          echo "Application Ingress MinIO (host: $MINIO_HOST) pour certificat Let's Encrypt..."
+          sed -e "s|MINIO_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/ingress.yaml | kubectl apply -f -
+          echo "MinIO déployé (https://$MINIO_HOST après propagation TLS)."
 
       # ─── 8b. Backup MongoDB : CronJobs Restic vers MinIO
       - name: Appliquer Backup MongoDB (Restic MinIO)
