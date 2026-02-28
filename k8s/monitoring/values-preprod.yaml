@@ -1,0 +1,80 @@
+# Values Helm – Stack Prometheus + Grafana + Alertmanager – ENVIRONNEMENT PREPROD
+# Chart : prometheus-community/kube-prometheus-stack
+# Usage : helm upgrade --install monitoring prometheus-community/kube-prometheus-stack -n monitoring -f k8s/monitoring/values-preprod.yaml
+
+# ─── Prometheus ─────────────────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    retention: 30d
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        memory: 2Gi
+  service:
+    type: ClusterIP
+
+# ─── Grafana ───────────────────────────────────────────────────────────────
+grafana:
+  enabled: true
+  adminPassword: "changeme-preprod"   # À CHANGER : mot de passe fort dédié preprod
+  persistence:
+    enabled: true
+    size: 5Gi
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    hosts:
+      - grafana.preprod.thetiptop-jeu.fr
+    tls:
+      - secretName: grafana-preprod-tls
+        hosts:
+          - grafana.preprod.thetiptop-jeu.fr
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# ─── Alertmanager ───────────────────────────────────────────────────────────
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      receiver: 'null'
+      routes: []
+    receivers:
+      - name: 'null'
+
+# ─── Ressources preprod ────────────────────────────────────────────────────
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+nodeExporter:
+  enabled: true
+
+defaultRules:
+  create: true

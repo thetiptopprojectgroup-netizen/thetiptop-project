@@ -1,6 +1,12 @@
 # Monitoring – Prometheus, Grafana, Alertmanager
 
-Mise en place du monitoring (Phase 8 du plan) **étape par étape**, en commençant par l’environnement **dev**.
+Mise en place du monitoring (Phase 8 du plan) **étape par étape** pour **dev**, **preprod** et **prod**.
+
+| Fichier | Environnement |
+|---------|----------------|
+| `values-dev.yaml` | Dev |
+| `values-preprod.yaml` | Preprod |
+| `values-prod.yaml` | Prod |
 
 ---
 
@@ -162,10 +168,63 @@ kubectl -n monitoring get ingress
 
 ---
 
-## Préprod / Prod (plus tard)
+## Préprod – Déploiement
 
-- Copier et adapter `values-dev.yaml` en `values-preprod.yaml` et `values-prod.yaml` (autres domaines Grafana, rétention plus longue, mot de passe Grafana via Secret, ressources plus élevées).
-- Appliquer le même `namespace.yaml` et installer le stack avec le fichier de values correspondant sur chaque cluster.
+Sur le **cluster preprod** (contexte kubectl pointant sur preprod) :
+
+```powershell
+# Namespace
+kubectl apply -f k8s/monitoring/namespace.yaml
+
+# Helm
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm upgrade --install monitoring prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace -f k8s/monitoring/values-preprod.yaml
+
+# Vérifications
+kubectl -n monitoring get pods
+kubectl -n monitoring get ingress
+```
+
+- **Grafana** : https://grafana.preprod.thetiptop-jeu.fr (après configuration DNS).
+- **Mot de passe** : défini dans `values-preprod.yaml` (`adminPassword`) — à changer en production.
+
+---
+
+## Prod – Déploiement
+
+Sur le **cluster prod** (contexte kubectl pointant sur prod) :
+
+```powershell
+# Namespace
+kubectl apply -f k8s/monitoring/namespace.yaml
+
+# Helm (IMPORTANT : remplacer le mot de passe Grafana avant ou via --set)
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm upgrade --install monitoring prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace -f k8s/monitoring/values-prod.yaml --set grafana.adminPassword=VOTRE_MOT_DE_PASSE_FORT
+```
+
+Ou éditer `values-prod.yaml` et remplacer `CHANGE_ME_PROD` par un mot de passe fort avant d’exécuter (sans `--set`).
+
+- **Grafana** : https://grafana.thetiptop-jeu.fr (après configuration DNS).
+- **Rétention Prometheus** : 45 jours en prod (30 j en preprod, 15 j en dev).
+
+---
+
+## Récap par environnement
+
+| Environnement | Fichier values      | URL Grafana                           | Rétention Prometheus |
+|---------------|---------------------|----------------------------------------|----------------------|
+| Dev           | values-dev.yaml     | grafana.dev.thetiptop-jeu.fr           | 15 j                 |
+| Preprod       | values-preprod.yaml | grafana.preprod.thetiptop-jeu.fr      | 30 j                 |
+| Prod          | values-prod.yaml    | grafana.thetiptop-jeu.fr               | 45 j                 |
+
+**DNS à configurer** (vers l’IP du Load Balancer Traefik de chaque cluster) :
+
+- **Dev** : `grafana.dev.thetiptop-jeu.fr`
+- **Preprod** : `grafana.preprod.thetiptop-jeu.fr`
+- **Prod** : `grafana.thetiptop-jeu.fr`
 
 ---
 
