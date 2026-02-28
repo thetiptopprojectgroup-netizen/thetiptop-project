@@ -230,3 +230,4 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 | **3** | Logs (optionnel) | Mettre en place ELK ou Loki pour centraliser les logs (complète la Phase 8). |
 | **4** | Vault (Phase 7) | Si la spec l’exige : déployer Vault, migrer les secrets (MongoDB, JWT, OAuth) depuis les Secrets K8s. |
 | **5** | Gains rapides | E2E multi-navigateurs (Firefox + WebKit) en CI ; tag de version (v1.0.0) sur merge prod ; HPA en preprod. |
+  

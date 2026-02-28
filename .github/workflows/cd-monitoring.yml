@@ -10,9 +10,6 @@ on:
       - dev
       - preprod
       - prod
-    paths:
-      - 'k8s/monitoring/**'
-      - '.github/workflows/cd-monitoring.yml'
   workflow_dispatch:
     inputs:
       environment:
