@@ -81,6 +81,11 @@ spec:
                     secretKeyRef:
                       name: restic-s3-secret
                       key: secret-access-key
+                - name: AWS_ENDPOINT_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: restic-s3-secret
+                      key: endpoint-url
               volumeMounts:
                 - name: backup
                   mountPath: /backup
@@ -171,6 +176,11 @@ spec:
                     secretKeyRef:
                       name: restic-s3-secret
                       key: secret-access-key
+                - name: AWS_ENDPOINT_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: restic-s3-secret
+                      key: endpoint-url
               volumeMounts:
                 - name: backup
                   mountPath: /backup

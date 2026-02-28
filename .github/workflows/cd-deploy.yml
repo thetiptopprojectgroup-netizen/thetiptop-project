@@ -326,12 +326,14 @@ jobs:
             exit 0
           fi
           REPO="s3:${RESTIC_S3_REGION}.digitaloceanspaces.com/${RESTIC_S3_BUCKET}/mongodb-${ENV}"
+          ENDPOINT="https://${RESTIC_S3_REGION}.digitaloceanspaces.com"
           kubectl create secret generic restic-s3-secret \
             --namespace="$NS" \
             --from-literal=restic-repository="$REPO" \
             --from-literal=restic-password="$RESTIC_PASSWORD" \
             --from-literal=access-key-id="$RESTIC_S3_ACCESS_KEY_ID" \
             --from-literal=secret-access-key="$RESTIC_S3_SECRET_ACCESS_KEY" \
+            --from-literal=endpoint-url="$ENDPOINT" \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "Secret restic-s3-secret créé/mis à jour (repo: $REPO)."
 
