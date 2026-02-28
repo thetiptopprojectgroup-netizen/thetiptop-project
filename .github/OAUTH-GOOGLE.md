@@ -46,9 +46,11 @@ Redémarre le serveur. Les boutons « Continuer avec Google » sur les pages Con
 
 Le workflow CD injecte ces secrets dans le secret Kubernetes `backend-secret` (clés `google-client-id` et `google-client-secret`). Le déploiement backend les lit en variables d’environnement. S’ils sont absents, la connexion Google est simplement désactivée (pas d’erreur).
 
-3. **URI de redirection dans Google Cloud** : pour chaque environnement (preprod, prod), ajoute l’URI de redirection correspondante, par ex. :
-   - `https://preprod.thetiptop-jeu.fr/api/auth/google/callback`
-   - `https://ton-domaine-prod.fr/api/auth/google/callback`
+3. **URI de redirection dans Google Cloud** : le backend utilise le sous-domaine API pour le callback. Ajoute **toutes** ces URIs dans « URI de redirection autorisés » :
+   - `https://api.dev.thetiptop-jeu.fr/api/auth/google/callback`
+   - `https://api.preprod.thetiptop-jeu.fr/api/auth/google/callback`
+   - `https://api.thetiptop-jeu.fr/api/auth/google/callback`
+   - (optionnel, si tu utilises encore le même domaine) `https://dev.thetiptop-jeu.fr/api/auth/google/callback`, etc.
 
 ## 4. Comportement côté application
 
