@@ -300,17 +300,15 @@ jobs:
             kubectl describe statefulset mongodb -n "$NS" 2>/dev/null | tail -30
           fi
 
-      # ─── 8b. Backup MongoDB : 3 CronJobs (1h00, 17h15, 17h30 heure française = 0h00, 16h15, 16h30 UTC)
+      # ─── 8b. Backup MongoDB : 1 CronJob à 18h00 heure française (17h00 UTC)
       - name: Appliquer Backup MongoDB (Restic S3)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         run: |
           NS="${{ steps.env.outputs.namespace }}"
-          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" \
-              -e "s|NAME_1|mongodb-backup-1h|g"   -e "s|SCHEDULE_1|0 0 * * *|g" \
-              -e "s|NAME_2|mongodb-backup-1715|g" -e "s|SCHEDULE_2|15 16 * * *|g" \
-              -e "s|NAME_3|mongodb-backup-1730|g" -e "s|SCHEDULE_3|30 16 * * *|g" \
+          SCHEDULE="0 17 * * *"
+          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" -e "s|SCHEDULE_PLACEHOLDER|$SCHEDULE|g" \
               k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
-          echo "Backup MongoDB : 3 CronJobs (1h00, 17h15, 17h30 heure française) appliqués."
+          echo "Backup MongoDB : 2 CronJobs appliqués (18h00 FR = 17h00 UTC, 18h15 UTC)."
 
       - name: Créer secret Restic S3 (backup DO Spaces)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
