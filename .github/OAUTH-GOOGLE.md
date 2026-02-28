@@ -56,7 +56,21 @@ Le workflow CD injecte ces secrets dans le secret Kubernetes `backend-secret` (c
 - **Connexion suivante** : l’utilisateur est reconnu par `googleId` ou email, un JWT est émis.
 - **Lien avec un compte existant** : si un compte avec le même email existe déjà (inscription classique), il est rattaché au `googleId` et peut ensuite se connecter avec Google.
 
-## 5. Vérification
+## 5. Flux OAuth (pourquoi on voit d’abord `/api/auth/google` sans `/callback`)
+
+Quand tu cliques sur « Continuer avec Google » :
+
+1. **Première redirection** : le frontend envoie vers `https://<ton-domaine>/api/auth/google` (sans `/callback`). C’est **normal** : cette URL est celle qui **démarre** le flux OAuth.
+2. Le backend répond par une **redirection 302** vers la page de connexion Google (`accounts.google.com`). Tu dois donc voir la page « Sign in with Google » de Google.
+3. Après connexion, **Google** redirige vers l’URI enregistrée dans la console : `https://<ton-domaine>/api/auth/google/callback?code=...`. C’est à ce moment que l’URL contient `/callback`.
+4. Le backend échange le `code` contre un token, crée ou récupère l’utilisateur, puis redirige vers le frontend avec le JWT.
+
+**À vérifier si tu restes bloqué sur `/api/auth/google` (sans voir la page Google) :**
+
+- Dans la **Console Google Cloud** → Identifiants → ton client OAuth : les **URI de redirection autorisés** doivent contenir **exactement** l’URL avec `/callback`, par ex. `https://dev.thetiptop-jeu.fr/api/auth/google/callback` (et **pas** `https://dev.thetiptop-jeu.fr/api/auth/google`).
+- Le backend doit avoir `BACKEND_URL` = `https://dev.thetiptop-jeu.fr` (sans slash final) et les secrets `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` renseignés (ex. dans le secret Kubernetes `backend-secret` pour l’environnement dev). Sinon Passport ne peut pas rediriger vers Google et tu restes sur `/api/auth/google`.
+
+## 6. Vérification
 
 - En local : après avoir configuré `.env`, clique sur « Continuer avec Google » sur la page de connexion ou d’inscription. Tu dois être redirigé vers Google puis revenir sur l’app avec un token (ex. redirection vers `/dashboard` ou `/play`).
 - En preprod : après avoir ajouté les secrets GitHub et redéployé, le même flux doit fonctionner avec l’URL preprod configurée dans Google Cloud.
