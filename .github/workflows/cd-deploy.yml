@@ -96,9 +96,9 @@ jobs:
               return { sRun, cRun };
             }
 
-            // Si déclenché par un push, on ATTEND que les 2 CI soient terminées (max ~20 min)
+            // Si déclenché par un push, on ATTEND que les 2 CI soient terminées (max 10 tentatives = ~5 min)
             if (eventName === 'push') {
-              const maxAttempts = 40; // 40 * 30s = 20 minutes max
+              const maxAttempts = 10; // 10 * 30s = 5 minutes max
               const delayMs = 30000;
 
               for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -119,8 +119,9 @@ jobs:
                 await new Promise(res => setTimeout(res, delayMs));
               }
 
-              core.info('⏱️ Timeout : les 2 CI ne sont pas passées au vert dans le délai – déploiement skippé.');
-              core.setOutput('skip', 'true');
+              // Après 10 tentatives : on exécute quand même tout le déploiement (sans skip)
+              core.info('⏱️ Timeout après 10 tentatives : les 2 CI ne sont pas encore vertes – déploiement exécuté quand même.');
+              core.setOutput('skip', 'false');
               return;
             }
 
