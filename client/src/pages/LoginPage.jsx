@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Logo from '../components/common/Logo';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
@@ -11,6 +11,7 @@ import useAuthStore from '../store/authStore';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isLoading } = useAuthStore();
@@ -20,30 +21,38 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm();
 
+  const emailValue = watch('email', '');
+  const passwordValue = watch('password', '');
+  useEffect(() => {
+    setLoginError(null);
+  }, [emailValue, passwordValue]);
+
   const onSubmit = async (data) => {
+    setLoginError(null);
     const apiBase = import.meta.env.VITE_API_URL ?? '/api';
-    console.log('[Login] Soumission formulaire → API:', apiBase);
     try {
       const result = await login(data.email, data.password);
       if (result.success) {
         toast.success('Connexion réussie ! 🎉');
         navigate(from, { replace: true });
       } else {
+        setLoginError(result.error);
         toast.error(result.error);
       }
     } catch (err) {
-      console.error('[Login] Erreur:', err);
-      toast.error(err?.message || 'Erreur lors de la connexion');
+      const message = err?.response?.data?.message || err?.message || 'Erreur lors de la connexion';
+      setLoginError(message);
+      toast.error(message);
     }
   };
 
   const handleOAuth = (provider) => {
-    const apiUrl = import.meta.env.VITE_API_URL || '/api';
-    const baseUrl = apiUrl.replace('/api', '');
-    window.location.href = `${baseUrl}/api/auth/${provider}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    window.location.href = `${origin}/api/auth/${provider}`;
   };
 
   return (
@@ -102,6 +111,14 @@ export default function LoginPage() {
               <span className="px-4 bg-cream-50 text-tea-500">ou avec votre email</span>
             </div>
           </div>
+
+          {/* Message d'erreur de connexion */}
+          {loginError && (
+            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3" role="alert">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800 font-medium">{loginError}</p>
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">

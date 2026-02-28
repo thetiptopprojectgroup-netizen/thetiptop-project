@@ -76,6 +76,7 @@ export const adminService = {
   getStats: () => api.get('/admin/stats'),
   getGameStats: () => api.get('/admin/game-stats'),
   getGameSession: () => api.get('/admin/game-session'),
+  getSampleTickets: () => api.get('/admin/sample-tickets'),
 
   // Utilisateurs
   getUsers: (params) => api.get('/admin/users', { params }),

@@ -14,14 +14,20 @@ const configurePassport = () => {
     }
   });
 
-  // Google
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  // Base URL du backend (sans slash final) pour construire les callbacks OAuth
+  const rawBackend = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:5000';
+  const backendUrl = String(rawBackend).trim().replace(/\/+$/, '');
+
+  // Google (accepte aussi préfixe pour injection depuis secret K8s)
+  const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.FB_GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.FB_GOOGLE_CLIENT_SECRET;
+  if (googleClientId && googleClientSecret) {
     passport.use(
       new GoogleStrategy(
         {
-          clientID: process.env.GOOGLE_CLIENT_ID,
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          callbackURL: 'http://localhost:5000/api/auth/google/callback',
+          clientID: googleClientId,
+          clientSecret: googleClientSecret,
+          callbackURL: `${backendUrl}/api/auth/google/callback`,
           scope: ['profile', 'email'],
         },
         async (accessToken, refreshToken, profile, done) => {
@@ -58,14 +64,16 @@ const configurePassport = () => {
     );
   }
 
-  // Facebook
-  if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
+  // Facebook (accepte FACEBOOK_* ou FB_FACEBOOK_* pour injection depuis secret K8s avec --prefix=FB_)
+  const facebookAppId = process.env.FACEBOOK_APP_ID || process.env.FB_FACEBOOK_APP_ID;
+  const facebookAppSecret = process.env.FACEBOOK_APP_SECRET || process.env.FB_FACEBOOK_APP_SECRET;
+  if (facebookAppId && facebookAppSecret) {
     passport.use(
       new FacebookStrategy(
         {
-          clientID: process.env.FACEBOOK_APP_ID,
-          clientSecret: process.env.FACEBOOK_APP_SECRET,
-          callbackURL: 'http://localhost:5000/api/auth/facebook/callback',
+          clientID: facebookAppId,
+          clientSecret: facebookAppSecret,
+          callbackURL: `${backendUrl}/api/auth/facebook/callback`,
           profileFields: ['id', 'emails', 'name', 'picture.type(large)'],
         },
         async (accessToken, refreshToken, profile, done) => {

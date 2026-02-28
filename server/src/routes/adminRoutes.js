@@ -5,7 +5,7 @@ import {
   getUsers, updateUserRole, toggleUserStatus, deleteUser,
   getBoutiques, createBoutique, updateBoutique, deleteBoutique,
   getEmployees, createEmployee, updateEmployee, deleteEmployee,
-  getGameSession, getGameStats,
+  getGameSession, getGameStats, getSampleTicketsByVariety,
   getContestConfig, updateContestConfig,
 } from '../controllers/adminController.js';
 import { protect, adminOnly, employeeOrAdmin } from '../middlewares/auth.js';
@@ -52,5 +52,8 @@ router.delete('/employees/:id', deleteEmployee);
 
 // Session de jeu
 router.get('/game-session', getGameSession);
+
+// Aperçu : 2 tickets par variété (admin uniquement)
+router.get('/sample-tickets', getSampleTicketsByVariety);
 
 export default router;

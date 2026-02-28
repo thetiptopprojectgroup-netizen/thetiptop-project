@@ -14,7 +14,7 @@ export const register = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
-      return next(new AppError('Un compte existe déjà avec cet email', 400));
+      return next(new AppError('Un compte existe déjà avec cet email. Connectez-vous ou utilisez « Mot de passe oublié » si vous ne vous en souvenez plus.', 400));
     }
 
     const user = await User.create({
@@ -59,7 +59,7 @@ export const login = async (req, res, next) => {
     const user = await User.findOne({ email: email.toLowerCase() }).select('+mot_de_passe_hash');
 
     if (!user) {
-      return next(new AppError('Email ou mot de passe incorrect', 401));
+      return next(new AppError('Aucun compte n\'est associé à cet email.', 401));
     }
 
     if (!user.mot_de_passe_hash) {
@@ -71,11 +71,11 @@ export const login = async (req, res, next) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return next(new AppError('Email ou mot de passe incorrect', 401));
+      return next(new AppError('Mot de passe incorrect.', 401));
     }
 
     if (!user.actif) {
-      return next(new AppError('Votre compte a été désactivé', 401));
+      return next(new AppError('Votre compte a été désactivé. Contactez l\'administrateur.', 401));
     }
 
     const token = generateToken(user._id);
@@ -251,16 +251,17 @@ export const resetPassword = async (req, res, next) => {
 
 // @desc    OAuth callback
 export const oauthCallback = async (req, res) => {
+  const baseUrl = (process.env.CLIENT_URL || '').replace(/\/$/, '');
   try {
     if (!req.user) {
-      return res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`);
+      return res.redirect(`${baseUrl}/login?error=oauth_failed`);
     }
     const token = generateToken(req.user._id);
     req.user.date_derniere_connexion = new Date();
     await req.user.save({ validateBeforeSave: false });
-    res.redirect(`${process.env.CLIENT_URL}/oauth/callback?token=${token}`);
+    res.redirect(`${baseUrl}/oauth/callback?token=${token}`);
   } catch (error) {
-    res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_error`);
+    res.redirect(`${baseUrl}/login?error=oauth_error`);
   }
 };
 
