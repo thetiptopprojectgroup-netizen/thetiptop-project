@@ -118,14 +118,14 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 
 | Point du plan | Statut | Détail |
 |---------------|--------|--------|
-| Backups quotidiens production | ❌ Non fait | Pas de CronJob/script Restic |
-| Backups hebdomadaires dev/preprod | ❌ Non fait | Idem |
-| Stockage chiffré via MinIO (S3) | ❌ Non fait | MinIO non déployé/configuré |
-| Sauvegardes incrémentales versionnées | ❌ Non fait | Pas de Restic |
-| Tests de restauration mensuels en sandbox | ❌ Non fait | — |
-| Automatisation (cron + Docker) | ❌ Non fait | — |
+| Backups quotidiens production | ✅ Fait | CronJob `mongodb-backup` (18h00 FR + 18h15 UTC), Restic → MinIO |
+| Backups quotidiens dev/preprod | ✅ Fait | Même CronJobs par namespace (thetiptop-dev, thetiptop-preprod, thetiptop-prod) |
+| Stockage S3 via MinIO | ✅ Fait | Déploiement MinIO optionnel dans `k8s/minio/` ; repo Restic `s3:endpoint/bucket/mongodb-ENV` |
+| Sauvegardes incrémentales versionnées | ✅ Fait | Restic (incrémental, rétention 7 daily + 4 weekly) |
+| Tests de restauration réguliers | ✅ Fait | CronJob `mongodb-restore-test` (dimanche 6h UTC) + workflow « Trigger restore test » |
+| Automatisation (CronJobs K8s + CD) | ✅ Fait | Secret `restic-s3-secret` créé par le CD ; plan DR dans `.github/DISASTER-RECOVERY.md` |
 
-**À faire :** Définir la stratégie (Restic + MinIO ou autre), déployer MinIO, créer les jobs de backup (CronJobs ou conteneurs planifiés) et prévoir des tests de restauration.
+**Config :** Secrets GitHub `RESTIC_MINIO_ENDPOINT`, `RESTIC_MINIO_BUCKET`, `RESTIC_PASSWORD`, `RESTIC_S3_ACCESS_KEY_ID`, `RESTIC_S3_SECRET_ACCESS_KEY`. Déployer MinIO avec `k8s/minio/` puis lancer un déploiement CD.
 
 ---
 
@@ -156,7 +156,7 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 | 6 – Traefik + TLS | 5 | 0 | 0 |
 | 7 – Vault | 0 | 2 (secrets K8s) | 3 |
 | 8 – Monitoring (Prometheus, Grafana, ELK) | 4 | 0 | 1 (ELK / logs) |
-| 9 – Backups (Restic + MinIO) | 0 | 0 | 6 |
+| 9 – Backups (Restic + MinIO) | 6 | 0 | 0 |
 | 10 – DigitalOcean | 1 | 3 (specs à vérifier) | 2 |
 
 **Priorités recommandées pour la conformité complète au plan :**

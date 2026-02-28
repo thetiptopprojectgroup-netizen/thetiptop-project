@@ -56,7 +56,7 @@ jobs:
           kubectl get cronjob -n ${{ env.NAMESPACE }}
           echo ""
           echo "=== Secret restic-s3-secret existe ? ==="
-          if kubectl get secret restic-s3-secret -n ${{ env.NAMESPACE }} 2>/dev/null; then echo "Oui"; else echo "NON - le backup échouera sans ce secret (relancer un déploiement CD avec les 5 secrets GitHub configurés)"; fi
+          if kubectl get secret restic-s3-secret -n ${{ env.NAMESPACE }} 2>/dev/null; then echo "Oui"; else echo "NON - déployer CD avec secrets: RESTIC_MINIO_ENDPOINT, RESTIC_MINIO_BUCKET, RESTIC_PASSWORD, RESTIC_S3_ACCESS_KEY_ID, RESTIC_S3_SECRET_ACCESS_KEY"; fi
           echo ""
           echo "=== Derniers Jobs backup ==="
           kubectl get jobs -n ${{ env.NAMESPACE }} --sort-by=.metadata.creationTimestamp 2>/dev/null | tail -10
@@ -70,8 +70,8 @@ jobs:
           JOB_NAME="backup-manual-$(date +%s)"
           echo "job_name=$JOB_NAME" >> $GITHUB_OUTPUT
           kubectl create job "$JOB_NAME" -n "$NS" --from=cronjob/mongodb-backup
-          echo "Job $JOB_NAME créé. Attente de la fin (max 10 min)..."
-          kubectl wait --for=condition=complete job/"$JOB_NAME" -n "$NS" --timeout=600s || true
+          echo "Job $JOB_NAME créé. Attente de la fin (max 30 min pour gros dumps)..."
+          kubectl wait --for=condition=complete job/"$JOB_NAME" -n "$NS" --timeout=1800s || true
 
       - name: Afficher les logs du backup
         if: always()
@@ -79,10 +79,15 @@ jobs:
           KUBECONFIG: ${{ env.KUBECONFIG_PATH }}
         run: |
           JOB="${{ steps.backup-run.outputs.job_name }}"
+          NS="${{ env.NAMESPACE }}"
           if [ -n "$JOB" ]; then
-            echo "=== Logs du job $JOB ==="
-            kubectl logs job/"$JOB" -n ${{ env.NAMESPACE }} --all-containers=true 2>/dev/null || echo "Logs non disponibles."
+            echo "=== Logs mongodump (init container) ==="
+            kubectl logs job/"$JOB" -n "$NS" -c mongodump 2>/dev/null || echo "(aucun)"
+            echo ""
+            echo "=== Logs restic (upload MinIO) — à vérifier en cas d’échec ==="
+            POD=$(kubectl get pods -n "$NS" -l job-name="$JOB" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+            if [ -n "$POD" ]; then kubectl logs "$POD" -n "$NS" -c restic --tail=200 2>/dev/null || echo "Erreur ou pas encore de sortie restic."; else echo "Pod non trouvé."; fi
             echo ""
             echo "=== Statut du job ==="
-            kubectl get job "$JOB" -n ${{ env.NAMESPACE }} -o wide 2>/dev/null || true
+            kubectl get job "$JOB" -n "$NS" -o wide 2>/dev/null || true
           fi
