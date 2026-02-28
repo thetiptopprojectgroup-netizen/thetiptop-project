@@ -215,33 +215,36 @@ jobs:
 
             const getRuns = async (workflowId) => {
               const { data } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner, repo, workflow_id: workflowId, branch, per_page: 20
+                owner, repo, workflow_id: workflowId, branch, per_page: 25
               });
               return data.workflow_runs || [];
             };
             let serverRun, clientRun;
-            for (let attempt = 1; attempt <= 2; attempt++) {
-              const serverRuns = await getRuns(serverCi.id);
-              const clientRuns = await getRuns(clientCi.id);
+            const maxAttempts = 8;
+            const delayMs = 45000;
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              const [serverRuns, clientRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
               serverRun = serverRuns.find(r => r.head_sha === head_sha);
               clientRun = clientRuns.find(r => r.head_sha === head_sha);
+              const sStatus = serverRun ? (serverRun.status === 'completed' ? serverRun.conclusion : serverRun.status) : 'absent';
+              const cStatus = clientRun ? (clientRun.status === 'completed' ? clientRun.conclusion : clientRun.status) : 'absent';
+              core.info(`[${attempt}/${maxAttempts}] CI Server: ${sStatus} | CI Client: ${cStatus}`);
               if (serverRun?.conclusion === 'success' && clientRun?.conclusion === 'success') break;
-              if (attempt < 2) {
-                core.info('L\'autre CI pas encore verte. Attente 60s...');
-                await new Promise(r => setTimeout(r, 60000));
+              if (attempt < maxAttempts) {
+                core.info('Attente ' + (delayMs/1000) + 's avant nouvel essai...');
+                await new Promise(r => setTimeout(r, delayMs));
               }
             }
             if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
-              core.info('Les 2 CI ne sont pas encore vertes pour ce commit. La PR sera créée par le CD ou à la prochaine CI.');
+              core.info('Les 2 CI ne sont pas vertes pour ce commit. Relancez le workflow CD manuellement (Actions → CD - Server → Run workflow, branche ' + branch + ') pour créer la PR.');
               return;
             }
 
             const head = branch;
-            const { data: pulls } = await github.rest.pulls.list({
-              owner, repo, state: 'open', base, head: owner + ':' + head
-            });
-            if (pulls.length > 0) {
-              core.info('PR ' + head + ' → ' + base + ' déjà existante: #' + pulls[0].number);
+            const { data: allPulls } = await github.rest.pulls.list({ owner, repo, state: 'open', base, per_page: 30 });
+            const existing = allPulls.find(p => p.head.ref === head);
+            if (existing) {
+              core.info('PR ' + head + ' → ' + base + ' déjà existante: #' + existing.number);
               return;
             }
             const title = branch === 'dev' ? '🚀 Promotion dev → preprod' : '🎯 Promotion preprod → prod';

@@ -1,0 +1,56 @@
+# Créer à la main la PR de promotion (dev→preprod ou preprod→prod).
+# À lancer si la PR n'apparaît pas après les CI : Actions → Create promotion PR → Run workflow.
+name: Create promotion PR (manuel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'Branche source (dev ou preprod)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - preprod
+        default: 'dev'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  create-pr:
+    name: Créer la PR de promotion
+    runs-on: ubuntu-latest
+    steps:
+      - name: Créer la PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const head = '${{ github.event.inputs.source_branch }}';
+            const base = head === 'dev' ? 'preprod' : 'prod';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const { data: allPulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base, per_page: 30
+            });
+            const existing = allPulls.find(p => p.head.ref === head);
+            if (existing) {
+              core.info('PR ' + head + ' → ' + base + ' déjà existante: #' + existing.number);
+              core.info('Lien: ' + existing.html_url);
+              return;
+            }
+
+            const title = head === 'dev' ? '🚀 Promotion dev → preprod' : '🎯 Promotion preprod → prod';
+            const body = head === 'dev'
+              ? 'Promotion manuelle : CI Server et CI Client ont réussi sur `dev`.'
+              : 'Mise en production : CI Server et CI Client ont réussi sur `preprod`.';
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner, repo, head, base, title, body,
+              draft: head !== 'dev'
+            });
+            core.info('PR créée: #' + pr.number + ' – ' + pr.html_url);
+            core.summary.addRaw('**PR créée** : [' + pr.title + '](' + pr.html_url + ')').write();

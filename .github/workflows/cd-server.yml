@@ -60,26 +60,28 @@ jobs:
             const serverCi = workflows.find(w => w.name === 'CI - Server (Backend)');
             const clientCi = workflows.find(w => w.name === 'CI - Client (Frontend)');
             if (!serverCi || !clientCi) {
-              core.setFailed('Workflows CI introuvables.');
+              core.info('Workflows CI introuvables (CD exécuté depuis une branche sans ces workflows ?). Aucune PR créée.');
               return;
             }
 
             const getRuns = async (workflowId) => {
               const { data } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner, repo, workflow_id: workflowId, branch, per_page: 20
+                owner, repo, workflow_id: workflowId, branch, per_page: 25
               });
               return data.workflow_runs || [];
             };
             let serverRun, clientRun;
-            for (let attempt = 1; attempt <= 2; attempt++) {
+            const maxAttempts = 5;
+            const delayMs = 45000;
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
               const [serverRuns, clientRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
               serverRun = serverRuns.find(r => r.head_sha === head_sha);
               clientRun = clientRuns.find(r => r.head_sha === head_sha);
               if (serverRun?.conclusion === 'failure' || clientRun?.conclusion === 'failure') break;
               if (serverRun?.conclusion === 'success' && clientRun?.conclusion === 'success') break;
-              if (attempt < 2) {
-                core.info('Les 2 CI pas encore vertes. Attente 60s...');
-                await new Promise(r => setTimeout(r, 60000));
+              if (attempt < maxAttempts) {
+                core.info('Les 2 CI pas encore vertes. Attente ' + (delayMs/1000) + 's...');
+                await new Promise(r => setTimeout(r, delayMs));
               }
             }
 
@@ -97,11 +99,10 @@ jobs:
             // 3) Les deux CI sont vertes → créer la PR dev→preprod ou preprod→prod
             const base = branch === 'dev' ? 'preprod' : 'prod';
             const head = branch;
-            let { data: pulls } = await github.rest.pulls.list({
-              owner, repo, state: 'open', base, head: owner + ':' + head
-            });
-            if (pulls.length > 0) {
-              core.info(`PR ${head} → ${base} déjà existante: #${pulls[0].number}`);
+            const { data: allPulls } = await github.rest.pulls.list({ owner, repo, state: 'open', base, per_page: 30 });
+            const existing = allPulls.find(p => p.head.ref === head);
+            if (existing) {
+              core.info(`PR ${head} → ${base} déjà existante: #${existing.number}`);
               return;
             }
             const title = branch === 'dev' ? '🚀 Promotion dev → preprod' : '🎯 Promotion preprod → prod';

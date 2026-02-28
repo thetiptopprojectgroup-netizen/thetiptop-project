@@ -95,13 +95,13 @@ Les workflows **CD - Server** et **CD - Client** :
    - `dev` → `preprod` : PR normale (draft: false)
    - `preprod` → `prod` : PR en brouillon (draft: true)
 
-### Gestion de la concurrence
+### Gestion de la concurrence et création des PR de promotion
 
-- Les 2 CD (Server et Client) s'exécutent en parallèle (déclenchés par la fin de chaque CI). Chaque CD attend jusqu'à 60 s et réessaie une fois si l'autre CI n'est pas encore marquée succès.
-- Les jobs « Créer PR promotion » dans les CI (Server et Client) attendent aussi 60 s et réessaient une fois si l'autre CI n'est pas verte, pour limiter les cas où aucune PR n'est créée.
-- Celui qui voit les 2 CI vertes crée la PR ; l'autre voit que la PR existe déjà ou que les 2 CI ne sont pas encore vertes.
-- **Important** : quand le CD est déclenché par `workflow_run`, GitHub exécute le workflow depuis la **branche par défaut** du dépôt. Pour que la PR preprod→prod soit créée, les fichiers des workflows CD (et CI) doivent être à jour sur la branche par défaut (souvent `main` ou `dev`).
-- Si la PR preprod→prod n'apparaît pas : vérifier que les 2 CI sont vertes sur `preprod`, puis relancer **Actions** → **CD - Server** ou **CD - Client** → **Run workflow** (branche `preprod`, option Promouvoir).
+- **CI** : le job « Créer PR promotion » attend jusqu'à **8 × 45 s** (~6 min) que l'autre CI soit verte, avec logs à chaque essai (`CI Server: success | CI Client: in_progress`, etc.).
+- **CD** : chaque CD (déclenché par la fin d'une CI) attend jusqu'à **5 × 45 s** que les 2 CI soient vertes. Si les workflows CI sont introuvables (ex. CD lancé depuis une branche sans ces workflows), le job ne fait pas échouer le workflow.
+- La détection d'une PR déjà existante se fait en listant les PR ouvertes vers `base` puis en filtrant par `head.ref` (plus fiable que le paramètre `head` de l’API).
+- **Important** : quand le CD est déclenché par `workflow_run`, GitHub exécute le workflow depuis la **branche par défaut**. Pour que la PR soit créée automatiquement, les workflows doivent être à jour sur cette branche.
+- **Si aucune PR n’apparaît** : aller dans **Actions** → **Create promotion PR (manuel)** → **Run workflow**, choisir la branche source (`dev` ou `preprod`). La PR est créée sans vérifier les CI (à utiliser une fois les CI vertes).
 
 ---
 
