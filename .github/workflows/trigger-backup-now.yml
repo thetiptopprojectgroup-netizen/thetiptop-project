@@ -79,10 +79,14 @@ jobs:
           KUBECONFIG: ${{ env.KUBECONFIG_PATH }}
         run: |
           JOB="${{ steps.backup-run.outputs.job_name }}"
+          NS="${{ env.NAMESPACE }}"
           if [ -n "$JOB" ]; then
-            echo "=== Logs du job $JOB ==="
-            kubectl logs job/"$JOB" -n ${{ env.NAMESPACE }} --all-containers=true 2>/dev/null || echo "Logs non disponibles."
+            echo "=== Logs mongodump (init container) ==="
+            kubectl logs job/"$JOB" -n "$NS" -c mongodump 2>/dev/null || echo "(aucun)"
+            echo ""
+            echo "=== Logs restic (upload S3 / Space) — à vérifier en cas d’échec ==="
+            kubectl logs job/"$JOB" -n "$NS" -c restic 2>/dev/null || echo "Logs restic non disponibles."
             echo ""
             echo "=== Statut du job ==="
-            kubectl get job "$JOB" -n ${{ env.NAMESPACE }} -o wide 2>/dev/null || true
+            kubectl get job "$JOB" -n "$NS" -o wide 2>/dev/null || true
           fi
