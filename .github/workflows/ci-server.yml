@@ -221,11 +221,11 @@ jobs:
             };
             const serverRuns = await getRuns(serverCi.id);
             const clientRuns = await getRuns(clientCi.id);
-            const serverRun = serverRuns.find(r => r.head_sha === head_sha);
-            const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+            const serverRun = serverRuns.find(r => r.status === 'completed' && r.head_sha === head_sha);
+            const clientRun = clientRuns.find(r => r.status === 'completed' && r.head_sha === head_sha);
 
             if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
-              core.info('Les 2 CI ne sont pas encore vertes pour ce commit. La PR sera créée quand l\'autre CI aura terminé.');
+              core.info('Les 2 CI ne sont pas encore vertes pour ce commit (server=' + (serverRun?.conclusion || '?') + ', client=' + (clientRun?.conclusion || '?') + '). La PR sera créée quand l\'autre CI aura terminé.');
               return;
             }
 
