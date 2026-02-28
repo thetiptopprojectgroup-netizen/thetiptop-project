@@ -70,9 +70,18 @@ jobs:
               });
               return data.workflow_runs || [];
             };
-            const [serverRuns, clientRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
-            const serverRun = serverRuns.find(r => r.head_sha === head_sha);
-            const clientRun = clientRuns.find(r => r.head_sha === head_sha);
+            let serverRun, clientRun;
+            for (let attempt = 1; attempt <= 2; attempt++) {
+              const [serverRuns, clientRuns] = await Promise.all([getRuns(serverCi.id), getRuns(clientCi.id)]);
+              serverRun = serverRuns.find(r => r.head_sha === head_sha);
+              clientRun = clientRuns.find(r => r.head_sha === head_sha);
+              if (serverRun?.conclusion === 'failure' || clientRun?.conclusion === 'failure') break;
+              if (serverRun?.conclusion === 'success' && clientRun?.conclusion === 'success') break;
+              if (attempt < 2) {
+                core.info('Les 2 CI pas encore vertes. Attente 60s...');
+                await new Promise(r => setTimeout(r, 60000));
+              }
+            }
 
             // 1) Au moins une CI en échec → on fait échouer le job
             if (serverRun?.conclusion === 'failure' || clientRun?.conclusion === 'failure') {
@@ -108,13 +117,9 @@ jobs:
             } catch (err) {
               if (err.status === 422) {
                 const msg = (err.message || '').toLowerCase();
-                if (msg.includes('already exists')) {
-                  core.info('PR déjà existante (ignoré).');
-                } else if (msg.includes('no commits between')) {
-                  core.info(`Aucun commit à promouvoir entre ${head} et ${base} (ex. après reset). Aucune PR créée.`);
-                } else {
-                  throw err;
-                }
+                if (msg.includes('already exists')) core.info('PR déjà existante (ignoré).');
+                else if (msg.includes('no commits between')) core.info(`Aucun commit à promouvoir entre ${head} et ${base}. Aucune PR créée.`);
+                else core.info('Création PR refusée (422): ' + (err.message || err));
               } else {
                 throw err;
               }

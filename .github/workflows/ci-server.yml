@@ -219,13 +219,20 @@ jobs:
               });
               return data.workflow_runs || [];
             };
-            const serverRuns = await getRuns(serverCi.id);
-            const clientRuns = await getRuns(clientCi.id);
-            const serverRun = serverRuns.find(r => r.head_sha === head_sha);
-            const clientRun = clientRuns.find(r => r.head_sha === head_sha);
-
+            let serverRun, clientRun;
+            for (let attempt = 1; attempt <= 2; attempt++) {
+              const serverRuns = await getRuns(serverCi.id);
+              const clientRuns = await getRuns(clientCi.id);
+              serverRun = serverRuns.find(r => r.head_sha === head_sha);
+              clientRun = clientRuns.find(r => r.head_sha === head_sha);
+              if (serverRun?.conclusion === 'success' && clientRun?.conclusion === 'success') break;
+              if (attempt < 2) {
+                core.info('L\'autre CI pas encore verte. Attente 60s...');
+                await new Promise(r => setTimeout(r, 60000));
+              }
+            }
             if (serverRun?.conclusion !== 'success' || clientRun?.conclusion !== 'success') {
-              core.info('Les 2 CI ne sont pas encore vertes pour ce commit. La PR sera créée quand l\'autre CI aura terminé.');
+              core.info('Les 2 CI ne sont pas encore vertes pour ce commit. La PR sera créée par le CD ou à la prochaine CI.');
               return;
             }
 
@@ -250,13 +257,9 @@ jobs:
             } catch (err) {
               if (err.status === 422) {
                 const msg = (err.message || '').toLowerCase();
-                if (msg.includes('already exists')) {
-                  core.info('PR déjà existante (ignoré).');
-                } else if (msg.includes('no commits between')) {
-                  core.info('Aucun commit à promouvoir entre ' + head + ' et ' + base + ' (ex. après reset). Aucune PR créée.');
-                } else {
-                  throw err;
-                }
+                if (msg.includes('already exists')) core.info('PR déjà existante (ignoré).');
+                else if (msg.includes('no commits between')) core.info('Aucun commit à promouvoir entre ' + head + ' et ' + base + '. Aucune PR créée.');
+                else core.info('Création PR refusée (422): ' + (err.message || err));
               } else {
                 throw err;
               }

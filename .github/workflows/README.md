@@ -97,11 +97,11 @@ Les workflows **CD - Server** et **CD - Client** :
 
 ### Gestion de la concurrence
 
-- Les 2 CD (Server et Client) s'exécutent en parallèle (déclenchés par la fin de chaque CI)
-- Celui qui termine **après** que les 2 CI soient vertes crée la PR ; l'autre voit que les 2 CI ne sont pas encore vertes ou que la PR existe déjà
-- Si la PR preprod→prod n'apparaît pas après un merge dev→preprod : vérifier que les 2 CI sont vertes sur `preprod`, puis relancer manuellement **Actions** → **CD - Server** ou **CD - Client** → **Run workflow** (branche `preprod`, option Promouvoir)
-- Le second détecte la PR existante et se termine proprement
-- Pas de conflit, pas de duplication
+- Les 2 CD (Server et Client) s'exécutent en parallèle (déclenchés par la fin de chaque CI). Chaque CD attend jusqu'à 60 s et réessaie une fois si l'autre CI n'est pas encore marquée succès.
+- Les jobs « Créer PR promotion » dans les CI (Server et Client) attendent aussi 60 s et réessaient une fois si l'autre CI n'est pas verte, pour limiter les cas où aucune PR n'est créée.
+- Celui qui voit les 2 CI vertes crée la PR ; l'autre voit que la PR existe déjà ou que les 2 CI ne sont pas encore vertes.
+- **Important** : quand le CD est déclenché par `workflow_run`, GitHub exécute le workflow depuis la **branche par défaut** du dépôt. Pour que la PR preprod→prod soit créée, les fichiers des workflows CD (et CI) doivent être à jour sur la branche par défaut (souvent `main` ou `dev`).
+- Si la PR preprod→prod n'apparaît pas : vérifier que les 2 CI sont vertes sur `preprod`, puis relancer **Actions** → **CD - Server** ou **CD - Client** → **Run workflow** (branche `preprod`, option Promouvoir).
 
 ---
 
