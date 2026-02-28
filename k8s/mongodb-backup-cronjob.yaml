@@ -58,8 +58,8 @@ spec:
                 - -c
                 - |
                   set -e
-                  restic backup /backup --tag mongodb
-                  restic forget --keep-daily 7 --keep-weekly 4 --prune
+                  restic backup /backup --tag mongodb -v 2
+                  restic forget --keep-daily 7 --keep-weekly 4 --prune -v 2
               env:
                 - name: RESTIC_REPOSITORY
                   valueFrom:
@@ -148,8 +148,8 @@ spec:
                 - -c
                 - |
                   set -e
-                  restic backup /backup --tag mongodb
-                  restic forget --keep-daily 7 --keep-weekly 4 --prune
+                  restic backup /backup --tag mongodb -v 2
+                  restic forget --keep-daily 7 --keep-weekly 4 --prune -v 2
               env:
                 - name: RESTIC_REPOSITORY
                   valueFrom:
