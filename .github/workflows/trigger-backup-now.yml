@@ -70,8 +70,8 @@ jobs:
           JOB_NAME="backup-manual-$(date +%s)"
           echo "job_name=$JOB_NAME" >> $GITHUB_OUTPUT
           kubectl create job "$JOB_NAME" -n "$NS" --from=cronjob/mongodb-backup
-          echo "Job $JOB_NAME créé. Attente de la fin (max 10 min)..."
-          kubectl wait --for=condition=complete job/"$JOB_NAME" -n "$NS" --timeout=600s || true
+          echo "Job $JOB_NAME créé. Attente de la fin (max 30 min pour gros dumps)..."
+          kubectl wait --for=condition=complete job/"$JOB_NAME" -n "$NS" --timeout=1800s || true
 
       - name: Afficher les logs du backup
         if: always()
