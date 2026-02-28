@@ -80,7 +80,7 @@ app.use(passport.initialize());
 // Routes API
 app.use('/api', routes);
 
-// Routes OAuth aussi sous /auth (au cas où un proxy enlève le préfixe /api)
+// Routes OAuth aussi sous /auth (si le proxy/ingress enlève le préfixe /api → évite 404)
 app.use('/auth', authRoutes);
 
 // Route de bienvenue
