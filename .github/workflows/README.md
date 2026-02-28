@@ -41,8 +41,9 @@ Le projet utilise **4 pipelines distincts** pour orchestrer le cycle de vie du c
 - 🔄 **CD - Client** : Attend que CI Server ET CI Client soient verts
 
 **Résultat** :
-- Si les 2 CI passent → **PR automatique `preprod` → `prod`** (draft: true)
-- La PR est en mode brouillon pour forcer une revue manuelle avant production
+- Si les **2 CI** passent sur `preprod` → **PR automatique `preprod` → `prod`** (draft: true)
+- La PR est créée par le **dernier** des deux CD qui termine (car il voit alors les 2 CI vertes)
+- **Important** : après le merge, attendre que **CI - Server** et **CI - Client** soient toutes les deux vertes sur la branche `preprod` ; la PR preprod→prod apparaît ensuite (ou relancer manuellement le workflow CD avec « Promouvoir »)
 
 ---
 
@@ -96,8 +97,9 @@ Les workflows **CD - Server** et **CD - Client** :
 
 ### Gestion de la concurrence
 
-- Les 2 CD (Server et Client) s'exécutent en parallèle
-- Le premier qui termine crée la PR
+- Les 2 CD (Server et Client) s'exécutent en parallèle (déclenchés par la fin de chaque CI)
+- Celui qui termine **après** que les 2 CI soient vertes crée la PR ; l'autre voit que les 2 CI ne sont pas encore vertes ou que la PR existe déjà
+- Si la PR preprod→prod n'apparaît pas après un merge dev→preprod : vérifier que les 2 CI sont vertes sur `preprod`, puis relancer manuellement **Actions** → **CD - Server** ou **CD - Client** → **Run workflow** (branche `preprod`, option Promouvoir)
 - Le second détecte la PR existante et se termine proprement
 - Pas de conflit, pas de duplication
 
