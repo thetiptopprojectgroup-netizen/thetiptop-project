@@ -89,11 +89,14 @@ Créer les enregistrements DNS **A** chez votre registrar (OVH, Gandi, etc.) :
 |---------|-------------|------|
 | **dev** | `dev.thetiptop-jeu.fr` | IP du LoadBalancer dev |
 | **dev** | `api.dev.thetiptop-jeu.fr` | IP du LoadBalancer dev |
+| **dev** | `minio.dev.thetiptop-jeu.fr` | IP du LoadBalancer dev (console MinIO) |
 | **preprod** | `preprod.thetiptop-jeu.fr` | IP du LoadBalancer preprod |
 | **preprod** | `api.preprod.thetiptop-jeu.fr` | IP du LoadBalancer preprod |
+| **preprod** | `minio.preprod.thetiptop-jeu.fr` | IP du LoadBalancer preprod (console MinIO) |
 | **prod** | `thetiptop-jeu.fr` | IP du LoadBalancer prod |
 | **prod** | `www.thetiptop-jeu.fr` | IP du LoadBalancer prod |
 | **prod** | `api.thetiptop-jeu.fr` | IP du LoadBalancer prod |
+| **prod** | `minio.thetiptop-jeu.fr` | IP du LoadBalancer prod (console MinIO) |
 
 ---
 

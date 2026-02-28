@@ -1,5 +1,7 @@
-# Backup MongoDB : mongodump puis upload vers DO Spaces via AWS CLI (s3 sync).
-# 18h00 FR (17h00 UTC) + 18h15 UTC. Secret : restic-s3-secret (access-key-id, secret-access-key, endpoint-url, s3-uri).
+# Backup MongoDB : mongodump → Restic → MinIO (S3).
+# Planifié 18h00 FR (17h00 UTC) + 18h15 UTC.
+# Secret requis dans le namespace : restic-s3-secret (restic-repository, restic-password, access-key-id, secret-access-key).
+# RESTIC_REPOSITORY = s3:http://minio.minio.svc.cluster.local:9000/BUCKET/mongodb-ENV (créé par le CD).
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -50,18 +52,31 @@ spec:
                 requests: { cpu: 100m, memory: 256Mi }
                 limits: { cpu: 500m, memory: 512Mi }
           containers:
-            - name: s3-upload
-              image: amazon/aws-cli:2.15
+            - name: restic
+              image: restic/restic:0.16
               command:
                 - /bin/sh
                 - -c
                 - |
                   set -e
-                  SUFFIX=$(date +%Y-%m-%d_%H%M%S)
-                  echo "Upload vers $S3_URI/$SUFFIX ..."
-                  aws s3 sync /backup "$S3_URI/$SUFFIX/" --endpoint-url "$AWS_ENDPOINT_URL"
-                  echo "Upload terminé."
+                  echo "Initialisation repo restic si besoin..."
+                  restic snapshots 2>/dev/null || restic init
+                  echo "Backup vers MinIO..."
+                  restic backup /backup --tag mongodb -v
+                  echo "Rétention: garder 7 quotidiens, 4 hebdomadaires..."
+                  restic forget --keep-daily 7 --keep-weekly 4 --prune -v
+                  echo "Backup Restic terminé."
               env:
+                - name: RESTIC_REPOSITORY
+                  valueFrom:
+                    secretKeyRef:
+                      name: restic-s3-secret
+                      key: restic-repository
+                - name: RESTIC_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: restic-s3-secret
+                      key: restic-password
                 - name: AWS_ACCESS_KEY_ID
                   valueFrom:
                     secretKeyRef:
@@ -72,16 +87,6 @@ spec:
                     secretKeyRef:
                       name: restic-s3-secret
                       key: secret-access-key
-                - name: AWS_ENDPOINT_URL
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: endpoint-url
-                - name: S3_URI
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: s3-uri
               volumeMounts:
                 - name: backup
                   mountPath: /backup
@@ -142,18 +147,28 @@ spec:
                 requests: { cpu: 100m, memory: 256Mi }
                 limits: { cpu: 500m, memory: 512Mi }
           containers:
-            - name: s3-upload
-              image: amazon/aws-cli:2.15
+            - name: restic
+              image: restic/restic:0.16
               command:
                 - /bin/sh
                 - -c
                 - |
                   set -e
-                  SUFFIX=$(date +%Y-%m-%d_%H%M%S)
-                  echo "Upload vers $S3_URI/$SUFFIX ..."
-                  aws s3 sync /backup "$S3_URI/$SUFFIX/" --endpoint-url "$AWS_ENDPOINT_URL"
-                  echo "Upload terminé."
+                  restic snapshots 2>/dev/null || restic init
+                  restic backup /backup --tag mongodb -v
+                  restic forget --keep-daily 7 --keep-weekly 4 --prune -v
+                  echo "Backup Restic terminé."
               env:
+                - name: RESTIC_REPOSITORY
+                  valueFrom:
+                    secretKeyRef:
+                      name: restic-s3-secret
+                      key: restic-repository
+                - name: RESTIC_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: restic-s3-secret
+                      key: restic-password
                 - name: AWS_ACCESS_KEY_ID
                   valueFrom:
                     secretKeyRef:
@@ -164,16 +179,6 @@ spec:
                     secretKeyRef:
                       name: restic-s3-secret
                       key: secret-access-key
-                - name: AWS_ENDPOINT_URL
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: endpoint-url
-                - name: S3_URI
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: s3-uri
               volumeMounts:
                 - name: backup
                   mountPath: /backup
