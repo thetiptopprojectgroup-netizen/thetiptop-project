@@ -374,6 +374,7 @@ jobs:
         run: |
           ENV="${{ steps.env.outputs.env }}"
           kubectl apply -f "k8s/$ENV/ingress.yaml"
+          if [ -f "k8s/$ENV/ingress-api.yaml" ]; then kubectl apply -f "k8s/$ENV/ingress-api.yaml"; fi
 
       # ─── 11. Résumé ───────────────────────────────────────────────────
       - name: Résumé du déploiement
