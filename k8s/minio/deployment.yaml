@@ -1,6 +1,5 @@
-# MinIO S3-compatible storage pour backups Restic.
-# Le secret minio-credentials est créé par le CD (GitHub Actions) à partir des secrets RESTIC_S3_*.
-# Les CronJobs backup pointent vers http://minio.minio.svc.cluster.local:9000
+# MinIO : le secret minio-credentials est créé par le CD (GitHub Secrets).
+# Endpoint interne pour Restic : http://minio.minio.svc.cluster.local:9000
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

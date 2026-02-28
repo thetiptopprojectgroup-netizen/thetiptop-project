@@ -118,14 +118,13 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 
 | Point du plan | Statut | Détail |
 |---------------|--------|--------|
-| Backups quotidiens production | ✅ Fait | CronJob `mongodb-backup` (18h00 FR + 18h15 UTC), Restic → MinIO |
-| Backups quotidiens dev/preprod | ✅ Fait | Même CronJobs par namespace (thetiptop-dev, thetiptop-preprod, thetiptop-prod) |
-| Stockage S3 via MinIO | ✅ Fait | Déploiement MinIO optionnel dans `k8s/minio/` ; repo Restic `s3:endpoint/bucket/mongodb-ENV` |
-| Sauvegardes incrémentales versionnées | ✅ Fait | Restic (incrémental, rétention 7 daily + 4 weekly) |
-| Tests de restauration réguliers | ✅ Fait | CronJob `mongodb-restore-test` (dimanche 6h UTC) + workflow « Trigger restore test » |
-| Automatisation (CronJobs K8s + CD) | ✅ Fait | Secret `restic-s3-secret` créé par le CD ; plan DR dans `.github/DISASTER-RECOVERY.md` |
+| Backups quotidiens (dev/preprod/prod) | ✅ Fait | CronJobs 17h00 UTC + 18h15 UTC, Restic → MinIO |
+| Stockage S3 via MinIO | ✅ Fait | MinIO par cluster, Ingress 1 host = HTTPS valide |
+| Sauvegardes incrémentales (Restic) | ✅ Fait | keep-daily 7, keep-weekly 4 |
+| Tests de restauration | ✅ Fait | CronJob dimanche 6h UTC + workflow Trigger backup now |
+| Automatisation (CD) | ✅ Fait | MinIO + secret restic + CronJobs au push |
 
-**Config :** Secrets GitHub `RESTIC_MINIO_ENDPOINT`, `RESTIC_MINIO_BUCKET`, `RESTIC_PASSWORD`, `RESTIC_S3_ACCESS_KEY_ID`, `RESTIC_S3_SECRET_ACCESS_KEY`. Déployer MinIO avec `k8s/minio/` puis lancer un déploiement CD.
+**Doc** : `.github/BACKUP-MINIO-RESTIC.md`. DNS : minio.dev / minio.preprod / minio.thetiptop-jeu.fr.
 
 ---
 
