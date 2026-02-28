@@ -155,7 +155,7 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 | 5 – Kubernetes + Helm | 5 | 1 (HPA uniquement en prod) | 1 (Helm) |
 | 6 – Traefik + TLS | 5 | 0 | 0 |
 | 7 – Vault | 0 | 2 (secrets K8s) | 3 |
-| 8 – Monitoring (Prometheus, Grafana, ELK) | 0 | 0 | 5 |
+| 8 – Monitoring (Prometheus, Grafana, ELK) | 4 | 0 | 1 (ELK / logs) |
 | 9 – Backups (Restic + MinIO) | 0 | 0 | 6 |
 | 10 – DigitalOcean | 1 | 3 (specs à vérifier) | 2 |
 
@@ -184,13 +184,10 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 | **Versioning sémantique** | Tags `v1.0.0` pour les releases, traçabilité. | Créer un workflow (ou étape dans le CD) qui crée un tag Git + release GitHub quand on merge vers `prod` (ou manuellement). |
 | **HPA en preprod (optionnel)** | Même comportement qu’en prod, tests de montée en charge. | Dupliquer les `HorizontalPodAutoscaler` de `k8s/prod/` vers `k8s/preprod/` avec des min/max adaptés (ex. 1→4). |
 
-### 2. Monitoring (Phase 8) – À faire en premier côté “infra”
+### 2. Monitoring (Phase 8) – En place (Prometheus, Grafana, Alertmanager)
 
-**Pourquoi en premier :** sans métriques ni logs centralisés, on ne voit pas les pannes ni les perfs. C’est la base avant d’ajouter Vault ou des backups complexes.
-
-- **Prometheus + Grafana** : déployer dans le cluster (Helm ou manifests), scraper les métriques des Pods/Services. Commencer par **un seul environnement (dev)** puis dupliquer en preprod/prod.
-- **Alertmanager** : règles basiques (ex. Pod down, erreurs 5xx).
-- **Logs** : soit un sidecar/daemonset qui envoie les logs vers un stockage (ex. MinIO ou un service managé), soit un déploiement ELK/Loki **d’abord en dev** pour valider le flux.
+- **Prometheus + Grafana + Alertmanager** : déployés via `k8s/monitoring/` (values-dev, values-preprod, values-prod). À déployer sur chaque cluster si pas encore fait.
+- **Reste** : centralisation des **logs** (ELK ou Loki) – optionnel pour compléter la Phase 8.
 
 ### 3. Backups (Phase 9) – Juste après la visibilité
 
@@ -217,7 +214,19 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 
 ### Résumé “par quoi commencer”
 
-1. **Cette semaine** : E2E multi-navigateurs en CI + (optionnel) tag de version sur merge vers prod.  
-2. **Ensuite** : Prometheus + Grafana (au moins en dev).  
-3. **Puis** : MinIO + Restic + CronJob de backup (d’abord dev, test de restauration).  
-4. **Enfin** : Vault (migration des secrets), puis Helm si requis.
+1. ~~Prometheus + Grafana~~ : **fait** (dev / preprod / prod via `k8s/monitoring/`).  
+2. **À faire maintenant** : Backups (MinIO + Restic + CronJob), puis optionnellement ELK/Loki pour les logs.  
+3. **Ensuite** : Vault (migration des secrets) si la spec l’exige.  
+4. **Gains rapides** : E2E multi-navigateurs en CI, versioning sémantique (tags), HPA en preprod.
+
+---
+
+## Prochaines étapes (à faire maintenant)
+
+| Priorité | Action | Détail |
+|----------|--------|--------|
+| **1** | Vérifier le monitoring sur les 3 clusters | Si pas encore fait : déployer le stack (Helm + values-preprod / values-prod) sur **preprod** et **prod**. Vérifier l’accès à Grafana (DNS : grafana.preprod.thetiptop-jeu.fr, grafana.thetiptop-jeu.fr). |
+| **2** | **Backups (Phase 9)** | Déployer MinIO (bucket S3), puis Restic ou un CronJob qui fait un dump MongoDB et l’envoie vers MinIO. Commencer en **dev**, tester une restauration, puis étendre en preprod/prod. |
+| **3** | Logs (optionnel) | Mettre en place ELK ou Loki pour centraliser les logs (complète la Phase 8). |
+| **4** | Vault (Phase 7) | Si la spec l’exige : déployer Vault, migrer les secrets (MongoDB, JWT, OAuth) depuis les Secrets K8s. |
+| **5** | Gains rapides | E2E multi-navigateurs (Firefox + WebKit) en CI ; tag de version (v1.0.0) sur merge prod ; HPA en preprod. |
