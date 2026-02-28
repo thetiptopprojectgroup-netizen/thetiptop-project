@@ -300,6 +300,43 @@ jobs:
             kubectl describe statefulset mongodb -n "$NS" 2>/dev/null | tail -30
           fi
 
+      # ─── 8b. Backup MongoDB : 3 CronJobs (1h00, 17h15, 17h30 heure française = 0h00, 16h15, 16h30 UTC)
+      - name: Appliquer Backup MongoDB (Restic S3)
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          NS="${{ steps.env.outputs.namespace }}"
+          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" \
+              -e "s|NAME_1|mongodb-backup-1h|g"   -e "s|SCHEDULE_1|0 0 * * *|g" \
+              -e "s|NAME_2|mongodb-backup-1715|g" -e "s|SCHEDULE_2|15 16 * * *|g" \
+              -e "s|NAME_3|mongodb-backup-1730|g" -e "s|SCHEDULE_3|30 16 * * *|g" \
+              k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
+          echo "Backup MongoDB : 3 CronJobs (1h00, 17h15, 17h30 heure française) appliqués."
+
+      - name: Créer secret Restic S3 (backup DO Spaces)
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        env:
+          RESTIC_S3_ACCESS_KEY_ID: ${{ secrets.RESTIC_S3_ACCESS_KEY_ID }}
+          RESTIC_S3_SECRET_ACCESS_KEY: ${{ secrets.RESTIC_S3_SECRET_ACCESS_KEY }}
+          RESTIC_PASSWORD: ${{ secrets.RESTIC_PASSWORD }}
+          RESTIC_S3_REGION: ${{ secrets.RESTIC_S3_REGION }}
+          RESTIC_S3_BUCKET: ${{ secrets.RESTIC_S3_BUCKET }}
+        run: |
+          NS="${{ steps.env.outputs.namespace }}"
+          ENV="${{ steps.env.outputs.env }}"
+          if [ -z "$RESTIC_S3_ACCESS_KEY_ID" ] || [ -z "$RESTIC_S3_SECRET_ACCESS_KEY" ] || [ -z "$RESTIC_PASSWORD" ] || [ -z "$RESTIC_S3_REGION" ] || [ -z "$RESTIC_S3_BUCKET" ]; then
+            echo "Restic S3 non configuré (secrets GitHub manquants). Backup S3 désactivé ; aucun impact sur le déploiement."
+            exit 0
+          fi
+          REPO="s3:${RESTIC_S3_REGION}.digitaloceanspaces.com/${RESTIC_S3_BUCKET}/mongodb-${ENV}"
+          kubectl create secret generic restic-s3-secret \
+            --namespace="$NS" \
+            --from-literal=restic-repository="$REPO" \
+            --from-literal=restic-password="$RESTIC_PASSWORD" \
+            --from-literal=access-key-id="$RESTIC_S3_ACCESS_KEY_ID" \
+            --from-literal=secret-access-key="$RESTIC_S3_SECRET_ACCESS_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "Secret restic-s3-secret créé/mis à jour (repo: $REPO)."
+
       # ─── 9. Déployer Backend & Frontend avec la nouvelle image ────────
       - name: Déployer Backend (nouvelle image)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
