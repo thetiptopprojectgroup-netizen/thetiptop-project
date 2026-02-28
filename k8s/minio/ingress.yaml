@@ -1,6 +1,6 @@
-# MinIO accessible via URL par environnement (dev, preprod, prod).
-# Une même instance MinIO ; trois liens pour y accéder (console + API S3).
-# TLS via cert-manager (Let's Encrypt). À déployer une fois (namespace minio).
+# MinIO accessible via URL (un hostname par cluster pour que Let's Encrypt puisse émettre le certificat).
+# Remplacer MINIO_HOST_PLACEHOLDER par le CD : minio.dev.thetiptop-jeu.fr (dev), minio.preprod... (preprod), minio.thetiptop-jeu.fr (prod).
+# TLS via cert-manager (Let's Encrypt). Entrypoint websecure pour utiliser le certificat.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -9,35 +9,14 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: traefik
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
 spec:
   tls:
     - hosts:
-        - minio.dev.thetiptop-jeu.fr
-        - minio.preprod.thetiptop-jeu.fr
-        - minio.thetiptop-jeu.fr
+        - MINIO_HOST_PLACEHOLDER
       secretName: minio-tls
   rules:
-    - host: minio.dev.thetiptop-jeu.fr
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: minio
-                port:
-                  number: 9000
-    - host: minio.preprod.thetiptop-jeu.fr
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: minio
-                port:
-                  number: 9000
-    - host: minio.thetiptop-jeu.fr
+    - host: MINIO_HOST_PLACEHOLDER
       http:
         paths:
           - path: /
