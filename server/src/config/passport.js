@@ -14,7 +14,9 @@ const configurePassport = () => {
     }
   });
 
-  const backendUrl = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:5000';
+  // Base URL du backend (sans slash final) pour construire les callbacks OAuth
+  const rawBackend = process.env.BACKEND_URL || process.env.API_URL || 'http://localhost:5000';
+  const backendUrl = String(rawBackend).trim().replace(/\/+$/, '');
 
   // Google (accepte aussi préfixe pour injection depuis secret K8s)
   const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.FB_GOOGLE_CLIENT_ID;
