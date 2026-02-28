@@ -1,0 +1,12 @@
+# PVC pour stocker les dumps MongoDB (CronJob de backup).
+# Appliqué avec sed NAMESPACE_PLACEHOLDER → namespace de l'environnement.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-backup-pvc
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi

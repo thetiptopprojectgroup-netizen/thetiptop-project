@@ -25,8 +25,23 @@ Mise en place du monitoring (Phase 8 du plan) **étape par étape** pour **dev**
 ## Prérequis
 
 - Cluster Kubernetes **dev** accessible avec `kubectl`.
-- **Helm 3** installé en local (`helm version`).
+- **Helm 3** installé en local (`helm version`) pour un déploiement manuel.
 - Traefik et cert-manager déjà déployés sur le cluster (pour l’Ingress Grafana en HTTPS).
+
+---
+
+## Déploiement automatique (GitHub Actions)
+
+Le workflow **`.github/workflows/cd-monitoring.yml`** déploie le stack Monitoring (Prometheus + Grafana + Alertmanager) sur le cluster correspondant à la branche ou à l’environnement choisi.
+
+- **Déclenchement automatique** : à chaque push sur `dev`, `preprod` ou `prod` qui modifie des fichiers dans `k8s/monitoring/` (ou le workflow lui-même).
+- **Déclenchement manuel** : Actions → **CD - Monitoring (Grafana / Prometheus)** → **Run workflow** → choisir l’environnement (dev, preprod, prod).
+
+**Secrets GitHub utilisés** (déjà présents pour le CD principal) :
+- `KUBECONFIG_DEV`, `KUBECONFIG_PREPROD`, `KUBECONFIG_PROD` (kubeconfig base64 de chaque cluster).
+
+**Secret optionnel** :
+- `GRAFANA_ADMIN_PASSWORD` : si défini, ce mot de passe est utilisé pour l’utilisateur Grafana `admin` à la place de la valeur dans les fichiers `values-*.yaml`. Pratique pour prod sans mettre le mot de passe dans le dépôt.
 
 ---
 
