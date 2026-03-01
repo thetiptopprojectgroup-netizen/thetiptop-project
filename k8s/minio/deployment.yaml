@@ -1,6 +1,6 @@
 # MinIO : stockage S3 pour les backups Restic.
 # Secret minio-credentials (root-user, root-password) créé par le CD.
-# Console UI : Ingress → nginx:80 → / vers MinIO console:9001, /api vers MinIO API:9000 (évite boucle 307).
+# Console UI : https://minio.../console/ ; API à la racine (MINIO_SERVER_URL sans chemin).
 # Accès API (Restic) : http://minio.minio.svc.cluster.local:9000
 ---
 apiVersion: v1
@@ -53,8 +53,9 @@ spec:
                   name: minio-credentials
                   key: root-password
             # API exposée sous /api pour que la console (/) appelle l’API sans boucle de redirection.
+            # Doit être l’URL publique de l’API sans chemin (format attendu https://host)
             - name: MINIO_SERVER_URL
-              value: "https://MINIO_PUBLIC_HOST_PLACEHOLDER/api"
+              value: "https://MINIO_PUBLIC_HOST_PLACEHOLDER"
           ports:
             - containerPort: 9000
               name: api

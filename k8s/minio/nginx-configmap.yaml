@@ -1,4 +1,4 @@
-# Nginx : / → console MinIO (9001), /api → API MinIO (9000). Connexion possible comme Harbor.
+# Nginx : / = API MinIO (9000), /console/ = console MinIO (9001). Accès UI : https://minio.../console/
 # L’API S3 (Restic) utilise http://minio.minio.svc.cluster.local:9000 en cluster.
 ---
 apiVersion: v1
@@ -10,19 +10,8 @@ data:
   default.conf: |
     server {
       listen 80;
-      # API MinIO sous /api (la console appelle cette URL depuis le navigateur)
-      location /api/ {
-        proxy_pass http://127.0.0.1:9000/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Port "443";
-        proxy_buffering off;
-      }
-      # Console MinIO (login + interface) sur /
-      location / {
+      # Console MinIO (login + interface) sous /console/
+      location /console/ {
         proxy_pass http://127.0.0.1:9001/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -34,5 +23,16 @@ data:
         proxy_set_header Connection "upgrade";
         proxy_buffering off;
         chunked_transfer_encoding off;
+      }
+      # API MinIO (S3 + santé) à la racine pour MINIO_SERVER_URL sans chemin
+      location / {
+        proxy_pass http://127.0.0.1:9000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port "443";
+        proxy_buffering off;
       }
     }

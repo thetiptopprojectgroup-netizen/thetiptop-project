@@ -48,11 +48,11 @@ Un **push** sur `dev`, puis `preprod`, puis `prod` déploie MinIO, le secret Res
 
 ## Interface MinIO (connexion comme Harbor)
 
-- **Dev** : https://minio.dev.thetiptop-jeu.fr  
-- **Preprod** : https://minio.preprod.thetiptop-jeu.fr  
-- **Prod** : https://minio.thetiptop-jeu.fr  
+- **Dev** : https://minio.dev.thetiptop-jeu.fr/console/  
+- **Preprod** : https://minio.preprod.thetiptop-jeu.fr/console/  
+- **Prod** : https://minio.thetiptop-jeu.fr/console/  
 
-Ouvre l’URL dans le navigateur → **écran de connexion MinIO**.  
+Ouvre l’URL (avec `/console/`) dans le navigateur → **écran de connexion MinIO**.  
 **Identifiant** = valeur de `RESTIC_S3_ACCESS_KEY_ID`, **Mot de passe** = valeur de `RESTIC_S3_SECRET_ACCESS_KEY`.  
 Après connexion tu peux parcourir les **buckets** et les **objets** (dont les backups Restic).
 
@@ -205,5 +205,5 @@ kubectl get cronjobs -n thetiptop-dev
 1. Créer les **5 secrets** GitHub.  
 2. Créer les **3 enregistrements A** DNS (minio.dev, minio.preprod, minio → IP du LB de chaque cluster).  
 3. **Push** sur dev (puis preprod, prod).  
-4. Après 2–3 min, tester https://minio.dev.thetiptop-jeu.fr en navigation privée.  
+4. Après 2–3 min, tester https://minio.dev.thetiptop-jeu.fr/console/ en navigation privée.  
 5. Les backups et le test de restauration tournent automatiquement selon les plannings ci‑dessus.
