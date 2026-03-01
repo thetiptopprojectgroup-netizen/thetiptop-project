@@ -1,5 +1,5 @@
-# Nginx devant MinIO : réécrit les redirections (Location) pour enlever le port
-# (ex. https://minio.dev...:41011/ → https://minio.dev.../) et évite boucle / timeout.
+# Nginx devant MinIO : page d’info à la racine (plus de proxy vers MinIO sur /) → plus de boucle 307.
+# L’API S3 (Restic) utilise directement minio:9000 en cluster.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,19 +9,29 @@ data:
   default.conf: |
     server {
       listen 80;
+      root /etc/nginx/conf.d;
+      index index.html;
       location / {
-        proxy_pass http://127.0.0.1:9000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Port "443";
-        proxy_buffering off;
-        # Enlever le port des redirections (ex. :41011)
-        proxy_redirect ~^https://([^:]+):\d+(/.*)?$ https://$1$2;
-        proxy_redirect ~^http://([^:]+):\d+(/.*)?$ http://$1$2;
-        # Forcer HTTPS dans Location si MinIO renvoie http://
-        proxy_redirect ~^http://([^/]+)(/.*)?$ https://$1$2;
+        try_files $uri $uri/ /index.html;
       }
     }
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>MinIO – Backups</title>
+      <style>
+        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { color: #333; }
+        p { color: #666; line-height: 1.5; }
+        code { background: #f4f4f4; padding: 0.2em 0.4em; border-radius: 4px; }
+      </style>
+    </head>
+    <body>
+      <h1>MinIO – Backups</h1>
+      <p>Le stockage S3 (MinIO) est actif. Les backups MongoDB (Restic) utilisent l’API en interne.</p>
+      <p>Pour lister les buckets ou les objets, utilisez le client <code>mc</code> ou l’API S3 (credentials = identifiants MinIO).</p>
+      <p>Vérifications dans le cluster&nbsp;: <code>kubectl get cronjobs -n thetiptop-dev</code>, <code>kubectl logs job/backup-manual -n thetiptop-dev</code>.</p>
+    </body>
+    </html>

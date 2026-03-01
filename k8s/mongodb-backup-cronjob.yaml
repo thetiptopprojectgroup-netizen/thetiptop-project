@@ -50,7 +50,7 @@ spec:
                 limits: { cpu: 500m, memory: 512Mi }
           containers:
             - name: restic
-              image: restic/restic:0.16
+              image: restic/restic:0.16.4
               command:
                 - /bin/sh
                 - -c
