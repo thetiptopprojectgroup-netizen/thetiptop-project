@@ -114,17 +114,15 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 
 ---
 
-## PHASE 9 – BACKUPS & RESTAURATION (RESTIC + MINIO)
+## PHASE 9 – BACKUPS & RESTAURATION
 
 | Point du plan | Statut | Détail |
 |---------------|--------|--------|
-| Backups quotidiens (dev/preprod/prod) | ✅ Fait | CronJobs 17h00 UTC + 18h15 UTC, Restic → MinIO |
-| Stockage S3 via MinIO | ✅ Fait | MinIO par cluster, Ingress 1 host = HTTPS valide |
-| Sauvegardes incrémentales (Restic) | ✅ Fait | keep-daily 7, keep-weekly 4 |
-| Tests de restauration | ✅ Fait | CronJob dimanche 6h UTC + workflow Trigger backup now |
-| Automatisation (CD) | ✅ Fait | MinIO + secret restic + CronJobs au push |
-
-**Doc** : `.github/BACKUP-MINIO-RESTIC.md`. DNS : minio.dev / minio.preprod / minio.thetiptop-jeu.fr.
+| Backups quotidiens (dev/preprod/prod) | ❌ Non fait | À mettre en place |
+| Stockage S3 (MinIO ou autre) | ❌ Non fait | À mettre en place |
+| Sauvegardes incrémentales | ❌ Non fait | À mettre en place |
+| Tests de restauration | ❌ Non fait | À mettre en place |
+| Automatisation (CD) | ❌ Non fait | À mettre en place |
 
 ---
 
@@ -155,7 +153,7 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 | 6 – Traefik + TLS | 5 | 0 | 0 |
 | 7 – Vault | 0 | 2 (secrets K8s) | 3 |
 | 8 – Monitoring (Prometheus, Grafana, ELK) | 4 | 0 | 1 (ELK / logs) |
-| 9 – Backups (Restic + MinIO) | 6 | 0 | 0 |
+| 9 – Backups | 0 | 0 | 6 |
 | 10 – DigitalOcean | 1 | 3 (specs à vérifier) | 2 |
 
 **Priorités recommandées pour la conformité complète au plan :**
