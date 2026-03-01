@@ -47,8 +47,10 @@ spec:
                 secretKeyRef:
                   name: minio-credentials
                   key: root-password
-            # URL publique (comme pour Harbor derrière Traefik) : évite redirections avec le NodePort (ex. 42215).
+            # URL publique derrière Traefik : évite redirections vers NodePort (ex. 41011, 42215) → timeout.
             - name: MINIO_SERVER_URL
+              value: "https://MINIO_PUBLIC_URL_PLACEHOLDER/"
+            - name: MINIO_BROWSER_REDIRECT_URL
               value: "https://MINIO_PUBLIC_URL_PLACEHOLDER/"
           ports:
             - containerPort: 9000
