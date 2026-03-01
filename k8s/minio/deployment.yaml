@@ -1,5 +1,7 @@
-# MinIO : le secret minio-credentials est créé par le CD (GitHub Secrets).
-# Endpoint interne pour Restic : http://minio.minio.svc.cluster.local:9000
+# MinIO : stockage S3 pour les backups Restic.
+# Secret minio-credentials (root-user, root-password) créé par le CD.
+# Accès console : via Ingress → Service:80 (nginx) → MinIO:9000.
+# Accès API (Restic) : http://minio.minio.svc.cluster.local:9000
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -66,7 +68,6 @@ spec:
               port: 9000
             initialDelaySeconds: 5
             periodSeconds: 10
-        # Proxy nginx : réécrit les redirections MinIO (Location avec port) pour enlever le port → évite boucle / timeout.
         - name: nginx
           image: nginx:alpine
           ports:

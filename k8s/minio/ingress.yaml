@@ -1,4 +1,4 @@
-# Un seul host par cluster (remplacé par le CD : MINIO_HOST_PLACEHOLDER).
+# MinIO console : 1 host par cluster (remplacé par le CD : MINIO_HOST_PLACEHOLDER).
 # Dev: minio.dev.thetiptop-jeu.fr | Preprod: minio.preprod.thetiptop-jeu.fr | Prod: minio.thetiptop-jeu.fr
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -9,8 +9,6 @@ metadata:
     kubernetes.io/ingress.class: traefik
     cert-manager.io/cluster-issuer: letsencrypt-prod
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    # Même schéma que les autres Ingress (thetiptop, Harbor) : sécurité + headers proxy pour MinIO.
-    traefik.ingress.kubernetes.io/router.middlewares: traefik-security-headers@kubernetescrd,minio-minio-forwarded-headers@kubernetescrd
 spec:
   tls:
     - hosts:

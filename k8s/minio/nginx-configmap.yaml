@@ -1,5 +1,5 @@
-# Nginx devant MinIO : corrige les redirections qui contiennent un port (ex. :41011)
-# en les réécrivant sans port (HTTPS standard 443).
+# Nginx devant MinIO : réécrit les redirections (Location) pour enlever le port
+# (ex. https://minio.dev...:41011/ → https://minio.dev.../) et évite boucle / timeout.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18,7 +18,7 @@ data:
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port "443";
         proxy_buffering off;
-        proxy_redirect ~^https://([^/]+):\d+(/.*)?$ https://$1$2;
-        proxy_redirect ~^http://([^/]+):\d+(/.*)?$ http://$1$2;
+        proxy_redirect ~^https://([^:]+):\d+(/.*)?$ https://$1$2;
+        proxy_redirect ~^http://([^:]+):\d+(/.*)?$ http://$1$2;
       }
     }

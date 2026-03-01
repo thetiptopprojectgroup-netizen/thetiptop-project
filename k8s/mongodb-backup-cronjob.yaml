@@ -1,6 +1,7 @@
-# Backup MongoDB : mongodump → Restic (chiffré, incrémental) vers MinIO (S3).
-# Prod = quotidien (SCHEDULE_PLACEHOLDER = 0 17 * * *) | Dev/Preprod = hebdo (0 17 * * 0).
-# Secret : restic-s3-secret. Rétention : 7 daily, 4 weekly.
+# Backup MongoDB : mongodump (gzip) → Restic (chiffré, incrémental) → MinIO (S3).
+# Prod : quotidien (SCHEDULE_PLACEHOLDER = 0 17 * * *). Dev/Preprod : hebdo dimanche (0 17 * * 0).
+# Secret restic-s3-secret (restic-repository, restic-password, access-key-id, secret-access-key).
+# Rétention : 7 daily, 4 weekly.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
