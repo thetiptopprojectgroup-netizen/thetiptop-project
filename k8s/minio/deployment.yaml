@@ -24,6 +24,7 @@ metadata:
     app: minio
 spec:
   replicas: 1
+  progressDeadlineSeconds: 600
   selector:
     matchLabels:
       app: minio
@@ -34,7 +35,7 @@ spec:
     spec:
       containers:
         - name: minio
-          image: minio/minio:latest
+          image: minio/minio:RELEASE.2024-10-02T17-50-41Z
           args:
             - server
             - /data
