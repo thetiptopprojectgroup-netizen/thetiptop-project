@@ -1,5 +1,7 @@
-# MinIO : le secret minio-credentials est créé par le CD (GitHub Secrets).
-# Endpoint interne pour Restic : http://minio.minio.svc.cluster.local:9000
+# MinIO : stockage S3 pour les backups Restic.
+# Secret minio-credentials (root-user, root-password) créé par le CD.
+# Console UI : https://minio.../console/ ; API à la racine (MINIO_SERVER_URL sans chemin).
+# Accès API (Restic) : http://minio.minio.svc.cluster.local:9000
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -22,6 +24,7 @@ metadata:
     app: minio
 spec:
   replicas: 1
+  progressDeadlineSeconds: 600
   selector:
     matchLabels:
       app: minio
@@ -32,10 +35,12 @@ spec:
     spec:
       containers:
         - name: minio
-          image: minio/minio:latest
+          image: minio/minio:RELEASE.2024-10-02T17-50-41Z
           args:
             - server
             - /data
+            - --console-address
+            - ":9001"
           env:
             - name: MINIO_ROOT_USER
               valueFrom:
@@ -47,9 +52,17 @@ spec:
                 secretKeyRef:
                   name: minio-credentials
                   key: root-password
+            # API exposée sous /api pour que la console (/) appelle l’API sans boucle de redirection.
+            # Doit être l’URL publique de l’API sans chemin (format attendu https://host)
+            - name: MINIO_SERVER_URL
+              value: "https://MINIO_PUBLIC_HOST_PLACEHOLDER"
+            - name: MINIO_BROWSER_REDIRECT_URL
+              value: "https://MINIO_PUBLIC_HOST_PLACEHOLDER/console/"
           ports:
             - containerPort: 9000
               name: api
+            - containerPort: 9001
+              name: console
           volumeMounts:
             - name: data
               mountPath: /data
@@ -66,10 +79,29 @@ spec:
               port: 9000
             initialDelaySeconds: 5
             periodSeconds: 10
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: minio-data
+        - name: nginx-config
+          configMap:
+            name: minio-nginx-config
 ---
 apiVersion: v1
 kind: Service
@@ -83,3 +115,6 @@ spec:
     - name: api
       port: 9000
       targetPort: 9000
+    - name: console
+      port: 80
+      targetPort: 80

@@ -1,5 +1,5 @@
 # Test de restauration mensuel en sandbox : 1er de chaque mois à 6h UTC.
-# Restaure le dernier snapshot dans un volume temporaire (ne touche pas à la base en prod).
+# Restaure le dernier snapshot dans un volume temporaire (ne modifie pas la base prod).
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -19,7 +19,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: restic-restore-test
-              image: restic/restic:0.16
+              image: restic/restic:0.16.4
               command:
                 - /bin/sh
                 - -c
@@ -29,7 +29,7 @@ spec:
                   restic snapshots
                   echo "=== Restauration sandbox (volume temporaire) ==="
                   restic restore latest --target /verify
-                  echo "=== Fichiers restaurés (aperçu) ==="
+                  echo "=== Aperçu fichiers restaurés ==="
                   find /verify -type f | head -30
                   echo "Test de restauration mensuel OK."
               env:

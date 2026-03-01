@@ -2,13 +2,10 @@
 # Architecture : 3 clusters distincts (un par environnement dev / preprod / prod).
 #
 # Secrets GitHub requis :
-#   KUBECONFIG_DEV      – kubeconfig base64 du cluster dev
-#   KUBECONFIG_PREPROD  – kubeconfig base64 du cluster preprod
-#   KUBECONFIG_PROD     – kubeconfig base64 du cluster prod
-#   MONGODB_URI_DEV / MONGODB_URI_PREPROD / MONGODB_URI_PROD
-#   JWT_SECRET_DEV / JWT_SECRET_PREPROD / JWT_SECRET_PROD
-#   MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD (ou par env)
-#   HARBOR_REGISTRY / HARBOR_USERNAME / HARBOR_PASSWORD (déjà configurés)
+#   KUBECONFIG_DEV / KUBECONFIG_PREPROD / KUBECONFIG_PROD
+#   MONGODB_URI_* / JWT_SECRET_* / MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD
+#   HARBOR_REGISTRY / HARBOR_USERNAME / HARBOR_PASSWORD
+#   MinIO + Restic : RESTIC_MINIO_ENDPOINT, RESTIC_MINIO_BUCKET, RESTIC_PASSWORD, RESTIC_S3_ACCESS_KEY_ID, RESTIC_S3_SECRET_ACCESS_KEY
 #
 # Encoder un kubeconfig : base64 -w0 ~/.kube/config-<env>
 name: CD - Deploy (Kubernetes)
@@ -300,7 +297,7 @@ jobs:
             kubectl describe statefulset mongodb -n "$NS" 2>/dev/null | tail -30
           fi
 
-      # ─── 8a. MinIO + Ingress (1 host par cluster pour HTTPS valide)
+      # ─── 8a. MinIO (stockage S3 pour backups) + Ingress (URL par env)
       - name: Déployer MinIO (dev / preprod / prod)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         env:
@@ -308,7 +305,7 @@ jobs:
           RESTIC_S3_SECRET_ACCESS_KEY: ${{ secrets.RESTIC_S3_SECRET_ACCESS_KEY }}
         run: |
           if [ -z "$RESTIC_S3_ACCESS_KEY_ID" ] || [ -z "$RESTIC_S3_SECRET_ACCESS_KEY" ]; then
-            echo "Secrets MinIO absents, étape MinIO ignorée."
+            echo "Secrets MinIO absents (RESTIC_S3_ACCESS_KEY_ID, RESTIC_S3_SECRET_ACCESS_KEY), étape MinIO ignorée."
             exit 0
           fi
           kubectl apply -f k8s/traefik/letsencrypt-issuer.yaml
@@ -317,24 +314,16 @@ jobs:
             --from-literal=root-user="$RESTIC_S3_ACCESS_KEY_ID" \
             --from-literal=root-password="$RESTIC_S3_SECRET_ACCESS_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
-          kubectl apply -f k8s/minio/deployment.yaml
+          kubectl apply -f k8s/minio/nginx-configmap.yaml
           ENV="${{ steps.env.outputs.env }}"
           if [ "$ENV" = "prod" ]; then MINIO_HOST="minio.thetiptop-jeu.fr"; else MINIO_HOST="minio.${ENV}.thetiptop-jeu.fr"; fi
+          sed -e "s|MINIO_PUBLIC_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/deployment.yaml | kubectl apply -f -
           sed -e "s|MINIO_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/ingress.yaml | kubectl apply -f -
           kubectl delete certificate minio-tls -n minio --ignore-not-found=true
-          echo "MinIO déployé: https://$MINIO_HOST"
+          kubectl rollout restart deployment minio -n minio
+          echo "MinIO déployé – Console: https://$MINIO_HOST/console/"
 
-      # ─── 8b. Backup MongoDB (Restic vers MinIO)
-      - name: Appliquer CronJobs backup (quotidien prod / hebdo dev-preprod) + test restauration mensuel
-        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
-        run: |
-          NS="${{ steps.env.outputs.namespace }}"
-          ENV="${{ steps.env.outputs.env }}"
-          if [ "$ENV" = "prod" ]; then SCHEDULE="0 17 * * *"; else SCHEDULE="0 17 * * 0"; fi
-          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" -e "s|SCHEDULE_PLACEHOLDER|$SCHEDULE|g" k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
-          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" k8s/mongodb-restore-test-cronjob.yaml | kubectl apply -f -
-          echo "Backup: $([ "$ENV" = "prod" ] && echo "quotidien")$([ "$ENV" != "prod" ] && echo "hebdomadaire (dimanche)"). Restauration test: mensuel (1er du mois)."
-
+      # ─── 8b. Secret Restic (backup MongoDB vers MinIO)
       - name: Créer secret Restic (backup MongoDB)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         env:
@@ -358,6 +347,17 @@ jobs:
             --from-literal=secret-access-key="$RESTIC_S3_SECRET_ACCESS_KEY" \
             --dry-run=client -o yaml | kubectl apply -f -
           echo "Secret restic-s3-secret créé (repo: $REPO)."
+
+      # ─── 8c. CronJobs backup (quotidien prod / hebdo dev-preprod) + test restauration mensuel
+      - name: Appliquer CronJobs backup et test restauration
+        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
+        run: |
+          NS="${{ steps.env.outputs.namespace }}"
+          ENV="${{ steps.env.outputs.env }}"
+          if [ "$ENV" = "prod" ]; then SCHEDULE="0 17 * * *"; else SCHEDULE="0 17 * * 0"; fi
+          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" -e "s|SCHEDULE_PLACEHOLDER|$SCHEDULE|g" k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
+          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" k8s/mongodb-restore-test-cronjob.yaml | kubectl apply -f -
+          echo "Backup: $([ "$ENV" = "prod" ] && echo "quotidien 18h Paris")$([ "$ENV" != "prod" ] && echo "hebdo dimanche 18h Paris"). Restauration test: 1er du mois 7h Paris."
 
       # ─── 9. Déployer Backend & Frontend avec la nouvelle image ────────
       - name: Déployer Backend (nouvelle image)
