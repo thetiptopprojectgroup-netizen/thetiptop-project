@@ -49,6 +49,9 @@ spec:
                 secretKeyRef:
                   name: minio-credentials
                   key: root-password
+            # URL publique HTTPS : MinIO utilise ça pour les redirections (évite boucle + mauvais port).
+            - name: MINIO_SERVER_URL
+              value: "https://MINIO_PUBLIC_URL_PLACEHOLDER/"
           ports:
             - containerPort: 9000
               name: api

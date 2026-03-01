@@ -18,7 +18,10 @@ data:
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port "443";
         proxy_buffering off;
+        # Enlever le port des redirections (ex. :41011)
         proxy_redirect ~^https://([^:]+):\d+(/.*)?$ https://$1$2;
         proxy_redirect ~^http://([^:]+):\d+(/.*)?$ http://$1$2;
+        # Forcer HTTPS dans Location si MinIO renvoie http://
+        proxy_redirect ~^http://([^/]+)(/.*)?$ https://$1$2;
       }
     }
