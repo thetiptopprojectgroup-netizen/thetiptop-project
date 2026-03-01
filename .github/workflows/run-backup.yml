@@ -1,0 +1,89 @@
+# Lancer un backup MongoDB manuellement (sans taper de commandes).
+# Actions → Run Backup MongoDB → Run workflow (choisir l'environnement).
+#
+# Prérequis : secrets KUBECONFIG_DEV / KUBECONFIG_PREPROD / KUBECONFIG_PROD
+# Le CronJob mongodb-backup doit déjà être déployé (après un push sur la branche).
+name: Run Backup MongoDB
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environnement (cluster)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - preprod
+          - prod
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Backup MongoDB → ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    env:
+      ENV: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurer kubectl
+        id: kube
+        env:
+          KC_DEV:     ${{ secrets.KUBECONFIG_DEV }}
+          KC_PREPROD: ${{ secrets.KUBECONFIG_PREPROD }}
+          KC_PROD:    ${{ secrets.KUBECONFIG_PROD }}
+        run: |
+          case "$ENV" in
+            prod)    KC="$KC_PROD" ;;
+            preprod) KC="$KC_PREPROD" ;;
+            *)       KC="$KC_DEV" ;;
+          esac
+          if [ -z "$KC" ]; then
+            echo "❌ KUBECONFIG non configuré pour l'environnement $ENV."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          mkdir -p ~/.kube
+          echo "$KC" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl cluster-info
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      - name: Déterminer le namespace
+        id: ns
+        run: |
+          case "$ENV" in
+            prod)    NS="thetiptop-prod" ;;
+            preprod) NS="thetiptop-preprod" ;;
+            *)       NS="thetiptop-dev" ;;
+          esac
+          echo "namespace=$NS" >> $GITHUB_OUTPUT
+          echo "Namespace : $NS"
+
+      - name: Lancer le job de backup (une exécution du CronJob)
+        run: |
+          NS="${{ steps.ns.outputs.namespace }}"
+          kubectl delete job backup-manual -n "$NS" --ignore-not-found=true --wait=true
+          kubectl create job -n "$NS" backup-manual --from=cronjob/mongodb-backup
+          echo "Job backup-manual créé. Attente de la fin (max 5 min)..."
+
+      - name: Attendre la fin du job et afficher les logs
+        run: |
+          NS="${{ steps.ns.outputs.namespace }}"
+          kubectl wait --for=condition=complete job/backup-manual -n "$NS" --timeout=300s || true
+          echo "=== Logs du job backup-manual ==="
+          kubectl logs -n "$NS" job/backup-manual --tail=200
+          echo ""
+          kubectl get job backup-manual -n "$NS"
+          STATUS=$(kubectl get job backup-manual -n "$NS" -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "0")
+          if [ "$STATUS" != "1" ]; then
+            echo "⚠️ Le job n'est pas encore en succès (succeeded=$STATUS). Vérifiez les logs ci-dessus."
+            exit 1
+          fi
+          echo "✅ Backup terminé avec succès. Tu peux voir le bucket dans la console MinIO."
