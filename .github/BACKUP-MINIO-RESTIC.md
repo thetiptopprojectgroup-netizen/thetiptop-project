@@ -1,52 +1,65 @@
-# Backup MongoDB : MinIO + Restic (dev, preprod, prod)
+# Backup MongoDB : MinIO + Restic
 
-## DNS (déjà configurés)
+## Ce qui est en place (automatique au push)
 
-| URL | IP (A) |
-|-----|--------|
-| minio.dev.thetiptop-jeu.fr | 129.212.168.6 |
-| minio.preprod.thetiptop-jeu.fr | 146.190.206.155 |
-| minio.thetiptop-jeu.fr | 164.92.132.29 |
+| Exigence | Implémentation |
+|----------|----------------|
+| **Backups quotidiens production** | CronJob à 18h00 (heure française) tous les jours sur **prod** |
+| **Backups hebdomadaires dev/preprod** | CronJob le **dimanche à 18h00** (heure française) sur dev et preprod |
+| **Stockage chiffré via MinIO (S3)** | Restic envoie les backups vers MinIO ; dépôt **chiffré** avec `RESTIC_PASSWORD` |
+| **Sauvegardes incrémentales versionnées** | Restic : incrémental + rétention **7 quotidiens** et **4 hebdomadaires** |
+| **Tests de restauration mensuels en sandbox** | CronJob le **1er de chaque mois à 7h00** (heure française) ; restaure dans un volume temporaire (sandbox), ne modifie pas la base |
+| **Automatisation (cron + conteneurs)** | CronJobs Kubernetes (images Docker mongo + restic) ; tout déployé par le CD au push |
 
-## Secrets GitHub (obligatoires)
+---
 
-Dans **Settings → Secrets and variables → Actions**, créer :
+## Ce que tu dois faire (une seule fois)
 
-| Secret | Valeur |
-|--------|--------|
-| RESTIC_MINIO_ENDPOINT | `http://minio.minio.svc.cluster.local:9000` |
-| RESTIC_MINIO_BUCKET | ex. `backups` |
-| RESTIC_PASSWORD | mot de passe du dépôt Restic (à garder) |
-| RESTIC_S3_ACCESS_KEY_ID | identifiant MinIO (ex. minioadmin) |
-| RESTIC_S3_SECRET_ACCESS_KEY | mot de passe MinIO |
+### 1. GitHub – 5 secrets
 
-## Déploiement
+Aller dans le dépôt : **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
 
-Un **push** sur `dev`, `preprod` ou `prod` déploie automatiquement :
+Créer **5 secrets** (nom exact, une valeur par secret) :
 
-- MinIO (namespace, secret, Deployment, Service, Ingress avec **1 host** = certificat HTTPS valide)
-- CronJobs backup (17h00 UTC et 18h15 UTC) + test restauration (dimanche 6h UTC)
-- Secret `restic-s3-secret` dans le namespace thetiptop-*
+| Nom du secret | Valeur à mettre |
+|---------------|-----------------|
+| `RESTIC_MINIO_ENDPOINT` | `http://minio.minio.svc.cluster.local:9000` |
+| `RESTIC_MINIO_BUCKET` | Un nom de bucket, ex. `backups` |
+| `RESTIC_PASSWORD` | Un mot de passe fort (pour chiffrer le dépôt Restic) — **à noter en lieu sûr** |
+| `RESTIC_S3_ACCESS_KEY_ID` | Identifiant MinIO, ex. `minioadmin` |
+| `RESTIC_S3_SECRET_ACCESS_KEY` | Mot de passe MinIO (même que la console MinIO) |
 
-Aucune commande manuelle.
+Tu ne peux plus revoir la valeur après enregistrement.
 
-## URLs console MinIO (HTTPS)
+### 2. OVH (DNS)
+
+C’est déjà fait avec les 3 enregistrements A :
+
+- `minio.dev.thetiptop-jeu.fr` → 129.212.168.6  
+- `minio.preprod.thetiptop-jeu.fr` → 146.190.206.155  
+- `minio.thetiptop-jeu.fr` → 164.92.132.29  
+
+Rien à modifier côté OVH.
+
+### 3. Déploiement
+
+Faire un **push** sur `dev`, puis `preprod`, puis `prod`. Le CD déploie MinIO, les CronJobs et le secret Restic. Aucune commande à taper.
+
+---
+
+## URLs console MinIO (après déploiement)
 
 - **Dev** : https://minio.dev.thetiptop-jeu.fr  
 - **Preprod** : https://minio.preprod.thetiptop-jeu.fr  
 - **Prod** : https://minio.thetiptop-jeu.fr  
 
-Connexion : **Username** = `RESTIC_S3_ACCESS_KEY_ID`, **Password** = `RESTIC_S3_SECRET_ACCESS_KEY`.
+Connexion : **Username** = valeur de `RESTIC_S3_ACCESS_KEY_ID`, **Password** = valeur de `RESTIC_S3_SECRET_ACCESS_KEY`.
 
-## Test manuel backup
+---
 
-**Actions** → **Trigger backup now** → choisir l’environnement → **Run workflow**.
+## Récap
 
-## Vérifier le certificat
-
-```bash
-kubectl get certificate -n minio
-kubectl get ingress -n minio
-```
-
-`minio-tls` doit être READY=True. L’ingress doit afficher **un seul** host (celui du cluster).
+- **À faire** : créer les 5 secrets GitHub (étape 1).  
+- **Déjà fait** : DNS OVH.  
+- **Ensuite** : push sur chaque branche pour déployer.  
+- Le reste (quotidien/hebdo, chiffrement, incrémental, test mensuel, cron) est déjà dans le code et le CD.
