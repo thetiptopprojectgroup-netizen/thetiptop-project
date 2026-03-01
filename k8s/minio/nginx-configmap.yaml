@@ -1,5 +1,5 @@
-# Nginx devant MinIO : config + page d’info. Page servie depuis /usr/share/nginx/html (permissions OK).
-# L’API S3 (Restic) utilise directement minio:9000 en cluster.
+# Nginx : / → console MinIO (9001), /api → API MinIO (9000). Connexion possible comme Harbor.
+# L’API S3 (Restic) utilise http://minio.minio.svc.cluster.local:9000 en cluster.
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -10,36 +10,29 @@ data:
   default.conf: |
     server {
       listen 80;
-      root /usr/share/nginx/html;
-      index index.html;
+      # API MinIO sous /api (la console appelle cette URL depuis le navigateur)
+      location /api/ {
+        proxy_pass http://127.0.0.1:9000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port "443";
+        proxy_buffering off;
+      }
+      # Console MinIO (login + interface) sur /
       location / {
-        try_files $uri $uri/ /index.html;
+        proxy_pass http://127.0.0.1:9001/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port "443";
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_buffering off;
+        chunked_transfer_encoding off;
       }
     }
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: minio-nginx-html
-  namespace: minio
-data:
-  index.html: |
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>MinIO – Backups</title>
-      <style>
-        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
-        h1 { color: #333; }
-        p { color: #666; line-height: 1.5; }
-        code { background: #f4f4f4; padding: 0.2em 0.4em; border-radius: 4px; }
-      </style>
-    </head>
-    <body>
-      <h1>MinIO – Backups</h1>
-      <p>Le stockage S3 (MinIO) est actif. Les backups MongoDB (Restic) utilisent l'API en interne.</p>
-      <p>Pour lister les buckets ou les objets, utilisez le client <code>mc</code> ou l'API S3 (credentials = identifiants MinIO).</p>
-      <p>Vérifications dans le cluster : <code>kubectl get cronjobs -n thetiptop-dev</code>, <code>kubectl logs job/backup-manual -n thetiptop-dev</code>.</p>
-    </body>
-    </html>

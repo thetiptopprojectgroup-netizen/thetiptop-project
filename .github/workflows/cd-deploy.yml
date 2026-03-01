@@ -317,7 +317,7 @@ jobs:
           kubectl apply -f k8s/minio/nginx-configmap.yaml
           ENV="${{ steps.env.outputs.env }}"
           if [ "$ENV" = "prod" ]; then MINIO_HOST="minio.thetiptop-jeu.fr"; else MINIO_HOST="minio.${ENV}.thetiptop-jeu.fr"; fi
-          kubectl apply -f k8s/minio/deployment.yaml
+          sed -e "s|MINIO_PUBLIC_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/deployment.yaml | kubectl apply -f -
           sed -e "s|MINIO_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/ingress.yaml | kubectl apply -f -
           kubectl delete certificate minio-tls -n minio --ignore-not-found=true
           echo "MinIO déployé – Console: https://$MINIO_HOST"

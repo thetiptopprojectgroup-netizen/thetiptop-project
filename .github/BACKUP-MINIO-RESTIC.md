@@ -10,7 +10,7 @@
 | **Sauvegardes incrémentales versionnées** | Restic : incrémental + rétention **7 quotidiens**, **4 hebdomadaires** |
 | **Tests de restauration mensuels en sandbox** | CronJob le **1er de chaque mois à 7h** (heure Paris) ; restaure dans un volume temporaire, ne modifie pas la base |
 | **Automatisation (CronJobs)** | Tout déployé par le CD au push ; pas de commande manuelle |
-| **URL MinIO (page d’info)** | Ingress → nginx sert une page fixe (plus de boucle 307) ; UI MinIO désactivée, accès S3 via API / mc |
+| **Interface MinIO (comme Harbor)** | Connexion sur https://minio.*.thetiptop-jeu.fr avec identifiants MinIO ; console sur /, API sur /api |
 
 ---
 
@@ -46,13 +46,15 @@ Un **push** sur `dev`, puis `preprod`, puis `prod` déploie MinIO, le secret Res
 
 ---
 
-## URLs MinIO (page d’info, après déploiement)
+## Interface MinIO (connexion comme Harbor)
 
 - **Dev** : https://minio.dev.thetiptop-jeu.fr  
 - **Preprod** : https://minio.preprod.thetiptop-jeu.fr  
 - **Prod** : https://minio.thetiptop-jeu.fr  
 
-La page affiche un texte d’info (plus de boucle de redirection). Pour parcourir les buckets, utiliser le client **mc** (MinIO Client) ou l’API S3 avec les mêmes identifiants que `RESTIC_S3_ACCESS_KEY_ID` / `RESTIC_S3_SECRET_ACCESS_KEY`.
+Ouvre l’URL dans le navigateur → **écran de connexion MinIO**.  
+**Identifiant** = valeur de `RESTIC_S3_ACCESS_KEY_ID`, **Mot de passe** = valeur de `RESTIC_S3_SECRET_ACCESS_KEY`.  
+Après connexion tu peux parcourir les **buckets** et les **objets** (dont les backups Restic).
 
 ---
 
@@ -118,6 +120,65 @@ Si le job est **1/1** et les logs montrent « Backup Restic terminé », alors *
 ### 5. (Optionnel) Vérifier les snapshots Restic
 
 Après un backup réussi, tu peux lister les snapshots depuis le cluster (avec les mêmes secrets que le CronJob) ; ça confirme que le dépôt S3/MinIO est bien utilisé et lisible.
+
+---
+
+## Voir les sauvegardes (se connecter / lister les backups)
+
+L’URL https://minio.dev.thetiptop-jeu.fr affiche une page d’info uniquement. Pour **voir les backups**, utilise l’une des méthodes suivantes (depuis le cluster).
+
+### A. Lister les snapshots Restic (backups MongoDB)
+
+Les backups sont des **snapshots Restic** (chiffrés) dans MinIO. Pour les lister, utilise le Job fourni :
+
+**Dev (bash / WSL / Git Bash) :**
+```bash
+sed "s/NAMESPACE_PLACEHOLDER/thetiptop-dev/g" k8s/restic-list-snapshots-job.yaml | kubectl apply -f -
+kubectl logs job/restic-list-snapshots -n thetiptop-dev -f
+```
+
+**Dev (PowerShell) :**
+```powershell
+(Get-Content k8s/restic-list-snapshots-job.yaml) -replace 'NAMESPACE_PLACEHOLDER','thetiptop-dev' | kubectl apply -f -
+kubectl logs job/restic-list-snapshots -n thetiptop-dev -f
+```
+
+**Preprod :** remplacer `thetiptop-dev` par `thetiptop-preprod`.  
+**Prod :** remplacer par `thetiptop-prod`.
+
+Le job affiche la liste des snapshots (date, ID, tags). Une fois terminé, tu peux le supprimer :  
+`kubectl delete job restic-list-snapshots -n thetiptop-dev`
+
+### B. Parcourir les buckets MinIO avec mc (MinIO Client)
+
+Pour voir les **buckets et objets** dans MinIO (stockage S3), utilise le client **mc** dans un pod, en te connectant à MinIO **en interne** (port 9000) :
+
+```bash
+# 1. Port-forward MinIO vers ta machine (dans un terminal)
+kubectl port-forward -n minio svc/minio 9000:9000
+
+# 2. Sur ta machine : installer mc (https://min.io/docs/minio/linux/reference/minio-mc.html) puis :
+mc alias set myminio http://localhost:9000 <RESTIC_S3_ACCESS_KEY_ID> <RESTIC_S3_SECRET_ACCESS_KEY>
+mc ls myminio
+mc ls myminio/backups
+# (adapter le nom du bucket si différent de "backups")
+```
+
+Les identifiants sont les mêmes que `RESTIC_S3_ACCESS_KEY_ID` et `RESTIC_S3_SECRET_ACCESS_KEY` (secrets GitHub / MinIO).
+
+**Depuis un pod dans le cluster** (sans port-forward) :
+
+```bash
+kubectl run mc --rm -it --restart=Never -n thetiptop-dev --image=minio/mc -- \
+  sh -c "
+  mc alias set myminio http://minio.minio.svc.cluster.local:9000 \$MINIO_USER \$MINIO_PASSWORD
+  mc ls myminio
+  mc ls myminio/backups
+  "
+# Il faut passer MINIO_USER et MINIO_PASSWORD via secret (même valeurs que restic-s3-secret access-key-id et secret-access-key)
+```
+
+En pratique, le plus simple pour **voir les backups** est la commande **restic snapshots** (A) ; pour **voir les fichiers/buckets bruts** dans MinIO, utiliser **mc** (B) avec port-forward ou un pod.
 
 ---
 

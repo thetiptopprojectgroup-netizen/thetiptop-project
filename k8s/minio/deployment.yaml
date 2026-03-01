@@ -1,6 +1,6 @@
 # MinIO : stockage S3 pour les backups Restic.
 # Secret minio-credentials (root-user, root-password) créé par le CD.
-# Accès console : via Ingress → Service:80 (nginx) → MinIO:9000.
+# Console UI : Ingress → nginx:80 → / vers MinIO console:9001, /api vers MinIO API:9000 (évite boucle 307).
 # Accès API (Restic) : http://minio.minio.svc.cluster.local:9000
 ---
 apiVersion: v1
@@ -38,6 +38,8 @@ spec:
           args:
             - server
             - /data
+            - --console-address
+            - ":9001"
           env:
             - name: MINIO_ROOT_USER
               valueFrom:
@@ -49,12 +51,14 @@ spec:
                 secretKeyRef:
                   name: minio-credentials
                   key: root-password
-            # Désactive l’UI intégrée (évite la boucle 307 sur GET /).
-            - name: MINIO_BROWSER
-              value: "off"
+            # API exposée sous /api pour que la console (/) appelle l’API sans boucle de redirection.
+            - name: MINIO_SERVER_URL
+              value: "https://MINIO_PUBLIC_HOST_PLACEHOLDER/api"
           ports:
             - containerPort: 9000
               name: api
+            - containerPort: 9001
+              name: console
           volumeMounts:
             - name: data
               mountPath: /data
@@ -75,13 +79,10 @@ spec:
           image: nginx:alpine
           ports:
             - containerPort: 80
-              name: console
+              name: http
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/conf.d
-              readOnly: true
-            - name: nginx-html
-              mountPath: /usr/share/nginx/html
               readOnly: true
           resources:
             requests:
@@ -97,9 +98,6 @@ spec:
         - name: nginx-config
           configMap:
             name: minio-nginx-config
-        - name: nginx-html
-          configMap:
-            name: minio-nginx-html
 ---
 apiVersion: v1
 kind: Service
