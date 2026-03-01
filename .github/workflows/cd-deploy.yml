@@ -320,6 +320,7 @@ jobs:
           ENV="${{ steps.env.outputs.env }}"
           if [ "$ENV" = "prod" ]; then MINIO_HOST="minio.thetiptop-jeu.fr"; else MINIO_HOST="minio.${ENV}.thetiptop-jeu.fr"; fi
           sed -e "s|MINIO_PUBLIC_URL_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/deployment.yaml | kubectl apply -f -
+          kubectl apply -f k8s/minio/middleware-forwarded-headers.yaml
           sed -e "s|MINIO_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/ingress.yaml | kubectl apply -f -
           kubectl delete certificate minio-tls -n minio --ignore-not-found=true
           echo "MinIO déployé: https://$MINIO_HOST"

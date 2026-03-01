@@ -1,5 +1,33 @@
 # Backup MongoDB : MinIO + Restic
 
+## Analyse du système backup / restauration
+
+| Composant | Rôle | Détail |
+|-----------|------|--------|
+| **MongoDB** | Source | StatefulSet dans chaque namespace (dev/preprod/prod). |
+| **CronJob backup** | `mongodb-backup` | Init: `mongodump` (gzip) → volume emptyDir. Conteneur: `restic backup` vers S3 (MinIO). Rétention: 7 daily, 4 weekly. Prod = quotidien 18h FR, dev/preprod = dimanche 18h FR. |
+| **Secret** | `restic-s3-secret` | Créé par le CD : `restic-repository` (s3:.../bucket/mongodb-{env}), `restic-password`, `access-key-id`, `secret-access-key`. |
+| **MinIO** | Stockage S3 | Déployé dans le namespace `minio`. Restic envoie les snapshots chiffrés dans un bucket. Console exposée en HTTPS via Traefik. |
+| **CronJob restauration** | `mongodb-restore-test` | 1er de chaque mois : `restic restore latest` dans un volume temporaire (sandbox), ne modifie pas la base. |
+
+Tout est appliqué au push (CD) : pas de `kubectl` manuel.
+
+---
+
+## Harbor et MinIO : même port ?
+
+**Oui.** Harbor et MinIO utilisent le **même** Traefik (LoadBalancer) sur le **port 443** (entrypoint `websecure`). Il n’y a pas de conflit : chaque service a son propre **host** (ex. `harbor.thetiptop-jeu.fr`, `minio.dev.thetiptop-jeu.fr`). Traefik route selon le host.
+
+Le **42215** que tu voyais dans l’URL venait du fait que MinIO, derrière le proxy, voyait la connexion entrante sur le **NodePort** du Service Traefik (Kubernetes expose 443 via un NodePort en interne). MinIO mettait ce port dans ses redirections. Ce n’est pas Harbor qui “prend” le port : c’est MinIO qui ne connaissait pas sa vraie URL publique.
+
+**Reconfig appliquée** : MinIO est aligné sur le même schéma que les autres services (Harbor, thetiptop) :
+- **MINIO_SERVER_URL** = URL publique HTTPS avec slash final (ex. `https://minio.dev.thetiptop-jeu.fr/`), injectée par le CD.
+- Ingress avec les **mêmes middlewares** que le reste : `traefik-security-headers` + `minio-forwarded-headers` (X-Forwarded-Port: 443, X-Forwarded-Proto: https).
+
+Comme ça, MinIO génère les redirections avec la bonne URL et le bon port, comme pour Harbor.
+
+---
+
 ## Ce qui est en place (automatique au push)
 
 | Exigence | Implémentation |
@@ -64,3 +92,7 @@ Connexion : **Username** = valeur de `RESTIC_S3_ACCESS_KEY_ID`, **Password** = v
 - **À faire** : 5 secrets GitHub + 3 enregistrements DNS OVH (chaque minio.* vers l’IP du LB du cluster correspondant).  
 - **Ensuite** : push sur dev, preprod, prod pour déployer.  
 - Après changement DNS : attendre quelques minutes (propagation) puis réessayer l’URL MinIO ; le certificat HTTPS sera émis par Let’s Encrypt.
+
+### En cas de boucle de redirection (ERR_TOO_MANY_REDIRECTS)
+
+Un middleware Traefik (`k8s/minio/middleware-forwarded-headers.yaml`) force `X-Forwarded-Port: 443` et `X-Forwarded-Proto: https` pour que MinIO génère les bonnes URLs. Il est appliqué automatiquement par le CD. Après un nouveau déploiement, vider les cookies du site MinIO ou tester en navigation privée.
