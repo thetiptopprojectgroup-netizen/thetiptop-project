@@ -223,7 +223,7 @@ Si les logs MinIO affichent `FATAL Unable to initialize backend: decodeXLHeaders
 
 **Solution (exceptionnelle) :** supprimer le PVC pour repartir avec un volume vide.
 
-- **Preprod ou prod** (sans toucher à kubectl) : **Actions** → workflow **« Reset MinIO volume (preprod / prod) »** → Run workflow → choisir `preprod` ou `prod`. Le workflow arrête MinIO, supprime le volume, redéploie MinIO. Ensuite les PR / push gèrent le déploiement normalement.
+- **Preprod et/ou prod** (sans toucher à kubectl) : **Actions** → workflow **« Reset MinIO volume (preprod / prod) »** → Run workflow → choisir **« preprod et prod »** pour corriger les deux en une fois, ou `preprod` / `prod` pour un seul. Le workflow arrête MinIO, supprime le volume, redéploie MinIO. Ensuite les PR / push gèrent le déploiement normalement.
 - **Dev** (ou manuel) : commandes ci‑dessous, puis push sur `dev` ou script `scripts/minio-reset-dev.ps1`.
 
 ```powershell

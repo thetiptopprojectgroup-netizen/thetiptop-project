@@ -1,18 +1,19 @@
 # Réinitialiser le volume MinIO (une fois) en preprod/prod en cas d'erreur "xl meta version 3".
-# À lancer depuis GitHub Actions → Reset MinIO volume → Run workflow (choisir preprod ou prod).
-# Ensuite les PR / push déploient normalement sans toucher au volume.
+# À lancer depuis GitHub Actions → Reset MinIO volume → Run workflow.
+# Choisir "preprod et prod" pour corriger les deux en une seule exécution.
 #
-# Prérequis : KUBECONFIG_PREPROD et/ou KUBECONFIG_PROD
+# Prérequis : KUBECONFIG_PREPROD et KUBECONFIG_PROD
 name: Reset MinIO volume (preprod / prod)
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environnement à réinitialiser'
+        description: 'Environnement(s) à réinitialiser'
         required: true
         type: choice
         options:
+          - preprod-et-prod
           - preprod
           - prod
 
@@ -21,10 +22,14 @@ permissions:
 
 jobs:
   reset:
-    name: Reset MinIO → ${{ github.event.inputs.environment }}
+    name: Reset MinIO → ${{ matrix.env }}
     runs-on: ubuntu-latest
     env:
-      ENV: ${{ github.event.inputs.environment }}
+      ENV: ${{ matrix.env }}
+    strategy:
+      fail-fast: false
+      matrix:
+        env: ${{ github.event.inputs.environment == 'preprod-et-prod' && fromJSON('["preprod","prod"]') || fromJSON(format('["{0}"]', github.event.inputs.environment)) }}
 
     steps:
       - name: Checkout
