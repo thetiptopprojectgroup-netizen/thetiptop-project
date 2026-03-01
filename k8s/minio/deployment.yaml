@@ -56,6 +56,8 @@ spec:
             # Doit être l’URL publique de l’API sans chemin (format attendu https://host)
             - name: MINIO_SERVER_URL
               value: "https://MINIO_PUBLIC_HOST_PLACEHOLDER"
+            - name: MINIO_BROWSER_REDIRECT_URL
+              value: "https://MINIO_PUBLIC_HOST_PLACEHOLDER/console/"
           ports:
             - containerPort: 9000
               name: api
