@@ -93,6 +93,6 @@ Connexion : **Username** = valeur de `RESTIC_S3_ACCESS_KEY_ID`, **Password** = v
 - **Ensuite** : push sur dev, preprod, prod pour déployer.  
 - Après changement DNS : attendre quelques minutes (propagation) puis réessayer l’URL MinIO ; le certificat HTTPS sera émis par Let’s Encrypt.
 
-### En cas de boucle de redirection (ERR_TOO_MANY_REDIRECTS)
+### Console MinIO (accès navigateur)
 
-Un middleware Traefik (`k8s/minio/middleware-forwarded-headers.yaml`) force `X-Forwarded-Port: 443` et `X-Forwarded-Proto: https` pour que MinIO génère les bonnes URLs. Il est appliqué automatiquement par le CD. Après un nouveau déploiement, vider les cookies du site MinIO ou tester en navigation privée.
+L’accès à la console se fait via un **proxy nginx** dans le même pod que MinIO. Nginx réécrit l’en-tête `Location` des redirections pour enlever le port (ex. `:41011`) que MinIO ajoute derrière Traefik, ce qui évite à la fois la boucle de redirection (ERR_TOO_MANY_REDIRECTS) et le timeout (port non exposé). L’Ingress pointe sur le port 80 (nginx) ; Restic continue d’utiliser le port 9000 (MinIO) en interne.

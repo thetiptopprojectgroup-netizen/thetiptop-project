@@ -47,11 +47,6 @@ spec:
                 secretKeyRef:
                   name: minio-credentials
                   key: root-password
-            # URL publique derrière Traefik : évite redirections vers NodePort (ex. 41011, 42215) → timeout.
-            - name: MINIO_SERVER_URL
-              value: "https://MINIO_PUBLIC_URL_PLACEHOLDER/"
-            - name: MINIO_BROWSER_REDIRECT_URL
-              value: "https://MINIO_PUBLIC_URL_PLACEHOLDER/"
           ports:
             - containerPort: 9000
               name: api
@@ -71,10 +66,30 @@ spec:
               port: 9000
             initialDelaySeconds: 5
             periodSeconds: 10
+        # Proxy nginx : réécrit les redirections MinIO (Location avec port) pour enlever le port → évite boucle / timeout.
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+              name: console
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: minio-data
+        - name: nginx-config
+          configMap:
+            name: minio-nginx-config
 ---
 apiVersion: v1
 kind: Service
@@ -88,3 +103,6 @@ spec:
     - name: api
       port: 9000
       targetPort: 9000
+    - name: console
+      port: 80
+      targetPort: 80
