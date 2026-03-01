@@ -320,6 +320,7 @@ jobs:
           sed -e "s|MINIO_PUBLIC_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/deployment.yaml | kubectl apply -f -
           sed -e "s|MINIO_HOST_PLACEHOLDER|$MINIO_HOST|g" k8s/minio/ingress.yaml | kubectl apply -f -
           kubectl delete certificate minio-tls -n minio --ignore-not-found=true
+          kubectl rollout restart deployment minio -n minio
           echo "MinIO déployé – Console: https://$MINIO_HOST/console/"
 
       # ─── 8b. Secret Restic (backup MongoDB vers MinIO)
