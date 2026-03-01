@@ -47,6 +47,9 @@ spec:
                 secretKeyRef:
                   name: minio-credentials
                   key: root-password
+            # URL publique pour que MinIO ne redirige pas vers le port interne (ex. 42215)
+            - name: MINIO_BROWSER_REDIRECT_URL
+              value: "https://MINIO_PUBLIC_URL_PLACEHOLDER"
           ports:
             - containerPort: 9000
               name: api
