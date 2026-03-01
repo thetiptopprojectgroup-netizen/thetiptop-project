@@ -1,5 +1,7 @@
 # Backup MongoDB : MinIO + Restic
 
+**Tout est déployé automatiquement par un push sur la branche concernée** (dev, preprod ou prod). Aucune commande manuelle ni script à lancer en conditions normales.
+
 ## Ce qui est en place (automatique au push)
 
 | Exigence | Implémentation |
@@ -10,7 +12,7 @@
 | **Sauvegardes incrémentales versionnées** | Restic : incrémental + rétention **7 quotidiens**, **4 hebdomadaires** |
 | **Tests de restauration mensuels en sandbox** | CronJob le **1er de chaque mois à 7h** (heure Paris) ; restaure dans un volume temporaire, ne modifie pas la base |
 | **Automatisation (CronJobs)** | Tout déployé par le CD au push ; pas de commande manuelle |
-| **Interface MinIO (comme Harbor)** | Connexion sur https://minio.*.thetiptop-jeu.fr avec identifiants MinIO ; console sur /, API sur /api |
+| **Interface MinIO (comme Harbor)** | Connexion sur https://minio.*.thetiptop-jeu.fr**/console/** ; API à la racine |
 
 ---
 
@@ -42,7 +44,7 @@ Zone DNS : `thetiptop-jeu.fr`.
 
 ### 3. Déploiement
 
-Un **push** sur `dev`, puis `preprod`, puis `prod` déploie MinIO, le secret Restic et les CronJobs. Aucune commande à taper.
+Un **push** sur la branche `dev` (ou `preprod`, `prod`) déclenche le CD qui déploie tout : namespace MinIO, ConfigMap nginx, Deployment + PVC, Ingress, secret `minio-credentials`, secret Restic, CronJobs backup et restauration. **Aucune commande à taper** : le push suffit.
 
 ---
 
@@ -197,6 +199,38 @@ kubectl run curl-minio --rm -it --restart=Never --image=curlimages/curl -- \
 # CronJobs backup
 kubectl get cronjobs -n thetiptop-dev
 ```
+
+---
+
+## Dépannage : « Unknown xl meta version 3 »
+
+Si les logs MinIO affichent `FATAL Unable to initialize backend: decodeXLHeaders: Unknown xl meta version 3`, le volume a été créé par une **version plus récente** de MinIO (ex. `minio:latest` 2025) et l’image actuelle (2024) ne lit pas ce format.
+
+**Solution (exceptionnelle) :** supprimer le PVC pour repartir avec un volume vide. Ensuite **un simple push sur la branche** redéploie tout — pas besoin de script après la suppression.
+
+```powershell
+# 1. Mettre à l’échelle le déploiement à 0 pour libérer le volume
+kubectl scale deployment minio -n minio --replicas=0
+
+# 2. Attendre que le pod soit terminé
+kubectl get pods -n minio -w
+# Ctrl+C quand plus de pod minio
+
+# 3. Supprimer le PVC (efface la revendication ; le PV peut être recréé selon le StorageClass)
+kubectl delete pvc minio-data -n minio
+
+# 4. Réappliquer le déploiement (recrée le PVC + pods)
+# Remplacer MINIO_PUBLIC_HOST_PLACEHOLDER par le host (ex. minio.dev.thetiptop-jeu.fr pour dev)
+# Sous PowerShell, depuis la racine du repo :
+$env:MINIO_HOST = "minio.dev.thetiptop-jeu.fr"
+(Get-Content k8s/minio/deployment.yaml) -replace 'MINIO_PUBLIC_HOST_PLACEHOLDER', $env:MINIO_HOST | kubectl apply -f -
+
+# 5. Vérifier (l’apply du deployment remet replicas à 1)
+kubectl get pods -n minio -w
+# Attendre 2/2 Running
+```
+
+Puis **push sur `dev`** : le CD recrée le PVC et relance MinIO. Option : script `scripts/minio-reset-dev.ps1` pour recréer sans attendre le push.
 
 ---
 
