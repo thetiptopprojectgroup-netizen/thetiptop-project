@@ -1,5 +1,6 @@
-# Nginx devant MinIO : page d’info à la racine (plus de proxy vers MinIO sur /) → plus de boucle 307.
+# Nginx devant MinIO : config + page d’info. Page servie depuis /usr/share/nginx/html (permissions OK).
 # L’API S3 (Restic) utilise directement minio:9000 en cluster.
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,12 +10,19 @@ data:
   default.conf: |
     server {
       listen 80;
-      root /etc/nginx/conf.d;
+      root /usr/share/nginx/html;
       index index.html;
       location / {
         try_files $uri $uri/ /index.html;
       }
     }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-nginx-html
+  namespace: minio
+data:
   index.html: |
     <!DOCTYPE html>
     <html>
@@ -30,8 +38,8 @@ data:
     </head>
     <body>
       <h1>MinIO – Backups</h1>
-      <p>Le stockage S3 (MinIO) est actif. Les backups MongoDB (Restic) utilisent l’API en interne.</p>
-      <p>Pour lister les buckets ou les objets, utilisez le client <code>mc</code> ou l’API S3 (credentials = identifiants MinIO).</p>
-      <p>Vérifications dans le cluster&nbsp;: <code>kubectl get cronjobs -n thetiptop-dev</code>, <code>kubectl logs job/backup-manual -n thetiptop-dev</code>.</p>
+      <p>Le stockage S3 (MinIO) est actif. Les backups MongoDB (Restic) utilisent l'API en interne.</p>
+      <p>Pour lister les buckets ou les objets, utilisez le client <code>mc</code> ou l'API S3 (credentials = identifiants MinIO).</p>
+      <p>Vérifications dans le cluster : <code>kubectl get cronjobs -n thetiptop-dev</code>, <code>kubectl logs job/backup-manual -n thetiptop-dev</code>.</p>
     </body>
     </html>
