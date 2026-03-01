@@ -1,0 +1,122 @@
+# Job de configuration Vault : auth Kubernetes, KV v2, policies, rôles, écriture des secrets.
+# S'exécute dans le namespace vault. Secrets fournis : vault-bootstrap-token, vault-thetiptop-secrets (dans vault).
+# Le CD remplace NAMESPACE_PLACEHOLDER=vault, APP_NAMESPACE_PLACEHOLDER=thetiptop-dev, ENV_PLACEHOLDER=dev.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-bootstrap-ENV_PLACEHOLDER
+  namespace: vault
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: vault-bootstrap
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: vault-auth-reviewer
+      containers:
+        - name: vault-config
+          image: hashicorp/vault:1.15
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              set -e
+              export VAULT_ADDR="${VAULT_ADDR:-http://vault.vault.svc.cluster.local:8200}"
+              export VAULT_TOKEN="${VAULT_TOKEN}"
+
+              echo "=== Enable KV v2 ==="
+              vault secrets enable -path=secret kv-v2 2>/dev/null || vault secrets enable -path=secret kv-v2
+
+              echo "=== Enable Kubernetes auth ==="
+              vault auth enable kubernetes 2>/dev/null || true
+
+              K8S_HOST="https://kubernetes.default.svc"
+              K8S_CA_CERT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt | base64 | tr -d '\n')
+              REVIEWER_JWT=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+
+              vault write auth/kubernetes/config \
+                token_reviewer_jwt="$REVIEWER_JWT" \
+                kubernetes_host="$K8S_HOST" \
+                kubernetes_ca_cert="$K8S_CA_CERT"
+
+              echo "=== Policy thetiptop-read ==="
+              vault policy write thetiptop-read - <<'POLICY'
+              path "secret/data/thetiptop/*" {
+                capabilities = ["read", "list"]
+              }
+              POLICY
+
+              echo "=== Policy thetiptop-write (bootstrap) ==="
+              vault policy write thetiptop-bootstrap - <<'POLICY'
+              path "secret/data/thetiptop/*" {
+                capabilities = ["create", "read", "update", "delete", "list"]
+              }
+              POLICY
+
+              NS="$APP_NAMESPACE"
+              echo "=== Role for namespace $NS (backend + mongodb) ==="
+              vault write auth/kubernetes/role/thetiptop-"$NS" \
+                bound_service_account_names=default,backend-sa,mongodb-sa \
+                bound_service_account_namespaces="$NS" \
+                policies=thetiptop-read \
+                ttl=1h
+
+              echo "=== Write secrets for env $APP_ENV ==="
+              vault kv put "secret/thetiptop/$APP_ENV/mongodb" \
+                root-username="$MONGO_ROOT_USERNAME" \
+                root-password="$MONGO_ROOT_PASSWORD"
+
+              vault kv put "secret/thetiptop/$APP_ENV/backend" \
+                mongodb-uri="$MONGODB_URI" \
+                jwt-secret="$JWT_SECRET" \
+                google-client-id="${GOOGLE_CLIENT_ID:-}" \
+                google-client-secret="${GOOGLE_CLIENT_SECRET:-}"
+
+              echo "=== Bootstrap done ==="
+          env:
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-bootstrap-token
+                  key: token
+            - name: APP_NAMESPACE
+              value: "APP_NAMESPACE_PLACEHOLDER"
+            - name: APP_ENV
+              value: "ENV_PLACEHOLDER"
+            - name: MONGO_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: vault-thetiptop-secrets
+                  key: mongo-root-username
+            - name: MONGO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vault-thetiptop-secrets
+                  key: mongo-root-password
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: vault-thetiptop-secrets
+                  key: mongodb-uri
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vault-thetiptop-secrets
+                  key: jwt-secret
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: vault-thetiptop-secrets
+                  key: google-client-id
+                  optional: true
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: vault-thetiptop-secrets
+                  key: google-client-secret
+                  optional: true
+      automountServiceAccountToken: true
