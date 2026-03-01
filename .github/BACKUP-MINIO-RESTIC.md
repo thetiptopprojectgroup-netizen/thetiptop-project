@@ -44,7 +44,22 @@ Zone DNS : `thetiptop-jeu.fr`.
 
 ### 3. Déploiement
 
-Un **push** sur la branche `dev` (ou `preprod`, `prod`) déclenche le CD qui déploie tout : namespace MinIO, ConfigMap nginx, Deployment + PVC, Ingress, secret `minio-credentials`, secret Restic, CronJobs backup et restauration. **Aucune commande à taper** : le push suffit.
+Un **push** sur une branche (y compris le **merge d’une PR**) déclenche le CD pour le cluster de cette branche. MinIO est déployé à chaque fois.
+
+| Événement | Cluster déployé | URL MinIO |
+|-----------|-----------------|-----------|
+| Push ou merge vers `dev` | Dev | https://minio.dev.thetiptop-jeu.fr/console/ |
+| **Merge PR dev → preprod** | Preprod | https://minio.preprod.thetiptop-jeu.fr/console/ |
+| **Merge PR preprod → prod** | Prod | https://minio.thetiptop-jeu.fr/console/ |
+
+Quand tu fais ta **promotion dev → preprod** (merge de la PR), le push sur `preprod` déclenche le CD qui déploie tout, **y compris MinIO**, sur le cluster preprod. Idem pour preprod → prod : merge de la PR = déploiement MinIO sur prod.
+
+**Si tu as encore 502 en preprod ou prod après le merge :**
+1. **Actions** → workflow « CD - Deploy » → vérifier qu’un run s’est lancé pour la branche `preprod` (ou `prod`) et qu’il est vert.
+2. Vérifier que l’étape **« Déployer MinIO »** a bien été exécutée (pas de message « Secrets MinIO absents »).
+3. Secrets **KUBECONFIG_PREPROD** et **KUBECONFIG_PROD** présents (Settings → Secrets → Actions).
+4. DNS : `minio.preprod.thetiptop-jeu.fr` (resp. `minio.thetiptop-jeu.fr`) pointe vers l’IP du LB du cluster preprod (resp. prod).
+5. Dans le cluster : `kubectl get pods -n minio` → pod en **2/2 Running**. Si CrashLoopBackOff (ex. « xl meta version 3 ») : utiliser le workflow **Reset MinIO volume** (voir ci‑dessous).
 
 ---
 
@@ -206,7 +221,10 @@ kubectl get cronjobs -n thetiptop-dev
 
 Si les logs MinIO affichent `FATAL Unable to initialize backend: decodeXLHeaders: Unknown xl meta version 3`, le volume a été créé par une **version plus récente** de MinIO (ex. `minio:latest` 2025) et l’image actuelle (2024) ne lit pas ce format.
 
-**Solution (exceptionnelle) :** supprimer le PVC pour repartir avec un volume vide. Ensuite **un simple push sur la branche** redéploie tout — pas besoin de script après la suppression.
+**Solution (exceptionnelle) :** supprimer le PVC pour repartir avec un volume vide.
+
+- **Preprod ou prod** (sans toucher à kubectl) : **Actions** → workflow **« Reset MinIO volume (preprod / prod) »** → Run workflow → choisir `preprod` ou `prod`. Le workflow arrête MinIO, supprime le volume, redéploie MinIO. Ensuite les PR / push gèrent le déploiement normalement.
+- **Dev** (ou manuel) : commandes ci‑dessous, puis push sur `dev` ou script `scripts/minio-reset-dev.ps1`.
 
 ```powershell
 # 1. Mettre à l’échelle le déploiement à 0 pour libérer le volume
