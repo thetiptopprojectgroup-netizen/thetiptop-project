@@ -33,13 +33,15 @@ Tu ne peux plus revoir la valeur après enregistrement.
 
 ### 2. OVH (DNS)
 
-C’est déjà fait avec les 3 enregistrements A :
+Créer **3 enregistrements A** (ou les modifier si ça ne marchait pas) :
 
-- `minio.dev.thetiptop-jeu.fr` → 129.212.168.6  
-- `minio.preprod.thetiptop-jeu.fr` → 146.190.206.155  
-- `minio.thetiptop-jeu.fr` → 164.92.132.29  
+| Nom / Sous-domaine | Type | Cible (IP) |
+|--------------------|------|------------|
+| `minio.dev` | A | **129.212.168.6** (cluster dev) |
+| `minio.preprod` | A | **146.190.206.155** (cluster preprod) |
+| `minio` | A | **157.230.79.158** (cluster prod) |
 
-Rien à modifier côté OVH.
+Créer ces 3 enregistrements A dans la zone DNS du domaine `thetiptop-jeu.fr` (OVH ou autre). Chaque hostname pointe vers le Load Balancer du cluster correspondant.
 
 ### 3. Déploiement
 
@@ -59,7 +61,6 @@ Connexion : **Username** = valeur de `RESTIC_S3_ACCESS_KEY_ID`, **Password** = v
 
 ## Récap
 
-- **À faire** : créer les 5 secrets GitHub (étape 1).  
-- **Déjà fait** : DNS OVH.  
-- **Ensuite** : push sur chaque branche pour déployer.  
-- Le reste (quotidien/hebdo, chiffrement, incrémental, test mensuel, cron) est déjà dans le code et le CD.
+- **À faire** : 5 secrets GitHub + 3 enregistrements DNS OVH (chaque minio.* vers l’IP du LB du cluster correspondant).  
+- **Ensuite** : push sur dev, preprod, prod pour déployer.  
+- Après changement DNS : attendre quelques minutes (propagation) puis réessayer l’URL MinIO ; le certificat HTTPS sera émis par Let’s Encrypt.
