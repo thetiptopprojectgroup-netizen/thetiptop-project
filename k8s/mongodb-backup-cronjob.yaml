@@ -1,7 +1,6 @@
-# Backup MongoDB : mongodump → Restic → MinIO (S3).
-# Planifié 18h00 FR (17h00 UTC) + 18h15 UTC.
-# Secret requis dans le namespace : restic-s3-secret (restic-repository, restic-password, access-key-id, secret-access-key).
-# RESTIC_REPOSITORY = s3:http://minio.minio.svc.cluster.local:9000/BUCKET/mongodb-ENV (créé par le CD).
+# Backup MongoDB : mongodump → Restic (chiffré, incrémental) vers MinIO (S3).
+# Prod = quotidien (SCHEDULE_PLACEHOLDER = 0 17 * * *) | Dev/Preprod = hebdo (0 17 * * 0).
+# Secret : restic-s3-secret. Rétention : 7 daily, 4 weekly.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -29,106 +28,8 @@ spec:
                   set -e
                   BACKUP_DIR="/backup/$(date +%Y-%m-%d_%H%M%S)"
                   mkdir -p "$BACKUP_DIR"
-                  mongodump \
-                    --uri="mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin" \
-                    --out="$BACKUP_DIR" \
-                    --gzip
-                  echo "Backup dump terminé: $BACKUP_DIR"
-              env:
-                - name: MONGO_INITDB_ROOT_USERNAME
-                  valueFrom:
-                    secretKeyRef:
-                      name: mongodb-secret
-                      key: root-username
-                - name: MONGO_INITDB_ROOT_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: mongodb-secret
-                      key: root-password
-              volumeMounts:
-                - name: backup
-                  mountPath: /backup
-              resources:
-                requests: { cpu: 100m, memory: 256Mi }
-                limits: { cpu: 500m, memory: 512Mi }
-          containers:
-            - name: restic
-              image: restic/restic:0.16
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  set -e
-                  echo "Initialisation repo restic si besoin..."
-                  restic snapshots 2>/dev/null || restic init
-                  echo "Backup vers MinIO..."
-                  restic backup /backup --tag mongodb -v
-                  echo "Rétention: garder 7 quotidiens, 4 hebdomadaires..."
-                  restic forget --keep-daily 7 --keep-weekly 4 --prune -v
-                  echo "Backup Restic terminé."
-              env:
-                - name: RESTIC_REPOSITORY
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: restic-repository
-                - name: RESTIC_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: restic-password
-                - name: AWS_ACCESS_KEY_ID
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: access-key-id
-                - name: AWS_SECRET_ACCESS_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: restic-s3-secret
-                      key: secret-access-key
-              volumeMounts:
-                - name: backup
-                  mountPath: /backup
-              resources:
-                requests: { cpu: 100m, memory: 256Mi }
-                limits: { cpu: 500m, memory: 512Mi }
-          volumes:
-            - name: backup
-              emptyDir: {}
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: mongodb-backup-1815
-  namespace: NAMESPACE_PLACEHOLDER
-spec:
-  schedule: "15 18 * * *"
-  successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 2
-  concurrencyPolicy: Forbid
-  jobTemplate:
-    spec:
-      ttlSecondsAfterFinished: 86400
-      backoffLimit: 2
-      template:
-        spec:
-          restartPolicy: OnFailure
-          initContainers:
-            - name: mongodump
-              image: mongo:7.0
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  set -e
-                  BACKUP_DIR="/backup/$(date +%Y-%m-%d_%H%M%S)"
-                  mkdir -p "$BACKUP_DIR"
-                  mongodump \
-                    --uri="mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin" \
-                    --out="$BACKUP_DIR" \
-                    --gzip
-                  echo "Backup dump terminé: $BACKUP_DIR"
+                  mongodump --uri="mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/?authSource=admin" --out="$BACKUP_DIR" --gzip
+                  echo "Dump terminé: $BACKUP_DIR"
               env:
                 - name: MONGO_INITDB_ROOT_USERNAME
                   valueFrom:
