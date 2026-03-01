@@ -1,11 +1,12 @@
-# Test restauration : dimanche 6h UTC. Vérifie que le dépôt Restic est lisible.
+# Test de restauration mensuel en sandbox : 1er de chaque mois à 6h UTC.
+# Restaure le dernier snapshot dans un volume temporaire (ne touche pas à la base en prod).
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: mongodb-restore-test
   namespace: NAMESPACE_PLACEHOLDER
 spec:
-  schedule: "0 6 * * 0"
+  schedule: "0 6 1 * *"
   successfulJobsHistoryLimit: 2
   failedJobsHistoryLimit: 2
   concurrencyPolicy: Forbid
@@ -24,10 +25,13 @@ spec:
                 - -c
                 - |
                   set -e
+                  echo "=== Snapshots disponibles ==="
                   restic snapshots
+                  echo "=== Restauration sandbox (volume temporaire) ==="
                   restic restore latest --target /verify
-                  find /verify -type f | head -20
-                  echo "Test restauration OK."
+                  echo "=== Fichiers restaurés (aperçu) ==="
+                  find /verify -type f | head -30
+                  echo "Test de restauration mensuel OK."
               env:
                 - name: RESTIC_REPOSITORY
                   valueFrom:

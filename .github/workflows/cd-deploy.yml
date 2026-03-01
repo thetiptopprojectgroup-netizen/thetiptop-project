@@ -325,13 +325,15 @@ jobs:
           echo "MinIO déployé: https://$MINIO_HOST"
 
       # ─── 8b. Backup MongoDB (Restic vers MinIO)
-      - name: Appliquer CronJobs backup + test restauration
+      - name: Appliquer CronJobs backup (quotidien prod / hebdo dev-preprod) + test restauration mensuel
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         run: |
           NS="${{ steps.env.outputs.namespace }}"
-          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" -e "s|SCHEDULE_PLACEHOLDER|0 17 * * *|g" k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
+          ENV="${{ steps.env.outputs.env }}"
+          if [ "$ENV" = "prod" ]; then SCHEDULE="0 17 * * *"; else SCHEDULE="0 17 * * 0"; fi
+          sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" -e "s|SCHEDULE_PLACEHOLDER|$SCHEDULE|g" k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
           sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" k8s/mongodb-restore-test-cronjob.yaml | kubectl apply -f -
-          echo "CronJobs backup appliqués."
+          echo "Backup: $([ "$ENV" = "prod" ] && echo "quotidien")$([ "$ENV" != "prod" ] && echo "hebdomadaire (dimanche)"). Restauration test: mensuel (1er du mois)."
 
       - name: Créer secret Restic (backup MongoDB)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
