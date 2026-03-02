@@ -354,10 +354,11 @@ jobs:
         run: |
           NS="${{ steps.env.outputs.namespace }}"
           ENV="${{ steps.env.outputs.env }}"
-          if [ "$ENV" = "prod" ]; then SCHEDULE="0 16 * * *"; else SCHEDULE="0 17 * * 0"; fi
+          # Quotidien à 5h00 Paris (4h UTC en hiver) pour tous les environnements
+          SCHEDULE="0 4 * * *"
           sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" -e "s|SCHEDULE_PLACEHOLDER|$SCHEDULE|g" k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
           sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" k8s/mongodb-restore-test-cronjob.yaml | kubectl apply -f -
-          echo "Backup: $([ "$ENV" = "prod" ] && echo "quotidien 17h Paris (16h UTC)")$([ "$ENV" != "prod" ] && echo "hebdo dimanche 18h Paris"). Restauration test: 1er du mois 7h Paris."
+          echo "Backup: quotidien à 5h00 Paris (4h UTC). Restauration test: 1er du mois 7h Paris."
 
       # ─── 9. Déployer Backend & Frontend avec la nouvelle image ────────
       - name: Déployer Backend (nouvelle image)
