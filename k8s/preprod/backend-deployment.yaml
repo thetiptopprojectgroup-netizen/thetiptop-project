@@ -16,15 +16,6 @@ spec:
       labels:
         app: backend
         env: preprod
-      annotations:
-        vault.hashicorp.com/agent-inject: "true"
-        vault.hashicorp.com/role: "thetiptop-thetiptop-preprod"
-        vault.hashicorp.com/agent-inject-secret-backend: "secret/data/thetiptop/preprod/backend"
-        vault.hashicorp.com/agent-inject-template-backend: |
-          MONGODB_URI={{ with secret "secret/data/thetiptop/preprod/backend" }}{{ .Data.data["mongodb-uri"] }}{{ end }}
-          JWT_SECRET={{ with secret "secret/data/thetiptop/preprod/backend" }}{{ .Data.data["jwt-secret"] }}{{ end }}
-          GOOGLE_CLIENT_ID={{ with secret "secret/data/thetiptop/preprod/backend" }}{{ or .Data.data["google-client-id"] "" }}{{ end }}
-          GOOGLE_CLIENT_SECRET={{ with secret "secret/data/thetiptop/preprod/backend" }}{{ or .Data.data["google-client-secret"] "" }}{{ end }}
     spec:
       containers:
         - name: backend

@@ -26,24 +26,10 @@ spec:
       labels:
         app: mongodb
         env: prod
-      annotations:
-        vault.hashicorp.com/agent-inject: "true"
-        vault.hashicorp.com/role: "thetiptop-thetiptop-prod"
-        vault.hashicorp.com/agent-inject-secret-mongodb-username: "secret/data/thetiptop/prod/mongodb"
-        vault.hashicorp.com/agent-inject-template-mongodb-username: '{{ with secret "secret/data/thetiptop/prod/mongodb" }}{{ .Data.data["root-username"] }}{{ end }}'
-        vault.hashicorp.com/agent-inject-secret-mongodb-password: "secret/data/thetiptop/prod/mongodb"
-        vault.hashicorp.com/agent-inject-template-mongodb-password: '{{ with secret "secret/data/thetiptop/prod/mongodb" }}{{ .Data.data["root-password"] }}{{ end }}'
     spec:
       containers:
         - name: mongodb
           image: mongo:7.0
-          command:
-            - /bin/sh
-            - -ec
-            - |
-              export MONGO_INITDB_ROOT_USERNAME=$(cat /vault/secrets/mongodb-username 2>/dev/null || echo "$MONGO_INITDB_ROOT_USERNAME")
-              export MONGO_INITDB_ROOT_PASSWORD=$(cat /vault/secrets/mongodb-password 2>/dev/null || echo "$MONGO_INITDB_ROOT_PASSWORD")
-              exec docker-entrypoint.sh mongod
           ports:
             - containerPort: 27017
           env:
