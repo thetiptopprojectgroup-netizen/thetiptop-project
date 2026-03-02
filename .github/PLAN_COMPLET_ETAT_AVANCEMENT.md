@@ -84,19 +84,6 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 | Middlewares de sécurité | ✅ Fait | `k8s/traefik/middleware-security.yaml` |
 | Haute disponibilité en production | ✅ Fait | Plusieurs replicas + HPA en prod |
 
----
-
-## PHASE 7 – GESTION DES SECRETS (HASHICORP VAULT)
-
-| Point du plan | Statut | Détail |
-|---------------|--------|--------|
-| Cluster Vault haute disponibilité | ❌ Non fait | Non déployé |
-| Stockage sécurisé des credentials MongoDB | ⚠️ Contournement | Secrets Kubernetes (`backend-secret`, `mongodb-secret`) dans chaque namespace |
-| Injection dynamique des secrets dans les Pods | ⚠️ Contournement | Via `envFrom` / secrets K8s, pas Vault |
-| Rotation automatique des secrets | ❌ Non fait | Pas de rotation automatisée |
-| Audit trail des accès | ❌ Non fait | Pas de Vault donc pas d’audit Vault |
-
-**À faire :** Déployer Vault et migrer les secrets (MongoDB, JWT, OAuth, etc.) vers Vault avec injection dans les Pods (CSI ou sidecar) et, si requis, rotation + audit.
 
 ---
 
@@ -151,19 +138,17 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 | 4 – Harbor | 5 | 0 | 0 |
 | 5 – Kubernetes + Helm | 5 | 1 (HPA uniquement en prod) | 1 (Helm) |
 | 6 – Traefik + TLS | 5 | 0 | 0 |
-| 7 – Vault | 0 | 2 (secrets K8s) | 3 |
 | 8 – Monitoring (Prometheus, Grafana, ELK) | 4 | 0 | 1 (ELK / logs) |
 | 9 – Backups | 0 | 0 | 6 |
 | 10 – DigitalOcean | 1 | 3 (specs à vérifier) | 2 |
 
 **Priorités recommandées pour la conformité complète au plan :**
 
-1. **Phase 7 – Vault** : Déployer Vault et migrer les secrets (ou documenter une dérogation si le cahier accepte les secrets K8s).
-2. **Phase 8 – Monitoring** : Prometheus + Grafana + Alertmanager + ELK (ou équivalent).
-3. **Phase 9 – Backups** : Restic + MinIO + CronJobs + tests de restauration.
-4. **Phase 5 – Helm** : Créer des Helm charts pour le déploiement si exigé par la spec.
-5. **Phase 2 – E2E** : Activer Firefox et WebKit en CI si la spec impose les tests multi-navigateurs.
-6. **Phase 10** : Aligner et documenter l’infra (taille des nœuds, snapshots, Block Storage).
+1. **Phase 8 – Monitoring** : Prometheus + Grafana + Alertmanager + ELK (ou équivalent).
+2. **Phase 9 – Backups** : Restic + MinIO + CronJobs + tests de restauration.
+3. **Phase 5 – Helm** : Créer des Helm charts pour le déploiement si exigé par la spec.
+4. **Phase 2 – E2E** : Activer Firefox et WebKit en CI si la spec impose les tests multi-navigateurs.
+5. **Phase 10** : Aligner et documenter l’infra (taille des nœuds, snapshots, Block Storage).
 
 ---
 
@@ -195,16 +180,7 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 - **Prod** : même mécanisme en quotidien ; preprod/dev en hebdomadaire comme dans le plan.
 - **Test de restauration** : prévoir une fois par mois un run en sandbox (namespace dédié ou cluster de test).
 
-### 4. Vault (Phase 7) – Une fois monitoring + backups en place
-
-**Pourquoi après :** changement sensible (secrets, injection dans les Pods). Avec monitoring on voit tout de suite si un Pod ne démarre plus ; avec des backups on peut revenir en arrière en cas d’erreur.
-
-- Déployer Vault (HA si exigé par la spec).
-- Migrer **un secret à la fois** (ex. d’abord MongoDB, puis JWT) depuis les Secrets K8s vers Vault.
-- Utiliser l’agent Vault ou le CSI driver pour injecter les secrets dans les Pods.
-- Documenter la rotation et l’audit.
-
-### 5. Helm (Phase 5) – Si la spec l’exige
+### 4. Helm (Phase 5) – Si la spec l’exige
 
 - Créer un chart qui regroupe backend, frontend, MongoDB, Ingress, ConfigMaps/Secrets (ou références).
 - Remplacer progressivement les `kubectl apply -f k8s/...` par `helm upgrade --install` en dev puis preprod puis prod.
@@ -213,8 +189,7 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 
 1. ~~Prometheus + Grafana~~ : **fait** (dev / preprod / prod via `k8s/monitoring/`).  
 2. **À faire maintenant** : Backups (MinIO + Restic + CronJob), puis optionnellement ELK/Loki pour les logs.  
-3. **Ensuite** : Vault (migration des secrets) si la spec l’exige.  
-4. **Gains rapides** : E2E multi-navigateurs en CI, versioning sémantique (tags), HPA en preprod.
+3. **Gains rapides** : E2E multi-navigateurs en CI, versioning sémantique (tags), HPA en preprod.
 
 ---
 
@@ -225,6 +200,5 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 | **1** | Vérifier le monitoring sur les 3 clusters | Si pas encore fait : déployer le stack (Helm + values-preprod / values-prod) sur **preprod** et **prod**. Vérifier l’accès à Grafana (DNS : grafana.preprod.thetiptop-jeu.fr, grafana.thetiptop-jeu.fr). |
 | **2** | **Backups (Phase 9)** | Déployer MinIO (bucket S3), puis Restic ou un CronJob qui fait un dump MongoDB et l’envoie vers MinIO. Commencer en **dev**, tester une restauration, puis étendre en preprod/prod. |
 | **3** | Logs (optionnel) | Mettre en place ELK ou Loki pour centraliser les logs (complète la Phase 8). |
-| **4** | Vault (Phase 7) | Si la spec l’exige : déployer Vault, migrer les secrets (MongoDB, JWT, OAuth) depuis les Secrets K8s. |
-| **5** | Gains rapides | E2E multi-navigateurs (Firefox + WebKit) en CI ; tag de version (v1.0.0) sur merge prod ; HPA en preprod. |
+| **4** | Gains rapides | E2E multi-navigateurs (Firefox + WebKit) en CI ; tag de version (v1.0.0) sur merge prod ; HPA en preprod. |
   

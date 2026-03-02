@@ -23,6 +23,7 @@ server:
         }
         storage "raft" {
           path = "/vault/data"
+          node_id = "POD_NAME"
         }
   auditStorage:
     enabled: true
@@ -38,12 +39,6 @@ server:
 
 injector:
   enabled: true
-  # N'injecte que dans les namespaces avec le label vault-injection=enabled
-  # Sans ce label, les pods utilisent les secrets K8s (secretKeyRef) → déploiement fonctionne sans Vault
-  webhook:
-    namespaceSelector:
-      matchLabels:
-        vault-injection: enabled
   resources:
     requests:
       memory: "128Mi"

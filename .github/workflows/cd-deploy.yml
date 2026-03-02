@@ -6,7 +6,6 @@
 #   MONGODB_URI_* / JWT_SECRET_* / MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD
 #   HARBOR_REGISTRY / HARBOR_USERNAME / HARBOR_PASSWORD
 #   MinIO + Restic : RESTIC_MINIO_ENDPOINT, RESTIC_MINIO_BUCKET, RESTIC_PASSWORD, RESTIC_S3_ACCESS_KEY_ID, RESTIC_S3_SECRET_ACCESS_KEY
-#   Vault (optionnel) : VAULT_TOKEN (token root après init) pour stockage sécurisé + injection dynamique des secrets
 #
 # Encoder un kubeconfig : base64 -w0 ~/.kube/config-<env>
 name: CD - Deploy (Kubernetes)
@@ -276,61 +275,6 @@ jobs:
             --namespace="$NS" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      # ─── 7b. Vault : déployer (Helm) + sync secrets + bootstrap (si VAULT_TOKEN défini)
-      - name: Déployer Vault (Helm HA + Injector) et configurer les secrets
-        if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
-        env:
-          VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
-          MONGODB_URI_DEV:     ${{ secrets.MONGODB_URI_DEV }}
-          MONGODB_URI_PREPROD: ${{ secrets.MONGODB_URI_PREPROD }}
-          MONGODB_URI_PROD:    ${{ secrets.MONGODB_URI_PROD }}
-          JWT_SECRET_DEV:      ${{ secrets.JWT_SECRET_DEV }}
-          JWT_SECRET_PREPROD:  ${{ secrets.JWT_SECRET_PREPROD }}
-          JWT_SECRET_PROD:     ${{ secrets.JWT_SECRET_PROD }}
-          MONGO_ROOT_USERNAME: ${{ secrets.MONGO_ROOT_USERNAME }}
-          MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-        run: |
-          if [ -z "$VAULT_TOKEN" ]; then exit 0; fi
-          NS="${{ steps.env.outputs.namespace }}"
-          ENV="${{ steps.env.outputs.env }}"
-          case "${{ github.ref_name }}" in
-            prod)    MONGO_URI="$MONGODB_URI_PROD";    JWT="$JWT_SECRET_PROD" ;;
-            preprod) MONGO_URI="$MONGODB_URI_PREPROD"; JWT="$JWT_SECRET_PREPROD" ;;
-            *)       MONGO_URI="$MONGODB_URI_DEV";     JWT="$JWT_SECRET_DEV" ;;
-          esac
-          if [ -n "$MONGO_URI" ] && ! echo "$MONGO_URI" | grep -q '^mongodb://'; then
-            DECODED=$(echo "$MONGO_URI" | base64 -d 2>/dev/null || true)
-            [ -n "$DECODED" ] && echo "$DECODED" | grep -q '^mongodb://' && MONGO_URI="$DECODED"
-          fi
-          MONGO_URI=$(echo "$MONGO_URI" | sed 's/[[:space:]]*$//')
-          [ "${{ github.ref_name }}" = "preprod" ] && MONGO_URI=$(echo "$MONGO_URI" | sed 's/mongodb\.thetiptop-prod\.svc/mongodb.thetiptop-preprod.svc/g')
-
-          curl -sSfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          helm repo add hashicorp https://helm.releases.hashicorp.com 2>/dev/null || true
-          helm repo update
-
-          kubectl apply -f k8s/vault/namespace.yaml
-          kubectl apply -f k8s/vault/auth-reviewer-rbac.yaml -n vault
-
-          helm upgrade --install vault hashicorp/vault -n vault -f k8s/vault/values.yaml --wait --timeout 5m 2>/dev/null || helm upgrade --install vault hashicorp/vault -n vault -f k8s/vault/values.yaml
-
-          kubectl create secret generic vault-bootstrap-token -n vault --from-literal=token="$VAULT_TOKEN" --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic vault-thetiptop-secrets -n vault \
-            --from-literal=mongo-root-username="$MONGO_ROOT_USERNAME" \
-            --from-literal=mongo-root-password="$MONGO_ROOT_PASSWORD" \
-            --from-literal=mongodb-uri="$MONGO_URI" \
-            --from-literal=jwt-secret="$JWT" \
-            --from-literal=google-client-id="${GOOGLE_CLIENT_ID:-}" \
-            --from-literal=google-client-secret="${GOOGLE_CLIENT_SECRET:-}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-          kubectl delete job -n vault -l app=vault-bootstrap --ignore-not-found=true
-          JOB_FILE=$(sed -e "s|APP_NAMESPACE_PLACEHOLDER|$NS|g" -e "s|ENV_PLACEHOLDER|$ENV|g" k8s/vault/bootstrap-job.yaml)
-          echo "$JOB_FILE" | kubectl apply -f -
-          echo "Vault bootstrap job lancé. Si Vault n'est pas encore init/unseal, le job échouera (voir .github/VAULT-SETUP.md)."
-
       # ─── 8. Déployer MongoDB (StatefulSet) ───────────────────────────
       - name: Appliquer MongoDB StatefulSet
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
@@ -410,7 +354,7 @@ jobs:
         run: |
           NS="${{ steps.env.outputs.namespace }}"
           ENV="${{ steps.env.outputs.env }}"
-          if [ "$ENV" = "prod" ]; then SCHEDULE="2 0 * * *"; else SCHEDULE="0 17 * * 0"; fi
+          if [ "$ENV" = "prod" ]; then SCHEDULE="0 16 * * *"; else SCHEDULE="0 17 * * 0"; fi
           sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" -e "s|SCHEDULE_PLACEHOLDER|$SCHEDULE|g" k8s/mongodb-backup-cronjob.yaml | kubectl apply -f -
           sed -e "s|NAMESPACE_PLACEHOLDER|$NS|g" k8s/mongodb-restore-test-cronjob.yaml | kubectl apply -f -
           echo "Backup: $([ "$ENV" = "prod" ] && echo "quotidien 17h Paris (16h UTC)")$([ "$ENV" != "prod" ] && echo "hebdo dimanche 18h Paris"). Restauration test: 1er du mois 7h Paris."
@@ -454,14 +398,14 @@ jobs:
               k8s/seed-admin-job.yaml | kubectl apply -f -
           echo "Attente seed-admin (max 4 min, MongoDB peut être lent au démarrage)..."
           if ! kubectl wait --for=condition=complete job/seed-admin -n "$NS" --timeout=240s; then
-            echo "⚠️ Job seed-admin en échec ou timeout – déploiement continue. Relancer le seed plus tard (Actions → Run seed admin) ou: kubectl delete job seed-admin -n $NS; puis recréer le job."
+            echo "⚠️ Job seed-admin en échec ou timeout – logs:"
             kubectl get pods -n "$NS" -l job-name=seed-admin 2>/dev/null || true
-            kubectl logs job/seed-admin -n "$NS" --tail=80 2>/dev/null || true
+            kubectl logs job/seed-admin -n "$NS" --tail=100 2>/dev/null || true
             POD=$(kubectl get pods -n "$NS" -l job-name=seed-admin -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-            [ -n "$POD" ] && kubectl logs "$POD" -n "$NS" -c wait-mongodb --tail=20 2>/dev/null; kubectl logs "$POD" -n "$NS" -c seed-admin --tail=30 2>/dev/null
-          else
-            echo "✅ Admin/employés créés (connexion possible)."
+            [ -n "$POD" ] && kubectl logs "$POD" -n "$NS" --tail=100
+            exit 1
           fi
+          echo "✅ Admin/employés créés (connexion possible)."
 
       - name: Lancer génération 500k tickets (npm run seed) en arrière-plan
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'

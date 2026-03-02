@@ -1,8 +1,0 @@
-# Namespace pour Vault (HA + Injector)
-# Appliqué une fois par cluster : kubectl apply -f k8s/vault/namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: vault
-  labels:
-    app.kubernetes.io/name: vault

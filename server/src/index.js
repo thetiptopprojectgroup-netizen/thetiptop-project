@@ -1,4 +1,3 @@
-import fs from 'fs';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -13,11 +12,8 @@ import routes from './routes/index.js';
 import authRoutes from './routes/authRoutes.js';
 import errorHandler, { notFound } from './middlewares/errorHandler.js';
 
-// Variables d'environnement : .env puis override par Vault si présent (K8s + Vault Agent Injector)
+// Configuration des variables d'environnement
 dotenv.config();
-if (fs.existsSync('/vault/secrets/backend')) {
-  dotenv.config({ path: '/vault/secrets/backend', override: true });
-}
 
 // Connexion à la base de données
 connectDB();
