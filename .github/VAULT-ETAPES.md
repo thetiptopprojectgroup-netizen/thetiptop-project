@@ -156,11 +156,20 @@ Les logs sont écrits dans le volume monté sous `/vault/audit` (défini dans `k
 
 ---
 
-## Étape 12 – Vérifier que l’app reçoit bien les secrets
+## Étape 12 – Activer l’injection Vault dans le namespace
 
-- Redémarre le backend pour forcer un nouveau pod (avec injection Vault) :
+Par défaut, l’injector Vault **n’injecte pas** (pour éviter de bloquer les pods si Vault n’est pas prêt). Une fois Vault init + unseal + bootstrap OK, ajoute le label :
+
+```bash
+kubectl label namespace thetiptop-dev vault-injection=enabled --overwrite
+```
+
+## Étape 13 – Vérifier que l’app reçoit bien les secrets
+
+- Redémarre le backend et MongoDB pour forcer de nouveaux pods (avec injection Vault) :
   ```bash
   kubectl rollout restart deployment/backend -n thetiptop-dev
+  kubectl rollout restart statefulset/mongodb -n thetiptop-dev
   ```
 - Vérifie les logs du pod backend : pas d’erreur de connexion MongoDB, pas d’erreur Vault.
 - Si tout est ok, le backend charge les secrets depuis **Vault** (fichier `/vault/secrets/backend`). Sinon il utilise toujours les secrets Kubernetes (fallback).
@@ -182,7 +191,8 @@ Les logs sont écrits dans le volume monté sous `/vault/audit` (défini dans `k
 | 9 | Mettre le root token dans le secret GitHub `VAULT_TOKEN` |
 | 10 | Relancer le déploiement (bootstrap) |
 | 11 | (Optionnel) Activer l’audit : `vault audit enable file ...` |
-| 12 | Redémarrer le backend et vérifier que l’app fonctionne |
+| 12 | Activer l’injection : `kubectl label namespace thetiptop-dev vault-injection=enabled` |
+| 13 | Redémarrer backend + MongoDB et vérifier que l’app fonctionne |
 
 ---
 
