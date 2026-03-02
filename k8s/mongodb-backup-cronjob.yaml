@@ -1,5 +1,5 @@
 # Backup MongoDB : mongodump (gzip) → Restic (chiffré, incrémental) → MinIO (S3).
-# Prod : quotidien (SCHEDULE_PLACEHOLDER = 0 17 * * *). Dev/Preprod : hebdo dimanche (0 17 * * 0).
+# Planification : quotidien à 5h00 Paris (SCHEDULE_PLACEHOLDER = 0 4 * * * en UTC).
 # Secret restic-s3-secret (restic-repository, restic-password, access-key-id, secret-access-key).
 # Rétention : 7 daily, 4 weekly.
 apiVersion: batch/v1

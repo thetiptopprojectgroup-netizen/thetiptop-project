@@ -132,6 +132,33 @@ Le job de seed (`npm run seed:all`) crée un admin par environnement avec des id
 
 L’employé de test reste `employe@thetiptop.fr` / `Employe123!` dans tous les environnements.
 
+## Backups MongoDB (quotidien à 5h00 Paris)
+
+Les backups sont planifiés **chaque jour à 5h00 (heure de Paris)** via un CronJob Kubernetes `mongodb-backup`. Le dump est envoyé vers MinIO (S3) via Restic (chiffré, incrémental). Rétention : 7 sauvegardes quotidiennes, 4 hebdomadaires.
+
+### Où voir si le backup a été fait ?
+
+1. **Dans Kubernetes** (avec `kubectl` sur le cluster) :
+   ```bash
+   # Remplacer thetiptop-dev par thetiptop-preprod ou thetiptop-prod selon l’env
+   kubectl get cronjobs -n thetiptop-dev
+   kubectl get jobs -n thetiptop-dev
+   ```
+   Les jobs créés par le CronJob ont des noms du type `mongodb-backup-28345678`. Un job **Completed** = backup réussi.
+
+   ```bash
+   # Derniers jobs et statut
+   kubectl get jobs -n thetiptop-dev --sort-by=.metadata.creationTimestamp | tail -10
+   # Logs du dernier job de backup
+   kubectl logs -n thetiptop-dev job/mongodb-backup-XXXXX --tail=100
+   ```
+
+2. **Console MinIO** : les sauvegardes Restic sont stockées dans le bucket configuré (secret `RESTIC_MINIO_BUCKET`). Tu peux vérifier dans la console MinIO que de nouveaux objets/snapshots apparaissent après 5h00.
+
+3. **Lancer un backup à la main** : **Actions** → **Run Backup MongoDB** → Run workflow (choisir l’environnement). À la fin du workflow, les logs indiquent si le backup a réussi et rappellent de vérifier le bucket MinIO.
+
+---
+
 ## Vérification
 
 Après déploiement :
@@ -143,7 +170,29 @@ kubectl logs deployment/backend -n thetiptop-preprod | grep -i mongo
 
 Si le backend affiche `MongoDB connecté`, la connexion est correcte.
 
-## Dépannage : MongoDB reste 0/1 Ready
+## Dépannage : MongoDB reste 0/1 Ready ou bloqué en Init:0/1
+
+### Pod bloqué en Init:0/1 (timeout après 5 min)
+
+1. **Vérifier le PVC** : si le volume ne se monte pas, le pod reste bloqué :
+   ```bash
+   kubectl get pvc -n thetiptop-dev
+   ```
+   Le PVC `mongodb-data-mongodb-0` doit être **Bound**. S’il est **Pending**, le cluster n’a peut‑être pas de StorageClass par défaut.
+
+2. **Recréer le pod** pour prendre la config actuelle du StatefulSet (avec startupProbe) :
+   ```bash
+   kubectl delete pod mongodb-0 -n thetiptop-dev
+   ```
+   Remplacer `thetiptop-dev` par `thetiptop-preprod` ou `thetiptop-prod` selon l’env.
+
+3. **Réappliquer le StatefulSet** puis supprimer le pod si besoin :
+   ```bash
+   kubectl apply -f k8s/dev/mongodb-statefulset.yaml
+   kubectl delete pod mongodb-0 -n thetiptop-dev
+   ```
+
+### Pod en Running mais jamais Ready
 
 Si le pod `mongodb-0` reste en `Running` mais jamais `Ready` (timeout après 5 min) :
 
