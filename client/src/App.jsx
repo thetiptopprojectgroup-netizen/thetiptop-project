@@ -17,6 +17,7 @@ import FAQPage from './pages/FAQPage';
 import LegalPage from './pages/LegalPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import SitemapPage from './pages/SitemapPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import CookieConsent from './components/common/CookieConsent';
@@ -108,6 +109,7 @@ function App() {
           <Route path="legal" element={<LegalPage />} />
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
+          <Route path="plan-du-site" element={<SitemapPage />} />
 
           {/* Protected routes - authenticated users */}
           <Route path="play" element={<ProtectedRoute><PlayPage /></ProtectedRoute>} />
