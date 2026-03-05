@@ -13,6 +13,7 @@ export default function Footer() {
       { label: 'FAQ', href: '/faq' },
     ],
     legal: [
+      { label: 'Plan du site', href: '/plan-du-site' },
       { label: 'Mentions légales', href: '/legal' },
       { label: 'CGU', href: '/terms' },
       { label: 'Politique de confidentialité', href: '/privacy' },

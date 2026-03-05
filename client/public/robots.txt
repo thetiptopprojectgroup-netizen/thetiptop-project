@@ -1,0 +1,11 @@
+# https://www.robotstxt.org/robotstxt.html
+# Même fichier servi en dev, preprod et prod.
+
+User-agent: *
+Allow: /
+
+# Sitemaps (un par environnement – les moteurs utilisent celui du domaine qu’ils crawlent)
+Sitemap: https://thetiptop-jeu.fr/sitemap.xml
+Sitemap: https://www.thetiptop-jeu.fr/sitemap.xml
+Sitemap: https://dev.thetiptop-jeu.fr/sitemap.xml
+Sitemap: https://preprod.thetiptop-jeu.fr/sitemap.xml
