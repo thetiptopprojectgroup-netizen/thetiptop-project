@@ -76,12 +76,12 @@ const useGameStore = create((set, get) => ({
     }
   },
 
-  // Supprimer une participation (uniquement si non récupérée)
-  deleteParticipation: async (participationId) => {
+  // Supprimer une de mes participations (si non réclamée)
+  deleteMyParticipation: async (id) => {
     try {
-      await ticketService.deleteMyParticipation(participationId);
+      await ticketService.deleteMyParticipation(id);
       set((state) => ({
-        participations: state.participations.filter((p) => p.id !== participationId),
+        participations: state.participations.filter((p) => p.id !== id),
       }));
       return { success: true };
     } catch (error) {

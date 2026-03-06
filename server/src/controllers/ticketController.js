@@ -76,6 +76,32 @@ export const validateTicket = async (req, res, next) => {
   }
 };
 
+// @desc    Supprimer une de mes participations (client uniquement, si non réclamée)
+// @route   DELETE /api/tickets/my-participations/:id
+export const deleteMyParticipation = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const participation = await Participation.findOne({ _id: id, user: userId });
+    if (!participation) {
+      return next(new AppError('Participation introuvable ou vous n\'êtes pas autorisé à la supprimer', 404));
+    }
+    if (participation.status === 'claimed') {
+      return next(new AppError('Impossible de supprimer une participation dont le lot a déjà été récupéré', 400));
+    }
+
+    await Participation.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Participation supprimée',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Historique des participations
 // @route   GET /api/tickets/my-participations
 export const getMyParticipations = async (req, res, next) => {
@@ -301,43 +327,6 @@ export const searchCustomers = async (req, res, next) => {
           lastName: c.nom,
         })),
       },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Supprimer une participation du client (uniquement si non récupérée)
-// @route   DELETE /api/tickets/my-participations/:id
-export const deleteMyParticipation = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user._id;
-
-    const participation = await Participation.findById(id);
-    if (!participation) {
-      return next(new AppError('Participation introuvable', 404));
-    }
-    if (participation.user.toString() !== userId.toString()) {
-      return next(new AppError('Vous ne pouvez supprimer que vos propres participations', 403));
-    }
-    if (participation.status === 'claimed') {
-      return next(new AppError('Impossible de supprimer un lot déjà récupéré', 400));
-    }
-
-    const codeDoc = await Code.findById(participation.ticket);
-    if (codeDoc) {
-      codeDoc.etat = 'disponible';
-      codeDoc.utilise_par = undefined;
-      codeDoc.date_utilisation = undefined;
-      await codeDoc.save();
-    }
-
-    await Participation.findByIdAndDelete(id);
-
-    res.status(200).json({
-      success: true,
-      message: 'Participation supprimée',
     });
   } catch (error) {
     next(error);
