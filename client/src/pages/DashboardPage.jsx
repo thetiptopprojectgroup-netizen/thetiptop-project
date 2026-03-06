@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Gift, Trophy, Clock, CheckCircle, ArrowRight, Ticket } from 'lucide-react';
+import { Gift, Trophy, Clock, CheckCircle, ArrowRight, Ticket, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Card from '../components/common/Card';
@@ -18,7 +18,7 @@ const statusConfig = {
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const { participations, isLoading, fetchMyParticipations } = useGameStore();
+  const { participations, isLoading, fetchMyParticipations, deleteParticipation } = useGameStore();
 
   useEffect(() => {
     fetchMyParticipations();
@@ -210,6 +210,22 @@ export default function DashboardPage() {
                         <StatusIcon className="w-4 h-4" />
                         {status.label}
                       </div>
+
+                      {/* Supprimer (uniquement si lot non récupéré) */}
+                      {participation.status !== 'claimed' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('Supprimer cette participation ? Le ticket pourra être réutilisé.')) {
+                              deleteParticipation(participation.id);
+                            }
+                          }}
+                          className="p-2 rounded-lg text-tea-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          title="Supprimer cette participation"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </motion.div>
                   );
                 })}

@@ -54,6 +54,7 @@ export const authService = {
 export const ticketService = {
   validateTicket: (code) => api.post('/tickets/validate', { code }),
   getMyParticipations: () => api.get('/tickets/my-participations'),
+  deleteMyParticipation: (id) => api.delete(`/tickets/my-participations/${id}`),
   getPrizes: () => api.get('/tickets/prizes'),
   checkTicket: (code) => api.get(`/tickets/check/${code}`),
 };
