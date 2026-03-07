@@ -76,6 +76,32 @@ export const validateTicket = async (req, res, next) => {
   }
 };
 
+// @desc    Supprimer une de mes participations (client uniquement, si non réclamée)
+// @route   DELETE /api/tickets/my-participations/:id
+export const deleteMyParticipation = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const participation = await Participation.findOne({ _id: id, user: userId });
+    if (!participation) {
+      return next(new AppError('Participation introuvable ou vous n\'êtes pas autorisé à la supprimer', 404));
+    }
+    if (participation.status === 'claimed') {
+      return next(new AppError('Impossible de supprimer une participation dont le lot a déjà été récupéré', 400));
+    }
+
+    await Participation.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Participation supprimée',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Historique des participations
 // @route   GET /api/tickets/my-participations
 export const getMyParticipations = async (req, res, next) => {

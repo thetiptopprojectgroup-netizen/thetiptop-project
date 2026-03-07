@@ -76,6 +76,20 @@ const useGameStore = create((set, get) => ({
     }
   },
 
+  // Supprimer une de mes participations (si non réclamée)
+  deleteMyParticipation: async (id) => {
+    try {
+      await ticketService.deleteMyParticipation(id);
+      set((state) => ({
+        participations: state.participations.filter((p) => p.id !== id),
+      }));
+      return { success: true };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Erreur lors de la suppression';
+      return { success: false, error: message };
+    }
+  },
+
   // Réinitialiser le gain actuel
   clearCurrentWin: () => set({ currentWin: null }),
 

@@ -48,12 +48,14 @@ export const authService = {
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => api.post(`/auth/reset-password/${token}`, { password }),
   logout: () => api.post('/auth/logout'),
+  deleteMyAccount: () => api.delete('/auth/me'),
 };
 
 // Services des tickets
 export const ticketService = {
   validateTicket: (code) => api.post('/tickets/validate', { code }),
   getMyParticipations: () => api.get('/tickets/my-participations'),
+  deleteMyParticipation: (id) => api.delete(`/tickets/my-participations/${id}`),
   getPrizes: () => api.get('/tickets/prizes'),
   checkTicket: (code) => api.get(`/tickets/check/${code}`),
 };

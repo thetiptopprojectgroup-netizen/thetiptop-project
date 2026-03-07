@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import {
-  User, Mail, Phone, MapPin, Calendar, Shield, Save, Lock, Eye, EyeOff, CheckCircle
+  User, Mail, Phone, MapPin, Calendar, Shield, Save, Lock, Eye, EyeOff, CheckCircle, Trash2, AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Card from '../components/common/Card';
@@ -12,10 +13,12 @@ import useAuthStore from '../store/authStore';
 import { authService } from '../services/api';
 
 export default function ProfilePage() {
-  const { user, updateProfile } = useAuthStore();
+  const navigate = useNavigate();
+  const { user, updateProfile, deleteMyAccount } = useAuthStore();
   const [activeTab, setActiveTab] = useState('info');
   const [showPassword, setShowPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm();
 
@@ -87,10 +90,27 @@ export default function ProfilePage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible. Vous ne pourrez plus vous connecter avec ce compte.')) return;
+    setIsDeletingAccount(true);
+    try {
+      const result = await deleteMyAccount();
+      if (result.success) {
+        toast.success('Votre compte a été supprimé.');
+        navigate('/', { replace: true });
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const tabs = [
     { id: 'info', label: 'Informations', icon: User },
     { id: 'security', label: 'Sécurité', icon: Shield },
     { id: 'consent', label: 'Consentements', icon: CheckCircle },
+    { id: 'account', label: 'Compte', icon: Trash2 },
   ];
 
   return (
@@ -209,6 +229,40 @@ export default function ProfilePage() {
                   </Card.Footer>
                 </form>
               )}
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Account / Delete Tab */}
+        {activeTab === 'account' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Card className="border-red-200">
+              <Card.Header>
+                <Card.Title className="flex items-center gap-2 text-red-700">
+                  <AlertTriangle className="w-5 h-5" />
+                  Zone de danger
+                </Card.Title>
+                <Card.Description>
+                  La suppression de votre compte est définitive. Vous ne pourrez plus vous connecter ni accéder à vos participations.
+                </Card.Description>
+              </Card.Header>
+              <div className="p-6 space-y-4">
+                <p className="text-tea-600 text-sm">
+                  En supprimant votre compte, vous désactivez définitivement votre accès. Les données liées au jeu-concours peuvent être conservées pour des obligations légales.
+                </p>
+                <Card.Footer>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-red-600 hover:bg-red-50 hover:text-red-700 border border-red-200"
+                    onClick={handleDeleteAccount}
+                    disabled={isDeletingAccount}
+                    leftIcon={<Trash2 className="w-4 h-4" />}
+                  >
+                    {isDeletingAccount ? 'Suppression...' : 'Supprimer mon compte'}
+                  </Button>
+                </Card.Footer>
+              </div>
             </Card>
           </motion.div>
         )}

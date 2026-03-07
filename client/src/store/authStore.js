@@ -114,6 +114,17 @@ const useAuthStore = create(
         }
       },
 
+      deleteMyAccount: async () => {
+        try {
+          await authService.deleteMyAccount();
+          get().logout();
+          return { success: true };
+        } catch (error) {
+          const message = error.response?.data?.message || 'Erreur lors de la suppression du compte';
+          return { success: false, error: message };
+        }
+      },
+
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setError: (error) => set({ error }),
       clearError: () => set({ error: null }),

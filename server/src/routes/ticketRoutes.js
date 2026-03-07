@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import {
   validateTicket,
   getMyParticipations,
+  deleteMyParticipation,
   getTicketByCode,
   claimPrize,
   getCustomerPrizes,
@@ -38,6 +39,7 @@ router.post(
 
 // Historique des participations
 router.get('/my-participations', getMyParticipations);
+router.delete('/my-participations/:id', deleteMyParticipation);
 
 // Routes employés/admin
 router.get('/customers/search', employeeOrAdmin, searchCustomers);

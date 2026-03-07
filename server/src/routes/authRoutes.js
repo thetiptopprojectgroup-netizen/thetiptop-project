@@ -11,6 +11,7 @@ import {
   resetPassword,
   oauthCallback,
   logout,
+  deleteMyAccount,
 } from '../controllers/authController.js';
 import { protect } from '../middlewares/auth.js';
 import validate from '../middlewares/validate.js';
@@ -106,5 +107,6 @@ router.get('/me', getMe);
 router.put('/me', updateProfile);
 router.put('/password', updatePassword);
 router.post('/logout', logout);
+router.delete('/me', deleteMyAccount);
 
 export default router;
