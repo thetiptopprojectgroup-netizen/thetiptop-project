@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Gift, Trophy, Clock, CheckCircle, ArrowRight, Ticket } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Gift, Trophy, Clock, CheckCircle, ArrowRight, Ticket, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Card from '../components/common/Card';
@@ -18,7 +19,7 @@ const statusConfig = {
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const { participations, isLoading, fetchMyParticipations } = useGameStore();
+  const { participations, isLoading, fetchMyParticipations, deleteMyParticipation } = useGameStore();
 
   useEffect(() => {
     fetchMyParticipations();
@@ -27,6 +28,17 @@ export default function DashboardPage() {
   const totalValue = participations.reduce((sum, p) => sum + (p.prize?.value || 0), 0);
   const claimedCount = participations.filter((p) => p.status === 'claimed').length;
   const pendingCount = participations.filter((p) => p.status === 'won').length;
+
+  const handleDeleteParticipation = async (participation) => {
+    if (participation.status === 'claimed') return;
+    if (!window.confirm('Voulez-vous vraiment supprimer cette participation de votre historique ?')) return;
+    const result = await deleteMyParticipation(participation.id);
+    if (result.success) {
+      toast.success('Participation supprimée');
+    } else {
+      toast.error(result.error || 'Impossible de supprimer cette participation.');
+    }
+  };
 
   return (
     <div className="min-h-screen pt-24 pb-16 bg-cream-50">
@@ -210,6 +222,17 @@ export default function DashboardPage() {
                         <StatusIcon className="w-4 h-4" />
                         {status.label}
                       </div>
+
+                      {/* Supprimer */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteParticipation(participation)}
+                        className="p-2 rounded-lg text-tea-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        title="Supprimer cette participation"
+                        aria-label="Supprimer cette participation"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
                     </motion.div>
                   );
                 })}

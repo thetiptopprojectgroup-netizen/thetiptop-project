@@ -274,3 +274,22 @@ export const logout = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Supprimer son compte (client)
+// @route   DELETE /api/auth/me
+export const deleteMyAccount = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return next(new AppError('Utilisateur non trouvé', 404));
+    }
+    user.actif = false;
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: 'Votre compte a été supprimé.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
