@@ -111,4 +111,10 @@ export const contestService = {
   getHealth: () => api.get('/health'),
 };
 
+// Newsletter (inscription publique, pas de token)
+export const newsletterService = {
+  subscribe: (email, consent = true, source = 'footer') =>
+    api.post('/newsletter/subscribe', { email, consent, source }),
+};
+
 export default api;

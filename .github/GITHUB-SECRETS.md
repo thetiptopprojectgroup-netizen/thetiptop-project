@@ -29,6 +29,20 @@ Chaque secret a un **nom** (ex. `GOOGLE_CLIENT_ID`) et une **valeur** (que tu co
 
 ---
 
+### SendGrid (newsletter – email de bienvenue)
+
+| Nom du secret         | Description |
+|------------------------|-------------|
+| `SENDGRID_API_KEY`     | Clé API SendGrid (créée dans Settings → API Keys) |
+| `SENDGRID_FROM_EMAIL`  | Email expéditeur vérifié dans SendGrid (Single Sender) |
+| `SENDGRID_FROM_NAME`  | Nom affiché (optionnel, ex. `Thé Tip Top`) |
+
+- Utilisés par le **workflow CD** pour remplir le secret Kubernetes `backend-secret` (clés `sendgrid-api-key`, `sendgrid-from-email`, `sendgrid-from-name`).
+- À chaque push sur `dev`, `preprod` ou `prod`, ces secrets sont injectés dans le backend déployé ; la newsletter envoie alors l’email de bienvenue aux inscrits.
+- Si ces secrets sont absents, l’inscription à la newsletter fonctionne toujours (email en base) mais aucun email n’est envoyé.
+
+---
+
 ### Registry Docker (Harbor)
 
 | Nom du secret      | Description              |

@@ -62,6 +62,24 @@ spec:
                   name: backend-secret
                   key: google-client-secret
                   optional: true
+            - name: SENDGRID_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: sendgrid-api-key
+                  optional: true
+            - name: SENDGRID_FROM_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: sendgrid-from-email
+                  optional: true
+            - name: SENDGRID_FROM_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: sendgrid-from-name
+                  optional: true
           readinessProbe:
             httpGet:
               path: /api/health

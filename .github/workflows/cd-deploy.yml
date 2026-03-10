@@ -5,6 +5,7 @@
 #   KUBECONFIG_DEV / KUBECONFIG_PREPROD / KUBECONFIG_PROD
 #   MONGODB_URI_* / JWT_SECRET_* / MONGO_ROOT_USERNAME / MONGO_ROOT_PASSWORD
 #   HARBOR_REGISTRY / HARBOR_USERNAME / HARBOR_PASSWORD
+#   SendGrid (newsletter) : SENDGRID_API_KEY, SENDGRID_FROM_EMAIL [, SENDGRID_FROM_NAME]
 #   MinIO + Restic : RESTIC_MINIO_ENDPOINT, RESTIC_MINIO_BUCKET, RESTIC_PASSWORD, RESTIC_S3_ACCESS_KEY_ID, RESTIC_S3_SECRET_ACCESS_KEY
 #
 # Encoder un kubeconfig : base64 -w0 ~/.kube/config-<env>
@@ -223,7 +224,7 @@ jobs:
 
       # ─── 7. Créer/mettre à jour les secrets applicatifs ──────────────
       # MongoDB : MONGODB_URI_* doit pointer vers mongodb.<namespace>.svc.cluster.local (voir .github/MONGODB-K8S.md)
-      - name: Créer les secrets applicatifs (MongoDB + Backend)
+      - name: Créer les secrets applicatifs (MongoDB + Backend + SendGrid)
         if: steps.ci-check.outputs.skip != 'true' && steps.kubectl.outputs.skip != 'true'
         env:
           MONGODB_URI_DEV:     ${{ secrets.MONGODB_URI_DEV }}
@@ -236,6 +237,9 @@ jobs:
           MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          SENDGRID_FROM_NAME: ${{ secrets.SENDGRID_FROM_NAME }}
         run: |
           BRANCH="${{ github.ref_name }}"
           NS="${{ steps.env.outputs.namespace }}"
@@ -264,10 +268,13 @@ jobs:
             --from-literal=root-password="$MONGO_ROOT_PASSWORD" \
             --namespace="$NS" \
             --dry-run=client -o yaml | kubectl apply -f -
-          # Secret Backend (URI MongoDB + JWT + optionnel Google OAuth)
+          # Secret Backend (URI MongoDB + JWT + optionnel Google OAuth + SendGrid newsletter)
           EXTRA_SECRETS=()
           [ -n "$GOOGLE_CLIENT_ID" ] && EXTRA_SECRETS+=(--from-literal=google-client-id="$GOOGLE_CLIENT_ID")
           [ -n "$GOOGLE_CLIENT_SECRET" ] && EXTRA_SECRETS+=(--from-literal=google-client-secret="$GOOGLE_CLIENT_SECRET")
+          [ -n "$SENDGRID_API_KEY" ] && EXTRA_SECRETS+=(--from-literal=sendgrid-api-key="$SENDGRID_API_KEY")
+          [ -n "$SENDGRID_FROM_EMAIL" ] && EXTRA_SECRETS+=(--from-literal=sendgrid-from-email="$SENDGRID_FROM_EMAIL")
+          [ -n "$SENDGRID_FROM_NAME" ] && EXTRA_SECRETS+=(--from-literal=sendgrid-from-name="$SENDGRID_FROM_NAME")
           kubectl create secret generic backend-secret \
             --from-literal=mongodb-uri="$MONGO_URI" \
             --from-literal=jwt-secret="$JWT" \

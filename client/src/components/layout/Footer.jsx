@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
 import Logo from '../common/Logo';
+import NewsletterSignup from '../common/NewsletterSignup';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -36,7 +37,7 @@ export default function Footer() {
     <footer className="bg-tea-950 text-cream-100">
       {/* Main Footer */}
       <div className="container-wide py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12">
           {/* Brand */}
           <div className="lg:col-span-1">
             <div className="mb-6">
@@ -120,6 +121,9 @@ export default function Footer() {
               ))}
             </ul>
           </div>
+
+          {/* Newsletter */}
+          <NewsletterSignup source="footer" />
         </div>
       </div>
 
