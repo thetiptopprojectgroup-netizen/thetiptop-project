@@ -64,15 +64,26 @@ Si Harbor est uniquement sur un réseau privé (VPN, interne) :
 
 Une fois que `curl https://VOTRE_HARBOR_REGISTRY/v2/` répond depuis une machine sur Internet, les Actions pourront s’y connecter.
 
-### B. Utiliser un self-hosted runner
+### B. Désactiver la vérification (si Harbor est privé + self-hosted runner)
+
+Si votre Harbor est **en réseau privé** et que vous utilisez un **self-hosted runner** qui a accès à ce réseau, vous pouvez ignorer l’étape de vérification de connectivité (qui échoue sur les runners GitHub) :
+
+1. **GitHub** → **Settings** → **Secrets and variables** → **Actions**.
+2. **New repository secret** : nom `SKIP_HARBOR_REACHABILITY_CHECK`, valeur `true`.
+
+L’étape « Check Harbor registry reachability » sera alors ignorée et le workflow tentera directement le login Docker. Sur un runner self-hosted ayant accès à Harbor, le login pourra réussir.
+
+**Attention** : si vous gardez les runners **hébergés par GitHub** (ubuntu-latest), le login Docker échouera quand même avec « context deadline exceeded ». Ce secret est utile uniquement avec un self-hosted runner qui peut joindre Harbor.
+
+### C. Utiliser un self-hosted runner
 
 1. GitHub → Settings → Actions → Runners → New self-hosted runner.
 2. Installer le runner sur une machine qui a accès à Harbor (même réseau / VPN).
 3. Dans le workflow, utiliser ce runner (ex. `runs-on: self-hosted` ou un label dédié) pour le job qui build et push les images.
 
-Ainsi le login Docker se fait depuis un réseau qui peut joindre Harbor.
+Ainsi le login Docker se fait depuis un réseau qui peut joindre Harbor. Vous pouvez alors ajouter le secret `SKIP_HARBOR_REACHABILITY_CHECK=true` pour éviter l’échec de l’étape de vérification sur les runners GitHub (si le job build tourne sur le self-hosted).
 
-### C. Vérifier le secret et relancer
+### D. Vérifier le secret et relancer
 
 1. Vérifier que `HARBOR_REGISTRY` = hostname seul, sans `https://`.
 2. Vérifier `HARBOR_USERNAME` et `HARBOR_PASSWORD` (robot account ou utilisateur avec droits push).
