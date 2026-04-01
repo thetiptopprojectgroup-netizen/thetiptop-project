@@ -1,4 +1,4 @@
 *.env
 *.md
 */node_modules/
-*.env.example
+.env.example
