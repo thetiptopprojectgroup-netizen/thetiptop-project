@@ -1,0 +1,40 @@
+{
+  "name": "thetiptop-api",
+  "version": "1.0.0",
+  "description": "API pour le jeu-concours Thé Tip Top",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "seed": "node src/scripts/seedTickets.js",
+    "seed:admin": "node src/scripts/createAdmin.js",
+    "seed:admin:prompt": "powershell -ExecutionPolicy Bypass -File ./src/scripts/run-seed-admin.ps1",
+    "test": "jest"
+  },
+  "keywords": ["tea", "contest", "api", "express", "mongodb"],
+  "author": "Furious Ducks Agency",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "morgan": "^1.10.0",
+    "nodemailer": "^6.9.7",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-facebook": "^3.0.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^6.3.3"
+  }
+}
