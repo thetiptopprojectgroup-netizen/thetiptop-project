@@ -87,6 +87,24 @@ Dans le dépôt : **Settings → Secrets and variables → Actions**
 
 ---
 
+## Dépannage CI — `context deadline exceeded` au `docker login`
+
+Ce message vient du **réseau** : le runner GitHub (sur Internet) **n’arrive pas à contacter** votre Harbor/registry avant la fin du délai. Ce n’est en général **pas** un mauvais mot de passe (cela donnerait plutôt une erreur 401).
+
+**À vérifier :**
+
+1. **`HARBOR_REGISTRY`** : uniquement `hôte:port`, **sans** `https://` (ex. `registre.mondomaine.fr:8443` ou `212.227.82.68:8443`). Le port doit être celui où Harbor expose **le registry** (souvent **443** ou **8443** selon votre install Ansible).
+2. **Pare-feu (UFW / hébergeur)** : le port du registry doit être **ouvert vers 0.0.0.0/0** (Internet), pas seulement depuis votre box.
+3. **Depuis votre PC** (hors VPN du même LAN que le VPS) :  
+   `curl -vk https://VOTRE_HOST:PORT/v2/`  
+   Vous devez obtenir une réponse HTTP (souvent **401** sans auth), pas un timeout.
+4. **IP privée** dans le secret : si `HARBOR_REGISTRY` pointe vers `10.x` / `192.168.x`, **GitHub ne pourra jamais joindre** le serveur → utiliser le **nom de domaine public** ou l’**IP publique** du VPS.
+5. **Harbor en HTTP seulement (port 8080)** : Docker sur le runner tente en général du **HTTPS**. Il faut soit activer **HTTPS** sur Harbor (certificat, souvent Let’s Encrypt ou reverse proxy), soit une solution avancée (registry derrière un tunnel / runner self-hosted).
+
+Le workflow inclut une étape **« Diagnostiquer joignabilité du registry »** avant le login pour échouer plus vite avec un message explicite.
+
+---
+
 ## Suivi des corrections / itérations
 
 | Date | Action |

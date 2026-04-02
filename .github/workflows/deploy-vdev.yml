@@ -42,6 +42,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Les runners GitHub sont sur Internet : le registry doit être joignable publiquement (pare-feu, DNS, port).
+      # docker/login utilise HTTPS sur le host:port du secret HARBOR_REGISTRY (sans préfixe https://).
+      - name: Diagnostiquer joignabilité du registry
+        env:
+          REG: ${{ secrets.HARBOR_REGISTRY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${REG}" ]; then
+            echo "::error::Secret HARBOR_REGISTRY vide."
+            exit 1
+          fi
+          echo "Test HTTPS https://${REG}/v2/ (codes 200 ou 401 = registry joignable)…"
+          # -k : ignorer certificat auto-signé (Harbor) — on teste surtout la connectivité depuis GitHub
+          code=$(curl -skS -o /dev/null -w "%{http_code}" --connect-timeout 20 --max-time 45 "https://${REG}/v2/" || echo "000")
+          if [ "$code" = "200" ] || [ "$code" = "401" ]; then
+            echo "OK — HTTPS répond (HTTP $code)."
+            exit 0
+          fi
+          echo "HTTPS échoue (code $code). Test HTTP http://${REG}/v2/ …"
+          code2=$(curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 20 --max-time 45 "http://${REG}/v2/" || echo "000")
+          if [ "$code2" = "200" ] || [ "$code2" = "401" ]; then
+            echo "::warning::Le registry répond en HTTP seulement. docker login sur les runners GitHub attend en général du HTTPS (certificat valide) ou une config insecure-registries dédiée."
+            exit 1
+          fi
+          echo "::error::Aucune réponse joignable depuis GitHub (timeout ou refus). Causes fréquentes :"
+          echo "  - Pare-feu VPS qui n’ouvre pas le port du registry vers Internet"
+          echo "  - HARBOR_REGISTRY = IP privée / hostname qui ne résout pas depuis Internet"
+          echo "  - Harbor écoute seulement en HTTP sur :8080 alors que Docker tente d’abord du HTTPS"
+          echo "  - Mettre dans HARBOR_REGISTRY le host:port exact (ex. registre.example.com:8443)"
+          exit 1
+
       - name: Login Harbor
         uses: docker/login-action@v3
         with:
