@@ -1,0 +1,5 @@
+---
+traefik_install_dir: /opt/thetiptop/traefik
+traefik_image: traefik:v3.0
+traefik_acme_email: admin@example.com
+traefik_dashboard_enabled: false

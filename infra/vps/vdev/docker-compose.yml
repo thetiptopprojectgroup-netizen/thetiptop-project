@@ -1,0 +1,71 @@
+# Stack applicative vdev — images depuis Harbor ; Traefik (externe) sur traefik_public
+# Déployer sur le VPS dans /srv/vdev avec .env (voir vdev.env.template)
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: thetiptop-vdev-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    volumes:
+      - mongodb_vdev_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/01-mongo-init.js:ro
+    networks:
+      - internal
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  api:
+    image: ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/api:${IMAGE_TAG:-latest}
+    container_name: thetiptop-vdev-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGODB_URI: ${MONGODB_URI}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CLIENT_URL: ${CLIENT_URL}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+
+  client:
+    image: ${HARBOR_REGISTRY}/${HARBOR_PROJECT}/client:${IMAGE_TAG:-latest}
+    container_name: thetiptop-vdev-client
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - internal
+      - traefik_public
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik_public
+      - "traefik.http.routers.vdev.rule=Host(`${VDEV_HOST}`)"
+      - traefik.http.routers.vdev.entrypoints=websecure
+      - traefik.http.routers.vdev.tls=true
+      - "traefik.http.routers.vdev.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencrypt}"
+      - traefik.http.services.vdev.loadbalancer.server.port=80
+
+networks:
+  internal:
+    name: thetiptop-vdev-internal
+    driver: bridge
+  traefik_public:
+    external: true
+
+volumes:
+  mongodb_vdev_data:
+    driver: local

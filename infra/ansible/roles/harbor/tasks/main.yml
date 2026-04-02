@@ -1,0 +1,52 @@
+---
+- name: Harbor — saut si désactivé
+  when: not harbor_install
+  ansible.builtin.debug:
+    msg: "Harbor désactivé (harbor_install: false)"
+
+- name: Harbor — installation
+  when: harbor_install
+  block:
+    - name: Paquets utiles pour Harbor
+      ansible.builtin.apt:
+        name:
+          - openssl
+        state: present
+
+    - name: Télécharger l’installateur Harbor (offline)
+      ansible.builtin.get_url:
+        url: "https://github.com/goharbor/harbor/releases/download/v{{ harbor_version }}/harbor-offline-installer-v{{ harbor_version }}.tgz"
+        dest: "/tmp/harbor-offline-installer-v{{ harbor_version }}.tgz"
+        mode: "0644"
+        timeout: 600
+
+    - name: Extraire Harbor
+      ansible.builtin.unarchive:
+        src: "/tmp/harbor-offline-installer-v{{ harbor_version }}.tgz"
+        dest: "{{ harbor_install_root }}"
+        remote_src: true
+        creates: "{{ harbor_install_root }}/harbor/install.sh"
+
+    - name: Créer le répertoire des données Harbor
+      ansible.builtin.file:
+        path: "{{ harbor_data_volume }}"
+        state: directory
+        mode: "0755"
+
+    - name: Déposer harbor.yml
+      ansible.builtin.template:
+        src: harbor.yml.j2
+        dest: "{{ harbor_install_root }}/harbor/harbor.yml"
+        mode: "0600"
+
+    - name: Exécuter ./prepare
+      ansible.builtin.command:
+        chdir: "{{ harbor_install_root }}/harbor"
+        cmd: ./prepare
+      changed_when: true
+
+    - name: Exécuter ./install.sh
+      ansible.builtin.command:
+        chdir: "{{ harbor_install_root }}/harbor"
+        cmd: ./install.sh
+      changed_when: true

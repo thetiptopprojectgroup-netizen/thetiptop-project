@@ -1,0 +1,7 @@
+---
+# Uniquement Docker CE + Compose (sans pare-feu ni services)
+- name: Installer Docker uniquement
+  hosts: vps
+  become: true
+  roles:
+    - docker

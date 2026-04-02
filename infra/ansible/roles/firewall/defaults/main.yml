@@ -1,0 +1,7 @@
+---
+firewall_enabled: false
+firewall_ssh_port: 22
+firewall_allowed_tcp_ports:
+  - "22"
+  - "80"
+  - "443"

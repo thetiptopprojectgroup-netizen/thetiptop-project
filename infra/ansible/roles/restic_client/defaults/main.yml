@@ -1,0 +1,5 @@
+---
+restic_install: false
+restic_version: "0.16.4"
+restic_repository: "s3:http://127.0.0.1:9000/vdev-restic"
+restic_password: changeme

@@ -1,0 +1,49 @@
+---
+# Copier vers vars.yml et adapter. Secrets sensibles : ansible-vault (vault.yml).
+
+# Utilisateur Linux à ajouter au groupe docker (optionnel, ex. deploy)
+deploy_user: ""
+
+# --- Pare-feu (UFW) ---
+firewall_enabled: true
+firewall_ssh_port: 22
+firewall_allowed_tcp_ports:
+  - "22"
+  - "80"
+  - "443"
+  - "8080"
+  - "8443"
+  - "9000"
+  - "9001"
+
+# --- Traefik ---
+traefik_acme_email: "admin@example.com"
+traefik_dashboard_enabled: false
+
+# --- MinIO ---
+minio_root_user: "minioadmin"
+minio_root_password: "CHANGE_ME_MINIO"
+minio_data_path: "/opt/thetiptop/minio/data"
+minio_buckets:
+  - vdev
+  - vpreprod
+  - vprod
+  - vdev-restic
+
+# --- Harbor ---
+harbor_install: true
+harbor_version: "2.10.2"
+harbor_hostname: "registre.example.com"
+harbor_admin_password: "CHANGE_ME_HARBOR"
+harbor_db_password: "CHANGE_ME_HARBOR_DB"
+harbor_data_volume: "/opt/harbor/data"
+harbor_http_port: 8080
+harbor_https_port: 8443
+harbor_enable_https: false
+
+# --- Restic (bucket MinIO + préfixe S3) ---
+restic_install: true
+restic_version: "0.16.4"
+restic_password: "CHANGE_ME_RESTIC"
+# URL S3 style restic ; le bucket doit exister (ex. vdev-restic dans minio_buckets)
+restic_repository: "s3:http://127.0.0.1:9000/vdev-restic"

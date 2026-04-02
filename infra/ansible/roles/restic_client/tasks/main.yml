@@ -1,0 +1,39 @@
+---
+- name: Restic — saut si désactivé
+  when: not restic_install | default(false)
+  ansible.builtin.debug:
+    msg: "Restic désactivé (restic_install: false)"
+
+- name: Installer Restic (binaire)
+  when: restic_install | default(false)
+  block:
+    - name: Paquet bzip2 (décompression)
+      ansible.builtin.apt:
+        name: bzip2
+        state: present
+
+    - name: Télécharger Restic
+      ansible.builtin.get_url:
+        url: "https://github.com/restic/restic/releases/download/v{{ restic_version }}/restic_{{ restic_version }}_linux_amd64.bz2"
+        dest: "/tmp/restic.bz2"
+        mode: "0644"
+
+    - name: Installer le binaire restic
+      ansible.builtin.shell: |
+        set -euo pipefail
+        bunzip2 -kf /tmp/restic.bz2
+        install -m 0755 /tmp/restic /usr/local/bin/restic
+      args:
+        creates: /usr/local/bin/restic
+      changed_when: true
+
+    - name: Initialiser le dépôt Restic sur MinIO (idempotent)
+      ansible.builtin.command: /usr/local/bin/restic init
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ minio_root_user }}"
+        AWS_SECRET_ACCESS_KEY: "{{ minio_root_password }}"
+        RESTIC_REPOSITORY: "{{ restic_repository }}"
+        RESTIC_PASSWORD: "{{ restic_password }}"
+      register: restic_init
+      changed_when: restic_init.rc == 0
+      ignore_errors: true

@@ -1,0 +1,173 @@
+# CI/CD vdev : test → build → push Harbor → sync fichiers + .env sur le VPS → backup → déploiement
+# Les dossiers /srv/vdev et le .env sont créés/mis à jour automatiquement à chaque push sur vdev.
+
+name: Deploy vdev
+
+on:
+  push:
+    branches: [vdev]
+  workflow_dispatch:
+
+env:
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Client — install & lint
+        run: |
+          cd client
+          npm ci
+          npm run lint
+
+      - name: Server — install & tests
+        run: |
+          cd server
+          npm ci
+          npm test
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.HARBOR_REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/api:${{ github.sha }}
+            ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/api:vdev-latest
+
+      - name: Build & push client (production)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          target: production
+          build-args: |
+            VITE_API_URL=/api
+          push: true
+          tags: |
+            ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/client:${{ github.sha }}
+            ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/client:vdev-latest
+
+  # Crée /srv/vdev, copie docker-compose + scripts depuis le dépôt, génère .env (secrets), docker login
+  sync-remote:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      HARBOR_REGISTRY: ${{ secrets.HARBOR_REGISTRY }}
+      HARBOR_PROJECT: ${{ secrets.HARBOR_PROJECT }}
+      MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      VDEV_HOST: ${{ secrets.VDEV_HOST }}
+      CLIENT_URL: ${{ secrets.CLIENT_URL_VDEV }}
+      TRAEFIK_CERT_RESOLVER: ${{ secrets.TRAEFIK_CERT_RESOLVER }}
+      IMAGE_TAG: latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Créer les répertoires sur le VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            mkdir -p /srv/vdev/scripts /srv/vdev/backups
+
+      - name: Copier docker-compose et mongo-init
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "infra/vps/vdev/docker-compose.yml,infra/vps/vdev/mongo-init.js"
+          target: "/srv/vdev/"
+
+      - name: Copier scripts (backup + génération .env)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "infra/vps/vdev/scripts/backup.sh,infra/vps/vdev/scripts/remote-write-env.sh"
+          target: "/srv/vdev/scripts/"
+
+      - name: Générer .env sur le VPS et docker login Harbor
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: HARBOR_REGISTRY,HARBOR_PROJECT,MONGO_ROOT_PASSWORD,JWT_SECRET,VDEV_HOST,CLIENT_URL,TRAEFIK_CERT_RESOLVER,IMAGE_TAG
+          script: |
+            set -euo pipefail
+            chmod +x /srv/vdev/scripts/backup.sh /srv/vdev/scripts/remote-write-env.sh
+            bash /srv/vdev/scripts/remote-write-env.sh
+            echo "${{ secrets.HARBOR_PASSWORD }}" | docker login "${{ secrets.HARBOR_REGISTRY }}" -u "${{ secrets.HARBOR_USERNAME }}" --password-stdin
+
+  backup:
+    needs: sync-remote
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backup MongoDB + Restic (ignoré si premier déploiement)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: false
+          script: |
+            set -uo pipefail
+            cd /srv/vdev
+            if docker compose ps -q mongodb 2>/dev/null | grep -q .; then
+              chmod +x scripts/backup.sh 2>/dev/null || true
+              bash scripts/backup.sh
+            else
+              echo "ℹ️ MongoDB non démarré — pas de backup (normal au premier déploiement)."
+            fi
+
+  deploy:
+    needs: backup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déployer sur le VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /srv/vdev
+            export IMAGE_TAG=${{ github.sha }}
+            docker compose pull
+            docker compose up -d

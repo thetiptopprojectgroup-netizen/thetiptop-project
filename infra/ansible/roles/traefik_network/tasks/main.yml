@@ -1,0 +1,6 @@
+---
+- name: Créer le réseau Docker traefik_public
+  community.docker.docker_network:
+    name: traefik_public
+    driver: bridge
+    state: present

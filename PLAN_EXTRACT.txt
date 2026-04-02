@@ -1,0 +1,108 @@
+Plan complet de migration vers VPS avec Harbor & Backups – TheTipTop
+1. Objectif
+Deployer
+ sur  un VPS unique (212.227.82.68) tout en conservant une architecture propre avec 3 environnements : 
+vdev
+, 
+vpreprod
+, 
+vprod
+.
+Chaque environnement est isolé via 
+namespace
+ logique + services dédiés.
+2. Architecture globale
+- 1 VPS unique
+- Docker + Docker Compose
+- Reverse proxy (Traefik recommandé)
+- Harbor (registry privé)
+- MinIO (stockage S3)
+- Restic (backup)
+- MongoDB
+- CI/CD GitHub Actions
+3. Organisation des environnements (Namespaces)
+Chaque environnement dispose de :
+- Namespace logique : vdev / vpreprod / vprod
+- Dossier : /srv/{env}
+- Docker network dédié
+- Base MongoDB dédiée
+- Projet Harbor séparé
+- Bucket MinIO séparé
+4. Structure serveur
+/srv/
+ ├── vdev/
+ ├── vpreprod/
+ └── vprod/
+Chaque contient : docker-compose.yml, .env, volumes
+5. Harbor (Registry privé)
+- 1 instance Harbor sur VPS
+- 3 projets :
+  - tiptop-vdev
+  - tiptop-vpreprod
+  - tiptop-vprod
+- Images séparées par environnement
+- Scan de vulnérabilités activé
+6. MinIO & Restic (Backups)
+- 1 MinIO
+- Buckets : vdev / vpreprod / vprod
+- Restic pour backup MongoDB
+- Backup avant chaque déploiement
+- Backup quotidien via cron
+7. Base de données
+MongoDB :
+- db_vdev
+- db_vpreprod
+- db_vprod
+Volumes persistants
+8. Reverse Proxy
+- 
+vdev
+.
+dsp5-archi-o22a-15m-g3.fr
+ 
+- 
+vpreprod
+.
+dsp5-archi-o22a-15m-g3.fr
+ 
+- 
+dsp5-archi-o22a-15m-g3.fr
+ 
+HTTPS automatique
+9. Workflow CI/CD (GitHub Actions)
+Branches : vdev, vpreprod, vprod
+Pipeline avec dépendances :
+1. test
+2. build (needs: test)
+3. push_harbor (needs: build)
+4. backup (needs: push_harbor)
+5. deploy (needs: backup)
+Workflow déclenché au push
+10. Détail des étapes
+test : lint + tests
+build : build Docker image
+push_harbor : push vers Harbor (projet correspondant)
+backup : dump MongoDB via Restic
+deploy : pull + restart Docker sur VPS
+11. Déploiement VPS
+Connexion SSH
+docker-compose pull
+docker-compose up -d
+Isolation par environnement
+12. Sécurité
+- Firewall
+- SSH key
+- Secrets GitHub
+- TLS via Traefik
+13. Avantages
+- Architecture simple
+- Moins coûteuse
+- Maintenable
+- Adaptée petit projet
+- Toujours professionnelle grâce à Harbor + backups
+14. Conclusion
+Cette architecture remplace Kubernetes efficacement tout en gardant :
+- Isolation des environnements
+- CI/CD propre
+- Sécurité
+- Sauvegardes fiables
