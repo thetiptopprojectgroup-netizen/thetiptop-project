@@ -10,6 +10,26 @@ Le déploiement applicatif (**vdev**) reste déclenché par **GitHub Actions** (
 - Cible : **Ubuntu 22.04/24.04** ou **Debian 12** (amd64), accès **SSH** root ou sudo.
 - DNS : enregistrements pointant vers le VPS pour Traefik (ACME HTTP-01 sur le port 80).
 
+### Windows (PowerShell : « ansible-playbook n’est pas reconnu »)
+
+Ansible n’est pas fourni avec Windows. Approche recommandée : **WSL2 + Ubuntu**.
+
+1. PowerShell **en administrateur** : `wsl --install` (redémarrer si demandé), distribution **Ubuntu**.
+2. Lancer **Ubuntu**, puis :
+
+   ```bash
+   sudo apt update && sudo apt install -y ansible sshpass python3-pip
+   cd "/mnt/d/projet fin detude/thetiptop-project/infra/ansible"
+   ansible-galaxy collection install -r requirements.yml
+   ansible-playbook site.yml -i inventory/hosts.yml
+   ```
+
+   Sous WSL, `D:\` correspond à `/mnt/d/`. Adapte le `cd` si ton chemin diffère.
+
+   Si Ansible affiche *« world writable directory … ignoring ansible.cfg »* : normal sur un dépôt sous `/mnt/d/`. Les rôles sont quand même trouvés car **`site.yml` est à la racine de `infra/ansible/`**, à côté du dossier **`roles/`**. Pour utiliser `ansible.cfg` (optionnel), copiez le projet dans `$HOME` sous WSL (ex. `~/thetiptop-project`).
+
+Sans WSL : installer **Python 3**, puis `pip install ansible` et ajouter le dossier **Scripts** de Python au **PATH** utilisateur.
+
 ## Installation des collections
 
 ```bash
@@ -25,7 +45,8 @@ ansible-galaxy collection install -r requirements.yml
    cp inventory/hosts.example.yml inventory/hosts.yml
    ```
 
-   Éditer `ansible_host`, `ansible_user`, clé SSH si besoin.
+   Éditer `ansible_host`, **`ansible_user`** (souvent `ubuntu` ou `debian` sur les images cloud, pas `root`), et **`ansible_ssh_private_key_file`** vers la clé privée **dans WSL** (ex. `~/.ssh/id_ed25519`). Copiez la clé depuis Windows vers `~/.ssh/` si besoin, droits `chmod 600` sur la clé privée.  
+   Erreur **Permission denied (publickey)** : tester d’abord `ssh -i ~/.ssh/id_ed25519 ubuntu@IP` depuis WSL ; tant que ça échoue, Ansible échouera aussi.
 
 2. Copier les variables :
 
@@ -47,19 +68,19 @@ ansible-galaxy collection install -r requirements.yml
 
 ```bash
 cd infra/ansible
-ansible-playbook playbooks/site.yml -i inventory/hosts.yml
+ansible-playbook site.yml -i inventory/hosts.yml
 ```
 
 Avec vault :
 
 ```bash
-ansible-playbook playbooks/site.yml -i inventory/hosts.yml --ask-vault-pass
+ansible-playbook site.yml -i inventory/hosts.yml --ask-vault-pass
 ```
 
 ### Playbook partiel
 
 ```bash
-ansible-playbook playbooks/docker_only.yml -i inventory/hosts.yml
+ansible-playbook docker_only.yml -i inventory/hosts.yml
 ```
 
 ## Après Ansible
@@ -95,7 +116,7 @@ ansible-playbook playbooks/docker_only.yml -i inventory/hosts.yml
 ```bash
 cd infra/ansible
 ansible-galaxy collection install -r requirements.yml
-ansible-playbook playbooks/site.yml --syntax-check -i inventory/hosts.yml
+ansible-playbook site.yml --syntax-check -i inventory/hosts.yml
 ansible all -m ping -i inventory/hosts.yml
 ```
 

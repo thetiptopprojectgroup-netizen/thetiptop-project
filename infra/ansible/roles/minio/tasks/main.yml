@@ -37,11 +37,16 @@
   ansible.builtin.shell: |
     set -euo pipefail
     /usr/local/bin/mc alias set local http://127.0.0.1:9000 "{{ minio_root_user }}" "{{ minio_root_password }}"
+  args:
+    executable: /bin/bash
   changed_when: true
 
 - name: Créer les buckets
   ansible.builtin.shell: |
     set -euo pipefail
     /usr/local/bin/mc mb local/{{ item }} --ignore-existing || true
+  args:
+    executable: /bin/bash
   loop: "{{ minio_buckets }}"
   changed_when: true
+

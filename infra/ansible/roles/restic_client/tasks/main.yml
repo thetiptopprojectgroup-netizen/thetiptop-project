@@ -18,6 +18,8 @@
         dest: "/tmp/restic.bz2"
         mode: "0644"
 
+   
+
     - name: Installer le binaire restic
       ansible.builtin.shell: |
         set -euo pipefail
@@ -25,7 +27,9 @@
         install -m 0755 /tmp/restic /usr/local/bin/restic
       args:
         creates: /usr/local/bin/restic
+        executable: /bin/bash
       changed_when: true
+
 
     - name: Initialiser le dépôt Restic sur MinIO (idempotent)
       ansible.builtin.command: /usr/local/bin/restic init

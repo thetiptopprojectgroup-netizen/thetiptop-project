@@ -21,7 +21,7 @@ Cochez chaque étape lorsqu’elle est **terminée et vérifiée**. Ce document 
 - [ ] Inventaire : `infra/ansible/inventory/hosts.yml` (copie de `hosts.example.yml`)
 - [ ] Variables : `infra/ansible/group_vars/all/vars.yml` (copie de `vars.yml.example`) — idéalement secrets dans **ansible-vault**
 - [ ] Collections : `cd infra/ansible && ansible-galaxy collection install -r requirements.yml`
-- [ ] Exécution : `ansible-playbook playbooks/site.yml -i inventory/hosts.yml`
+- [ ] Exécution : `ansible-playbook site.yml -i inventory/hosts.yml` (depuis `infra/ansible/`)
 - [ ] Post-Ansible : créer le projet Harbor **`tiptop-vdev`**, utilisateur robot pour la CI, noter l’URL du registry (`HARBOR_REGISTRY` dans GitHub)
 - [ ] *(Optionnel)* Cron sur le VPS pour `backup.sh` quotidien en plus de la CI
 
