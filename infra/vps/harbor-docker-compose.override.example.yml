@@ -1,0 +1,31 @@
+# À placer sur le VPS à côté du docker-compose.yml de Harbor, sous le nom :
+#   docker-compose.override.yml
+# (Docker Compose fusionne automatiquement ce fichier.)
+#
+# Prérequis :
+# - Réseau Docker traefik_public existe (rôle Ansible traefik_network).
+# - DNS : harbor.dsp5-archi-o22a-15m-g3.fr → IP publique du VPS.
+# - Port 80 du VPS joignable depuis Internet (challenge HTTP Let’s Encrypt de Traefik).
+#
+# Puis sur le VPS, dans le répertoire Harbor (souvent /opt/harbor) :
+#   docker compose up -d
+#
+# Si le service ou le réseau interne Harbor diffère, adaptez (voir DEPLOYMENT_CHECKLIST).
+
+services:
+  proxy:
+    networks:
+      - harbor
+      - traefik_public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_public"
+      - "traefik.http.routers.harbor.rule=Host(`harbor.dsp5-archi-o22a-15m-g3.fr`)"
+      - "traefik.http.routers.harbor.entrypoints=websecure"
+      - "traefik.http.routers.harbor.tls=true"
+      - "traefik.http.routers.harbor.tls.certresolver=letsencrypt"
+      - "traefik.http.services.harbor.loadbalancer.server.port=8080"
+
+networks:
+  traefik_public:
+    external: true

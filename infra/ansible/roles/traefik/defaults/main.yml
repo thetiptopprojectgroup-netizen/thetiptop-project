@@ -1,5 +1,6 @@
 ---
 traefik_install_dir: /opt/thetiptop/traefik
-traefik_image: traefik:v3.0
+# v3.0 embarque un client Docker API trop ancien pour Docker Engine récent (erreur « client version 1.24 is too old »).
+traefik_image: traefik:v3.3
 traefik_acme_email: admin@example.com
 traefik_dashboard_enabled: false

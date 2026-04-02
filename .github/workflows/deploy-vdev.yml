@@ -73,6 +73,24 @@ jobs:
           echo "  - Mettre dans HARBOR_REGISTRY le host:port exact (ex. registre.example.com:8443)"
           exit 1
 
+      # Si Harbor utilise une CA interne (et que le certificat a le BON nom / SAN), collez le PEM
+      # du certificat racine (ou de la chaîne) dans le secret HARBOR_CA_CERT. Ça ne corrige PAS un
+      # certificat émis pour un autre hostname — il faut alors régénérer le TLS côté Traefik/Harbor.
+      - name: Faire confiance au CA Harbor (optionnel)
+        env:
+          HARBOR_CA_CERT: ${{ secrets.HARBOR_CA_CERT }}
+          REG: ${{ secrets.HARBOR_REGISTRY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HARBOR_CA_CERT:-}" ]; then
+            echo "Secret HARBOR_CA_CERT vide — confiance uniquement aux AC publics (Let’s Encrypt, etc.)."
+            exit 0
+          fi
+          sudo mkdir -p "/etc/docker/certs.d/${REG}"
+          printf '%s\n' "${HARBOR_CA_CERT}" | sudo tee "/etc/docker/certs.d/${REG}/ca.crt" > /dev/null
+          sudo chmod 644 "/etc/docker/certs.d/${REG}/ca.crt"
+          echo "CA installée pour Docker → /etc/docker/certs.d/${REG}/ca.crt"
+
       - name: Login Harbor
         uses: docker/login-action@v3
         with:

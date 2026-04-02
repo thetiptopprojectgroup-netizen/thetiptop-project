@@ -45,6 +45,7 @@ Dans le dépôt : **Settings → Secrets and variables → Actions**
 | `JWT_SECRET` | Secret JWT pour l’API (injecté dans `.env` généré) |
 | `CLIENT_URL_VDEV` | *(optionnel)* URL publique complète du front ; si vide → `https://` + `VDEV_HOST` |
 | `TRAEFIK_CERT_RESOLVER` | *(optionnel)* Nom du resolver ACME dans Traefik (défaut `letsencrypt` dans le script) |
+| `HARBOR_CA_CERT` | *(optionnel)* Contenu PEM du **certificat CA** qui signe Harbor (CA d’entreprise). Utile seulement si le certificat du registry a le **bon nom de domaine** ; sinon régénérer le TLS côté serveur. |
 
 - [ ] Tous les secrets ci-dessus renseignés (les optionnels peuvent être vides sauf si vous utilisez une valeur custom)
 - [ ] *(Si SSH ≠ port 22)* : ajouter `port: <votre_port>` sous `with:` des deux étapes `appleboy/ssh-action` dans `.github/workflows/deploy-vdev.yml`
@@ -102,6 +103,98 @@ Ce message vient du **réseau** : le runner GitHub (sur Internet) **n’arrive p
 5. **Harbor en HTTP seulement (port 8080)** : Docker sur le runner tente en général du **HTTPS**. Il faut soit activer **HTTPS** sur Harbor (certificat, souvent Let’s Encrypt ou reverse proxy), soit une solution avancée (registry derrière un tunnel / runner self-hosted).
 
 Le workflow inclut une étape **« Diagnostiquer joignabilité du registry »** avant le login pour échouer plus vite avec un message explicite.
+
+---
+
+## Dépannage CI — `x509: certificate is not valid for any names`
+
+Docker vérifie que le certificat TLS présenté par le registry contient le **même nom** que dans `HARBOR_REGISTRY` (ex. `harbor.dsp5-archi-o22a-15m-g3.fr`). Si le certificat est pour un autre nom (`localhost`, ancien domaine, IP seule), le login / push échoue.
+
+### Voir le certificat depuis Windows (PowerShell)
+
+La syntaxe bash `</dev/null` ne fonctionne pas dans PowerShell. Utilisez par exemple :
+
+```powershell
+$HostName = "harbor.dsp5-archi-o22a-15m-g3.fr"
+$Port = 443
+$tcp = New-Object Net.Sockets.TcpClient($HostName, $Port)
+$stream = $tcp.GetStream()
+$ssl = New-Object Net.Security.SslStream($stream, $false, { param($s, $c, $ch, $e) $true })
+$ssl.AuthenticateAsClient($HostName)
+$cert = New-Object Security.Cryptography.X509Certificates.X509Certificate2($ssl.RemoteCertificate)
+Write-Host "Subject:" $cert.Subject
+$ext = $cert.Extensions | Where-Object { $_.Oid.Value -eq "2.5.29.17" }
+if ($ext) { Write-Host "SAN:" $ext.Format($false) }
+$tcp.Close()
+```
+
+Vérifiez que **Subject** ou **SAN** contient bien `harbor.dsp5-archi-o22a-15m-g3.fr` (ou le host exact de votre secret `HARBOR_REGISTRY`).
+
+**Avec OpenSSL** (Git for Windows / WSL), sous **cmd** :
+
+```bat
+echo | openssl s_client -connect harbor.dsp5-archi-o22a-15m-g3.fr:443 -servername harbor.dsp5-archi-o22a-15m-g3.fr 2>nul | openssl x509 -noout -subject -ext subjectAltName
+```
+
+### Ce que vous devez corriger côté serveur (intervention manuelle)
+
+1. **`infra/ansible/group_vars/all/vars.yml`** : la variable **`harbor_hostname`** doit être **exactement** le FQDN public du registry (ex. `harbor.dsp5-archi-o22a-15m-g3.fr`), puis **rejouer** le rôle Harbor (`ansible-playbook site.yml …`) ou régénérer Harbor selon la doc Harbor si vous avez changé le hostname après coup.
+2. **Harbor derrière Traefik (HTTPS sur 443)** : le routeur Traefik pour Harbor doit utiliser la règle **Host(`harbor.dsp5-archi-o22a-15m-g3.fr`)** et le resolver **Let’s Encrypt** (port 80 ouvert pour le challenge HTTP-01). Sinon Traefik peut servir un **certificat par défaut** qui ne correspond pas au nom → même erreur x509.
+3. **Secret GitHub `HARBOR_REGISTRY`** : même host que dans le certificat, **sans** `https://` (ex. `harbor.dsp5-archi-o22a-15m-g3.fr` ou `hôte:8443` si vous utilisez explicitement ce port).
+4. **CA d’entreprise** : si après correction le certificat est correct mais signé par une **CA privée**, ajoutez le secret **`HARBOR_CA_CERT`** (fichier PEM de la CA) — le workflow installe alors `/etc/docker/certs.d/<HARBOR_REGISTRY>/ca.crt` sur le runner avant `docker login`.
+
+### Cas fréquent : `Subject: CN=TRAEFIK DEFAULT CERT` (SAN `…traefik.default`)
+
+Cela signifie que **Traefik ne trouve aucun routeur** pour `Host(harbor.dsp5-archi-o22a-15m-g3.fr)` : il sert son **certificat par défaut** au lieu d’un certificat Let’s Encrypt pour Harbor.
+
+**À faire sur le VPS (intervention manuelle) :**
+
+1. Vérifier le nom du réseau interne Harbor (souvent `harbor`) et du service frontal (souvent `proxy`) :
+
+   ```bash
+   cd /opt/harbor
+   grep -A2 'services:' docker-compose.yml | head -5
+   grep -E '^\s+proxy:' -A20 docker-compose.yml
+   grep -E 'networks:' -A5 docker-compose.yml | head -20
+   ```
+
+2. Copier l’exemple du dépôt vers `docker-compose.override.yml` **dans le même dossier** que le `docker-compose.yml` de Harbor, puis **adapter** si besoin le nom du réseau (`harbor`) et le **FQDN** dans la règle `Host(\`…\`)` :
+
+   - Fichier d’exemple : `infra/vps/harbor-docker-compose.override.example.yml`
+
+3. Le resolver TLS doit correspondre à Traefik : avec le playbook du dépôt, le nom est **`letsencrypt`** (voir `infra/ansible/roles/traefik/templates/docker-compose.yml.j2`).
+
+4. Redémarrer Harbor :
+
+   ```bash
+   cd /opt/harbor
+   docker compose up -d
+   ```
+
+5. Attendre quelques secondes, puis revérifier depuis Windows (script PowerShell du paragraphe précédent) : le **Subject** / **SAN** doivent contenir **`harbor.dsp5-archi-o22a-15m-g3.fr`** (certificat émis par Let’s Encrypt ou votre ACME).
+
+6. Si le service ne s’appelle pas `proxy` ou le port interne n’est pas **8080**, inspecter le conteneur : `docker compose ps` et `docker inspect <conteneur_proxy> | grep -i ipaddress` — ajuster `loadbalancer.server.port` (souvent **8080** pour Harbor).
+
+### Traefik : `client version 1.24 is too old. Minimum supported API version is 1.40`
+
+Le conteneur **Traefik** utilise une vieille lib Docker ; ton **Docker Engine** sur le VPS refuse cette API. Résultat : le provider Docker ne fonctionne pas → **aucune route** depuis les labels (Harbor reste en « default cert »).
+
+**Correctif :** monter Traefik vers une image **3.2+** (ex. `traefik:v3.3`), puis `docker compose pull && docker compose up -d` dans le répertoire Traefik (souvent `/opt/thetiptop/traefik` si installé par le playbook Ansible du dépôt).
+
+Le dépôt utilise désormais `traefik:v3.3` par défaut dans `infra/ansible/roles/traefik/defaults/main.yml`.
+
+### Même erreur sur le VPS (`docker login` dans sync_remote)
+
+Sur le VPS, répétez l’installation de la CA pour le daemon Docker :
+
+```bash
+sudo mkdir -p /etc/docker/certs.d/harbor.dsp5-archi-o22a-15m-g3.fr
+sudo nano /etc/docker/certs.d/harbor.dsp5-archi-o22a-15m-g3.fr/ca.crt
+# collez le PEM de la CA, enregistrez
+sudo systemctl restart docker
+```
+
+(adaptez le dossier si `HARBOR_REGISTRY` contient un port, ex. `harbor.example.com:8443`.)
 
 ---
 
