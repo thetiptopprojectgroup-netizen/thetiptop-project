@@ -1,9 +1,0 @@
----
-minio_install_dir: /opt/thetiptop/minio
-minio_data_path: /opt/thetiptop/minio/data
-minio_root_user: minioadmin
-minio_root_password: changeme
-minio_buckets:
-  - vdev
-  - vpreprod
-  - vprod

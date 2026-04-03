@@ -1,52 +1,43 @@
 ---
-- name: Harbor — saut si désactivé
-  when: not harbor_install
-  ansible.builtin.debug:
-    msg: "Harbor désactivé (harbor_install: false)"
+- name: Paquets pour Harbor
+  ansible.builtin.apt:
+    name:
+      - openssl
+    state: present
 
-- name: Harbor — installation
-  when: harbor_install
-  block:
-    - name: Paquets utiles pour Harbor
-      ansible.builtin.apt:
-        name:
-          - openssl
-        state: present
+- name: Télécharger l'installeur Harbor (offline)
+  ansible.builtin.get_url:
+    url: "https://github.com/goharbor/harbor/releases/download/v{{ harbor_version }}/harbor-offline-installer-v{{ harbor_version }}.tgz"
+    dest: "/tmp/harbor-offline-installer-v{{ harbor_version }}.tgz"
+    mode: "0644"
+  when: harbor_install | default(true)
 
-    - name: Télécharger l’installateur Harbor (offline)
-      ansible.builtin.get_url:
-        url: "https://github.com/goharbor/harbor/releases/download/v{{ harbor_version }}/harbor-offline-installer-v{{ harbor_version }}.tgz"
-        dest: "/tmp/harbor-offline-installer-v{{ harbor_version }}.tgz"
-        mode: "0644"
-        timeout: 600
+- name: Extraire Harbor
+  ansible.builtin.unarchive:
+    src: "/tmp/harbor-offline-installer-v{{ harbor_version }}.tgz"
+    dest: /opt
+    remote_src: true
+    creates: /opt/harbor/install.sh
+  when: harbor_install | default(true)
 
-    - name: Extraire Harbor
-      ansible.builtin.unarchive:
-        src: "/tmp/harbor-offline-installer-v{{ harbor_version }}.tgz"
-        dest: "{{ harbor_install_root }}"
-        remote_src: true
-        creates: "{{ harbor_install_root }}/harbor/install.sh"
+- name: Configurer harbor.yml
+  ansible.builtin.template:
+    src: harbor.yml.j2
+    dest: /opt/harbor/harbor.yml
+    mode: "0644"
+  register: harbor_cfg
+  when: harbor_install | default(true)
 
-    - name: Créer le répertoire des données Harbor
-      ansible.builtin.file:
-        path: "{{ harbor_data_volume }}"
-        state: directory
-        mode: "0755"
+- name: Vérifier si Harbor est déjà installé
+  ansible.builtin.stat:
+    path: /opt/harbor/docker-compose.yml
+  register: harbor_dc
+  when: harbor_install | default(true)
 
-    - name: Déposer harbor.yml
-      ansible.builtin.template:
-        src: harbor.yml.j2
-        dest: "{{ harbor_install_root }}/harbor/harbor.yml"
-        mode: "0600"
-
-    - name: Exécuter ./prepare
-      ansible.builtin.command:
-        chdir: "{{ harbor_install_root }}/harbor"
-        cmd: ./prepare
-      changed_when: true
-
-    - name: Exécuter ./install.sh
-      ansible.builtin.command:
-        chdir: "{{ harbor_install_root }}/harbor"
-        cmd: ./install.sh
-      changed_when: true
+- name: Installer ou mettre à jour Harbor (install.sh)
+  ansible.builtin.command:
+    cmd: ./install.sh
+    chdir: /opt/harbor
+  when:
+    - harbor_install | default(true)
+    - harbor_cfg.changed | default(false) or not harbor_dc.stat.exists | default(false)

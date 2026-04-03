@@ -1,5 +1,0 @@
-inventory/hosts.yml
-group_vars/all/vars.yml
-group_vars/all/vault.yml
-*.retry
-collections/

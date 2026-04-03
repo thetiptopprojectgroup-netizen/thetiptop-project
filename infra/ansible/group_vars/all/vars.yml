@@ -17,12 +17,14 @@ firewall_allowed_tcp_ports:
   - "9001"
 
 # --- Traefik ---
-traefik_acme_email: "admin@example.com"
+traefik_acme_email: "thetiptopprojectgroup@gmail.com"
 traefik_dashboard_enabled: false
 
 # --- MinIO ---
-minio_root_user: "minioadmin"
-minio_root_password: "CHANGE_ME_MINIO"
+# Image Docker (tag complet sur https://hub.docker.com/r/minio/minio/tags )
+minio_image: "minio/minio:latest"
+minio_root_user: "admin"
+minio_root_password: "thetiptop"
 minio_data_path: "/opt/thetiptop/minio/data"
 minio_buckets:
   - vdev
@@ -30,20 +32,26 @@ minio_buckets:
   - vprod
   - vdev-restic
 
+# Registre Docker : avec Traefik en HTTPS sur harbor_hostname, le pull/push utilise le port 443 (plus besoin d’insecure).
+# Décommenter uniquement si vous forcez encore docker login sur le port HTTP direct (harbor_http_port) :
+# docker_insecure_registries:
+#   - "{{ harbor_hostname }}:{{ harbor_http_port }}"
+docker_insecure_registries: []
+
 # --- Harbor ---
 harbor_install: true
 harbor_version: "2.10.2"
-harbor_hostname: "registre.example.com"
-harbor_admin_password: "CHANGE_ME_HARBOR"
-harbor_db_password: "CHANGE_ME_HARBOR_DB"
+harbor_hostname: "harbor.dsp5-archi-o22a-15m-g3.fr"
+harbor_admin_password: "thetiptop"
+harbor_db_password: "thetiptop"
 harbor_data_volume: "/opt/harbor/data"
 harbor_http_port: 8080
 harbor_https_port: 8443
-harbor_enable_https: false
+harbor_enable_https: true
 
 # --- Restic (bucket MinIO + préfixe S3) ---
 restic_install: true
 restic_version: "0.16.4"
-restic_password: "CHANGE_ME_RESTIC"
+restic_password: "thetiptop"
 # URL S3 style restic ; le bucket doit exister (ex. vdev-restic dans minio_buckets)
 restic_repository: "s3:http://127.0.0.1:9000/vdev-restic"

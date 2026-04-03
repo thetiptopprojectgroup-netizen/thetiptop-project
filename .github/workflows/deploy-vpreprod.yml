@@ -1,31 +1,26 @@
 # -----------------------------------------------------------------------------
-# CD — Branche vdev : Harbor → images → VPS
-# Secrets : HARBOR_REGISTRY_BASE, HARBOR_ADMIN_PASSWORD, HARBOR_USERNAME/PASSWORD,
-#           VPS_HOST, VPS_SSH_USER, VPS_SSH_KEY
+# CD — Branche vpreprod
 # -----------------------------------------------------------------------------
-name: CD / vdev
+name: CD / vpreprod
 
 on:
   push:
-    branches: [vdev]
+    branches: [vpreprod]
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-vdev
+  group: deploy-vpreprod
   cancel-in-progress: true
 
 env:
-  HARBOR_PROJECT: vdev
-  VITE_API_URL: https://vdev.dsp5-archi-o22a-15m-g3.fr/api
+  HARBOR_PROJECT: vpreprod
+  VITE_API_URL: https://vpreprod.dsp5-archi-o22a-15m-g3.fr/api
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Stage 1 — Projet Harbor (API admin, idempotent)
-  # ---------------------------------------------------------------------------
   harbor-project:
-    name: "1 · Harbor — projet vdev"
+    name: "1 · Harbor — projet vpreprod"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -40,9 +35,6 @@ jobs:
           HARBOR_PROJECT_NAME: ${{ env.HARBOR_PROJECT }}
         run: bash infra/scripts/ensure-harbor-project.sh
 
-  # ---------------------------------------------------------------------------
-  # Stage 2 — Build & push vers le registre
-  # ---------------------------------------------------------------------------
   build-and-push:
     name: "2 · Registry — build & push images"
     needs: [harbor-project]
@@ -65,7 +57,7 @@ jobs:
           docker build -t "${REGISTRY}/api:${{ github.sha }}" -f server/Dockerfile server
           docker push "${REGISTRY}/api:${{ github.sha }}"
 
-      - name: Build & push client (Vite)
+      - name: Build & push client
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
           docker build \
@@ -74,9 +66,6 @@ jobs:
             -f client/Dockerfile client
           docker push "${REGISTRY}/client:${{ github.sha }}"
 
-  # ---------------------------------------------------------------------------
-  # Stage 3 — Déploiement sur le VPS
-  # ---------------------------------------------------------------------------
   deploy-vps:
     name: "3 · VPS — rsync & docker compose"
     needs: [build-and-push]
@@ -96,7 +85,6 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
           RSYNC_SSH='ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes'
-          export RSYNC_SSH
           rsync -avz --delete \
             --exclude '.git' \
             --exclude 'node_modules' \
@@ -112,5 +100,5 @@ jobs:
              export REGISTRY='${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}'
              export IMAGE_TAG='${{ github.sha }}'
              docker compose -f infra/deploy/docker-compose.stack.yml \
-               --env-file infra/deploy/env/vdev.env \
+               --env-file infra/deploy/env/vpreprod.env \
                up -d --remove-orphans"

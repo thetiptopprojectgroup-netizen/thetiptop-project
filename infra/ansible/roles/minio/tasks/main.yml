@@ -1,52 +1,31 @@
 ---
-- name: Répertoires MinIO
+- name: Répertoire MinIO (compose)
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: /opt/thetiptop/minio
     state: directory
     mode: "0755"
-  loop:
-    - "{{ minio_install_dir }}"
-    - "{{ minio_data_path }}"
 
-- name: docker-compose MinIO
+- name: Répertoire données MinIO
+  ansible.builtin.file:
+    path: "{{ minio_data_path }}"
+    state: directory
+    mode: "0755"
+
+- name: Déployer docker-compose MinIO
   ansible.builtin.template:
     src: docker-compose.yml.j2
-    dest: "{{ minio_install_dir }}/docker-compose.yml"
+    dest: /opt/thetiptop/minio/docker-compose.yml
     mode: "0644"
 
-- name: Démarrer MinIO
+- name: Lancer MinIO
   community.docker.docker_compose_v2:
-    project_src: "{{ minio_install_dir }}"
+    project_src: /opt/thetiptop/minio
     state: present
     pull: always
 
-- name: Télécharger le client mc (MinIO)
-  ansible.builtin.get_url:
-    url: https://dl.min.io/client/mc/release/linux-amd64/mc
-    dest: /usr/local/bin/mc
-    mode: "0755"
-
-- name: Attendre MinIO (API)
+- name: Attendre l'API MinIO (port 9000)
   ansible.builtin.wait_for:
     host: 127.0.0.1
     port: 9000
-    delay: 3
+    delay: 5
     timeout: 120
-
-- name: Configurer l’alias mc
-  ansible.builtin.shell: |
-    set -euo pipefail
-    /usr/local/bin/mc alias set local http://127.0.0.1:9000 "{{ minio_root_user }}" "{{ minio_root_password }}"
-  args:
-    executable: /bin/bash
-  changed_when: true
-
-- name: Créer les buckets
-  ansible.builtin.shell: |
-    set -euo pipefail
-    /usr/local/bin/mc mb local/{{ item }} --ignore-existing || true
-  args:
-    executable: /bin/bash
-  loop: "{{ minio_buckets }}"
-  changed_when: true
-

@@ -1,0 +1,41 @@
+# Optionnel : après un push sur vpreprod, ouvre une PR vers vprod si aucune PR équivalente n’existe déjà.
+name: Proposer une PR vpreprod → vprod
+
+on:
+  push:
+    branches: [vpreprod]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Créer une PR vers vprod (si absente)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const base = 'vprod';
+            const { data: open } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base
+            });
+            const exists = open.some((p) => p.head.ref === 'vpreprod');
+            if (exists) {
+              core.info('Une PR vpreprod → vprod est déjà ouverte.');
+              return;
+            }
+            await github.rest.pulls.create({
+              owner, repo,
+              head: 'vpreprod',
+              base,
+              title: 'Promote vpreprod → production (vprod)',
+              body: 'PR générée automatiquement après déploiement sur vpreprod. Vérifier les tests puis merger pour déployer en production (workflow deploy-vprod sur la branche vprod).'
+            });

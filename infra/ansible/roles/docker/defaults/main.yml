@@ -1,3 +1,0 @@
----
-# Utilisateur non-root à ajouter au groupe docker (ex. deploy) — optionnel
-deploy_user: ""

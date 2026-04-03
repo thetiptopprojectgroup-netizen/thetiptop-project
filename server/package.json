@@ -10,7 +10,7 @@
     "seed": "node src/scripts/seedTickets.js",
     "seed:admin": "node src/scripts/createAdmin.js",
     "seed:admin:prompt": "powershell -ExecutionPolicy Bypass -File ./src/scripts/run-seed-admin.ps1",
-    "test": "jest --passWithNoTests"
+    "test": "jest"
   },
   "keywords": ["tea", "contest", "api", "express", "mongodb"],
   "author": "Furious Ducks Agency",

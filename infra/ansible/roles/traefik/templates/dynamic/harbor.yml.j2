@@ -1,0 +1,15 @@
+# Routage HTTPS public vers Harbor (HTTP interne sur le port {{ harbor_http_port }}).
+http:
+  routers:
+    harbor-ui:
+      rule: Host(`{{ harbor_hostname }}`)
+      entryPoints:
+        - websecure
+      service: harbor-svc
+      tls:
+        certResolver: le
+  services:
+    harbor-svc:
+      loadBalancer:
+        servers:
+          - url: http://host.docker.internal:{{ harbor_http_port }}

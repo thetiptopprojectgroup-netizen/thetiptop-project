@@ -1,0 +1,80 @@
+# Déploiement applicatif par environnement (vdev / vpreprod / vprod).
+# Prérequis sur le VPS : réseau Docker "traefik", Traefik avec certresolver "le".
+# Depuis la racine du dépôt cloné sur le serveur :
+#   docker compose -f infra/deploy/docker-compose.stack.yml --env-file infra/deploy/env/<env>.env up -d
+#
+# Variables attendues dans le fichier env :
+#   STACK_NAME, TRAEFIK_HOST_RULE, REGISTRY, IMAGE_TAG, MONGO_ROOT_PASSWORD, JWT_SECRET,
+#   MONGO_USER, MONGO_PASSWORD, CLIENT_URL
+# TRAEFIK_HOST_RULE : partie Host() Traefik, ex. Host(`vdev....`) ou Host(`vprod....`, `dsp5....`) pour l’apex.
+
+services:
+  mongodb:
+    image: mongo:7.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: thetiptop
+    volumes:
+      - mongodb_data:/data/db
+      - ../../mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - internal
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  api:
+    image: ${REGISTRY}/api:${IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGODB_URI: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/thetiptop?authSource=thetiptop
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 7d
+      CLIENT_URL: ${CLIENT_URL}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - "traefik.http.routers.${STACK_NAME}-api.rule=${TRAEFIK_HOST_RULE} && PathPrefix(`/api`)"
+      - traefik.http.routers.${STACK_NAME}-api.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-api.tls.certresolver=le
+      - traefik.http.routers.${STACK_NAME}-api.priority=10
+      - traefik.http.services.${STACK_NAME}-api.loadbalancer.server.port=5000
+
+  client:
+    image: ${REGISTRY}/client:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - "traefik.http.routers.${STACK_NAME}-web.rule=${TRAEFIK_HOST_RULE}"
+      - traefik.http.routers.${STACK_NAME}-web.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-web.tls.certresolver=le
+      - traefik.http.routers.${STACK_NAME}-web.priority=1
+      - traefik.http.services.${STACK_NAME}-web.loadbalancer.server.port=80
+
+networks:
+  internal:
+    driver: bridge
+  traefik:
+    external: true
+
+volumes:
+  mongodb_data:
+    driver: local

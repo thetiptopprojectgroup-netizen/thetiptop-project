@@ -1,33 +1,38 @@
 services:
   traefik:
-    image: {{ traefik_image }}
-    container_name: traefik
+    image: traefik:v3.0
+    container_name: thetiptop-traefik
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      TZ: Europe/Paris
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_letsencrypt:/letsencrypt
+      - ./acme.json:/acme.json
+      - ./dynamic:/etc/traefik/dynamic:ro
     command:
-      - "--api.dashboard={{ traefik_dashboard_enabled | lower }}"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.network=traefik_public"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.email={{ traefik_acme_email }}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - --api.dashboard=false
+      - --providers.docker=true
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.le.acme.tlschallenge=true
+      - --certificatesresolvers.le.acme.email={{ traefik_acme_email }}
+      - --certificatesresolvers.le.acme.storage=/acme.json
     networks:
-      - traefik_public
+      - traefik
 
 networks:
-  traefik_public:
+  traefik:
     external: true
-
-volumes:
-  traefik_letsencrypt:

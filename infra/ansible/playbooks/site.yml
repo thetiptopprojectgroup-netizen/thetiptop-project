@@ -1,0 +1,16 @@
+---
+# Même playbook que ../site.yml (évite les soucis de chemins selon le cwd).
+# ansible-playbook playbooks/site.yml -i ../inventory/hosts.yml
+# ou depuis infra/ansible : ansible-playbook site.yml -i inventory/hosts.yml
+
+- name: Provision VPS TheTipTop (infra)
+  hosts: vps
+  become: true
+  roles:
+    - role: docker
+    - role: firewall
+    - role: traefik_network
+    - role: traefik
+    - role: minio
+    - role: harbor
+    - role: restic_client

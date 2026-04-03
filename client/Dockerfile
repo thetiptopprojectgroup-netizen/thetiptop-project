@@ -3,9 +3,6 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-ARG VITE_API_URL=/api
-ENV VITE_API_URL=$VITE_API_URL
-
 # Copy package files
 COPY package*.json ./
 
@@ -14,6 +11,10 @@ RUN npm ci
 
 # Copy source files
 COPY . .
+
+# Vite: embedded at build time (set per env in CI / docker build --build-arg)
+ARG VITE_API_URL=https://localhost/api
+ENV VITE_API_URL=${VITE_API_URL}
 
 # Build the application
 RUN npm run build

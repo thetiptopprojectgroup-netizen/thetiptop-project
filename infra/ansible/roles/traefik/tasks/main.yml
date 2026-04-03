@@ -1,18 +1,38 @@
 ---
-- name: Créer le répertoire Traefik
+- name: Répertoire Traefik
   ansible.builtin.file:
-    path: "{{ traefik_install_dir }}"
+    path: /opt/thetiptop/traefik
     state: directory
     mode: "0755"
 
-- name: Déposer docker-compose Traefik
+- name: Fichier ACME (Let's Encrypt)
+  ansible.builtin.file:
+    path: /opt/thetiptop/traefik/acme.json
+    state: touch
+    mode: "0600"
+    modification_time: preserve
+    access_time: preserve
+
+- name: Répertoire configuration dynamique Traefik (Harbor en HTTPS)
+  ansible.builtin.file:
+    path: /opt/thetiptop/traefik/dynamic
+    state: directory
+    mode: "0755"
+
+- name: Route Harbor vers le proxy HTTP local
   ansible.builtin.template:
-    src: docker-compose.yml.j2
-    dest: "{{ traefik_install_dir }}/docker-compose.yml"
+    src: dynamic/harbor.yml.j2
+    dest: /opt/thetiptop/traefik/dynamic/harbor.yml
     mode: "0644"
 
-- name: Déployer Traefik (Compose v2)
+- name: Déployer docker-compose Traefik
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: /opt/thetiptop/traefik/docker-compose.yml
+    mode: "0644"
+
+- name: Lancer Traefik (docker compose)
   community.docker.docker_compose_v2:
-    project_src: "{{ traefik_install_dir }}"
+    project_src: /opt/thetiptop/traefik
     state: present
     pull: always

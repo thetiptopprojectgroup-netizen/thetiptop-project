@@ -15,4 +15,8 @@ node_modules/
 .env.production.local
 server/.env
 client/.env
+
+# Déploiement : secrets par environnement sur le VPS
+infra/deploy/env/*.env
+!infra/deploy/env/*.env.example
 # .docx  
