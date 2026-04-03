@@ -1,4 +1,5 @@
 import Code, { PRIZES } from '../models/Ticket.js';
+import Lot from '../models/Lot.js';
 import Participation from '../models/Participation.js';
 import User from '../models/User.js';
 import TirageAuSort from '../models/TirageAuSort.js';
