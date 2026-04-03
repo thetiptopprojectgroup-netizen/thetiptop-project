@@ -56,21 +56,18 @@ Objectif : tout lancer **depuis votre machine** avec Ansible (pas de SSH interac
 
 ---
 
-## Phase 4 — Fichiers d’environnement sur le VPS (une fois par env)
+## Phase 4 — Fichiers d’environnement (secrets GitHub, pas de SSH manuel)
 
-Sur le VPS, **sans committer** les secrets :
+Les secrets applicatifs **ne sont pas** dans le dépôt : à chaque déploiement, le workflow **écrit** `infra/deploy/env/<env>.env` sur le VPS à partir d’un **secret multiligne** (copie du fichier local basé sur `*.env.example`, une fois rempli).
+
+**Bootstrap VPS (une fois)** :
 
 - [ ] `sudo apt-get install -y rsync` (requis pour le `rsync` des workflows).
 - [ ] `sudo mkdir -p /opt/thetiptop/app && sudo chown -R <user_ssh_ci>: /opt/thetiptop/app`
-- [ ] `sudo mkdir -p /opt/thetiptop/app/infra/deploy/env`
-- [ ] Copier les exemples puis éditer :
-  - `infra/deploy/env/vdev.env` ← depuis `vdev.env.example`
-  - `infra/deploy/env/vpreprod.env` ← depuis `vpreprod.env.example`
-  - `infra/deploy/env/vprod.env` ← depuis `vprod.env.example`
-- [ ] Renseigner mots de passe MongoDB, `JWT_SECRET`, `MONGO_ROOT_PASSWORD`, etc.
-- [ ] `sudo chown` au user utilisé par la CI pour le déploiement (ex. utilisateur SSH du workflow).
 
-Les workflows **exportent** `REGISTRY` et `IMAGE_TAG` ; les fichiers `.env` fixent `COMPOSE_PROJECT_NAME`, `STACK_NAME`, `TRAEFIK_HOST_RULE` (dont apex pour la prod), `CLIENT_URL`, secrets applicatifs.
+Les workflows créent `infra/deploy/env/` et posent `vdev.env` / `vpreprod.env` / `vprod.env` avant le `rsync` (le dépôt **exclut** toujours `*.env` du sync pour ne pas écraser).
+
+Les workflows **exportent** `REGISTRY` et `IMAGE_TAG` ; les fichiers `.env` (dans les secrets) fixent `COMPOSE_PROJECT_NAME`, `STACK_NAME`, `TRAEFIK_HOST_RULE` (dont apex pour la prod), `CLIENT_URL`, mots de passe MongoDB, `JWT_SECRET`, etc.
 
 ---
 
@@ -88,6 +85,9 @@ Dans **Settings → Secrets and variables → Actions**, créer au minimum :
 | `VPS_HOST` | IP ou hostname SSH |
 | `VPS_SSH_USER` | utilisateur avec droit Docker (ex. `root` ou `deploy`) |
 | `VPS_SSH_KEY` | clé privée PEM (contenu du fichier) |
+| `VDEV_ENV_FILE` | contenu **multiligne** de `vdev.env` (d’après `vdev.env.example`) |
+| `VPREPROD_ENV_FILE` | idem pour `vpreprod.env` |
+| `VPROD_ENV_FILE` | idem pour `vprod.env` |
 
 - [ ] Secrets renseignés.
 - [ ] **Variable** `PRODUCTION_ENVIRONMENT` = `production` (ou le nom de l’environnement GitHub utilisé par `deploy-vprod.yml`).
@@ -138,7 +138,7 @@ Workflow conseillé :
 
 1. Adapter **DNS** (ajouter `vdev` si ce n’est pas fait).  
 2. Lancer **Ansible** depuis votre poste.  
-3. Créer **Harbor project + robot** et les **fichiers .env** sur le VPS.  
+3. Créer le **robot Harbor** et coller les **secrets multiligne** `VDEV_ENV_FILE` (puis `VPREPROD_*` / `VPROD_*` quand vous déployez ces branches). Le projet Harbor `vdev` / etc. est créé par la CI.  
 4. Configurer les **secrets GitHub** et pousser sur **`vdev`** pour valider le premier déploiement.
 
 Dites-moi quand la Phase 2 (Ansible) est passée ou si un playbook échoue (message d’erreur complet) : on enchaîne sur les corrections ciblées.
