@@ -177,11 +177,27 @@ Cela signifie que **Traefik ne trouve aucun routeur** pour `Host(harbor.dsp5-arc
 
 ### Traefik : `client version 1.24 is too old. Minimum supported API version is 1.40`
 
-Le conteneur **Traefik** utilise une vieille lib Docker ; ton **Docker Engine** sur le VPS refuse cette API. Résultat : le provider Docker ne fonctionne pas → **aucune route** depuis les labels (Harbor reste en « default cert »).
+Le **provider Docker** de Traefik n’arrive pas à parler au daemon : les routes issues des **labels** ne sont pas chargées → **404** « page not found ». La variable **`DOCKER_API_VERSION`** ne suffit souvent pas (client Go embarqué).
 
-**Correctif :** monter Traefik vers une image **3.2+** (ex. `traefik:v3.3`), puis `docker compose pull && docker compose up -d` dans le répertoire Traefik (souvent `/opt/thetiptop/traefik` si installé par le playbook Ansible du dépôt).
+**Correctif fiable :** exposer Harbor via le **provider file** (sans socket Docker pour cette route) :
 
-Le dépôt utilise désormais `traefik:v3.3` par défaut dans `infra/ansible/roles/traefik/defaults/main.yml`.
+1. Répertoire **`/opt/thetiptop/traefik/dynamic/`** avec **`harbor.yml`** — modèle dans le dépôt : `infra/vps/traefik/dynamic/harbor.yml` (adapter Host / nom du conteneur backend si besoin).
+2. Dans **`docker-compose.yml`** Traefik : volume `…/dynamic:/etc/traefik/dynamic:ro` et options  
+   `--providers.file.directory=/etc/traefik/dynamic` et `--providers.file.watch=true`.
+3. `docker compose up -d` Traefik. Les erreurs « provider docker » peuvent rester dans les logs ; la route **harbor-file** fonctionne quand même.
+
+Avec **Ansible** : renseigner **`traefik_harbor_hostname`** (et optionnellement **`traefik_harbor_backend`**, défaut `nginx`) dans `group_vars` ; le rôle génère `dynamic/harbor.yml`.
+
+**En complément :** image Traefik récente + labels **`traefik.docker.network`** corrects sur Harbor si un jour le provider Docker re-fonctionne.
+
+### Harbor : redirection `308` vers `https://…:8443`
+
+Si `curl` sur le port **8080** du proxy renvoie un `Location: https://votre-harbor:8443/`, les clients passant par **Traefik:443** seront cassés. Dans **`/opt/harbor/harbor.yml`**, ajoutez :
+
+`external_url: https://harbor.votredomaine.fr`
+
+(sans port, URL publique derrière Traefik), puis **`./prepare`** et redémarrez Harbor (`docker compose down` / `up` selon la doc Harbor).
+Le rôle Ansible du dépôt supporte **`harbor_external_url`** dans `group_vars`.
 
 ### Même erreur sur le VPS (`docker login` dans sync_remote)
 

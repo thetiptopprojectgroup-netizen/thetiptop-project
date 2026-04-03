@@ -5,6 +5,19 @@
     state: directory
     mode: "0755"
 
+- name: Répertoire configuration dynamique Traefik
+  ansible.builtin.file:
+    path: "{{ traefik_install_dir }}/dynamic"
+    state: directory
+    mode: "0755"
+
+- name: Route Harbor via fichier (provider file)
+  ansible.builtin.template:
+    src: dynamic/harbor.yml.j2
+    dest: "{{ traefik_install_dir }}/dynamic/harbor.yml"
+    mode: "0644"
+  when: traefik_harbor_hostname | default('') | length > 0
+
 - name: Déposer docker-compose Traefik
   ansible.builtin.template:
     src: docker-compose.yml.j2

@@ -19,6 +19,9 @@ firewall_allowed_tcp_ports:
 # --- Traefik ---
 traefik_acme_email: "admin@example.com"
 traefik_dashboard_enabled: false
+# Route Harbor via fichier dynamic (si le provider Docker Traefik échoue avec Docker Engine récent)
+traefik_harbor_hostname: ""  # ex. harbor.mondomaine.fr
+traefik_harbor_backend: "nginx"
 
 # --- MinIO ---
 minio_root_user: "minioadmin"
@@ -40,6 +43,8 @@ harbor_data_volume: "/opt/harbor/data"
 harbor_http_port: 8080
 harbor_https_port: 8443
 harbor_enable_https: false
+# HTTPS public derrière Traefik (:443), sans port — évite les redirections 308 vers :8443 (vide = désactivé)
+harbor_external_url: ""
 
 # --- Restic (bucket MinIO + préfixe S3) ---
 restic_install: true

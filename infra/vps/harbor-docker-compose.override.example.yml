@@ -19,9 +19,11 @@ services:
       - traefik_public
     labels:
       - "traefik.enable=true"
+      # Attention : orthographe exacte traefik (pas traefi) — sinon Traefik ignore le label
       - "traefik.docker.network=traefik_public"
       - "traefik.http.routers.harbor.rule=Host(`harbor.dsp5-archi-o22a-15m-g3.fr`)"
       - "traefik.http.routers.harbor.entrypoints=websecure"
+      - "traefik.http.routers.harbor.priority=100"
       - "traefik.http.routers.harbor.tls=true"
       - "traefik.http.routers.harbor.tls.certresolver=letsencrypt"
       - "traefik.http.services.harbor.loadbalancer.server.port=8080"

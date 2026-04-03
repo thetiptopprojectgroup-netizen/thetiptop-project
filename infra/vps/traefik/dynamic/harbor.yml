@@ -1,0 +1,23 @@
+# Copier vers /opt/thetiptop/traefik/dynamic/harbor.yml sur le VPS.
+# Adapter le Host et le nom du backend si ton conteneur Harbor proxy n’est pas "nginx".
+# Prérequis : dans docker-compose Traefik, monter ce dossier et activer le provider file :
+#   - ./dynamic:/etc/traefik/dynamic:ro
+#   - --providers.file.directory=/etc/traefik/dynamic
+#   - --providers.file.watch=true
+
+http:
+  routers:
+    harbor-file:
+      rule: "Host(`harbor.dsp5-archi-o22a-15m-g3.fr`)"
+      entryPoints:
+        - websecure
+      service: harbor-file-svc
+      tls:
+        certResolver: letsencrypt
+      priority: 200
+  services:
+    harbor-file-svc:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://nginx:8080"

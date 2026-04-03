@@ -3,6 +3,8 @@ harbor_install: true
 harbor_version: "2.10.2"
 harbor_install_root: /opt
 harbor_hostname: registre.example.com
+# Ex. https://harbor.mondomaine.fr (sans port) si Harbor est exposé en HTTPS via Traefik sur 443
+harbor_external_url: ""
 harbor_admin_password: changeme
 harbor_db_password: changeme_db
 harbor_data_volume: /opt/harbor/data

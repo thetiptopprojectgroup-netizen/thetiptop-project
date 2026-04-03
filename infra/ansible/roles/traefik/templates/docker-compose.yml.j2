@@ -3,6 +3,9 @@ services:
     image: {{ traefik_image }}
     container_name: traefik
     restart: unless-stopped
+    # Docker Engine récent exige une API ≥ 1.40 ; forcer la négociation côté client Traefik.
+    environment:
+      DOCKER_API_VERSION: "{{ traefik_docker_api_version }}"
     security_opt:
       - no-new-privileges:true
     ports:
@@ -11,8 +14,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_letsencrypt:/letsencrypt
+      - {{ traefik_install_dir }}/dynamic:/etc/traefik/dynamic:ro
     command:
       - "--api.dashboard={{ traefik_dashboard_enabled | lower }}"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=traefik_public"
