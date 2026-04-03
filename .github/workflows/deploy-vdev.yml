@@ -53,17 +53,32 @@ jobs:
             echo "::error::Secret HARBOR_REGISTRY vide."
             exit 1
           fi
-          echo "Test HTTPS https://${REG}/v2/ (codes 200 ou 401 = registry joignable)…"
-          # -k : ignorer certificat auto-signé (Harbor) — on teste surtout la connectivité depuis GitHub
+          echo "Test HTTPS https://${REG}/v2/ …"
+          # -k : pas de vérif TLS (ce job teste surtout la connectivité réseau depuis GitHub)
           code=$(curl -skS -o /dev/null -w "%{http_code}" --connect-timeout 20 --max-time 45 "https://${REG}/v2/" || echo "000")
-          if [ "$code" = "200" ] || [ "$code" = "401" ]; then
+          # 30x : redirection (ex. mauvais external_url Harbor → :8443) — toujours « joignable »
+          if [ "$code" = "200" ] || [ "$code" = "401" ] || [ "$code" = "403" ]; then
             echo "OK — HTTPS répond (HTTP $code)."
             exit 0
           fi
-          echo "HTTPS échoue (code $code). Test HTTP http://${REG}/v2/ …"
+          if [ "$code" = "301" ] || [ "$code" = "302" ] || [ "$code" = "307" ] || [ "$code" = "308" ]; then
+            echo "OK — HTTPS répond avec redirection HTTP $code (vérifier external_url Harbor si la cible est :8443)."
+            exit 0
+          fi
+          # Suivre les redirections jusqu’au endpoint final
+          final=$(curl -skSL -o /dev/null -w "%{http_code}" --connect-timeout 20 --max-time 45 --max-redirs 8 "https://${REG}/v2/" || echo "000")
+          if [ "$final" = "200" ] || [ "$final" = "401" ] || [ "$final" = "403" ]; then
+            echo "OK — HTTPS après redirections (HTTP $final)."
+            exit 0
+          fi
+          echo "HTTPS échoue (code direct $code, après -L $final). Test HTTP http://${REG}/v2/ …"
           code2=$(curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 20 --max-time 45 "http://${REG}/v2/" || echo "000")
-          if [ "$code2" = "200" ] || [ "$code2" = "401" ]; then
+          if [ "$code2" = "200" ] || [ "$code2" = "401" ] || [ "$code2" = "403" ]; then
             echo "::warning::Le registry répond en HTTP seulement. docker login sur les runners GitHub attend en général du HTTPS (certificat valide) ou une config insecure-registries dédiée."
+            exit 1
+          fi
+          if [ "$code2" = "301" ] || [ "$code2" = "302" ] || [ "$code2" = "307" ] || [ "$code2" = "308" ]; then
+            echo "::warning::HTTP renvoie $code2 (redirection). Corriger HARBOR_REGISTRY / TLS côté VPS."
             exit 1
           fi
           echo "::error::Aucune réponse joignable depuis GitHub (timeout ou refus). Causes fréquentes :"
