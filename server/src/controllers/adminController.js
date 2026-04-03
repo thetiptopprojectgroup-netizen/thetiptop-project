@@ -677,3 +677,84 @@ export const getGameStats = async (req, res, next) => {
     next(error);
   }
 };
+
+const mapCodeForAdmin = (c) => ({
+  id: c._id,
+  code: c.code,
+  etat: c.etat,
+  date_generation: c.date_generation,
+  date_utilisation: c.date_utilisation,
+  prize: c.prize,
+  lot: c.lot,
+  createdAt: c.createdAt,
+});
+
+// @desc    Deux exemples de codes par type de lot (aperçu)
+// @route   GET /api/admin/codes/samples
+export const getAdminCodeSamples = async (req, res, next) => {
+  try {
+    const samples = [];
+    for (const prize of Object.values(PRIZES)) {
+      const codes = await Code.find({ 'prize.id': prize.id })
+        .sort({ code: 1 })
+        .limit(2)
+        .populate('lot', 'libelle type_lot')
+        .lean();
+      samples.push({
+        prize: { id: prize.id, name: prize.name },
+        examples: codes.map(mapCodeForAdmin),
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: { samples },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Liste paginée des codes (tickets générés)
+// @route   GET /api/admin/codes
+export const getAdminCodes = async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const sortField = ['code', 'date_generation', 'etat', 'createdAt'].includes(req.query.sort)
+      ? req.query.sort
+      : 'code';
+    const order = req.query.order === 'desc' ? -1 : 1;
+    const filter = {};
+    if (req.query.etat && ['disponible', 'utilise', 'reclame', 'expire'].includes(req.query.etat)) {
+      filter.etat = req.query.etat;
+    }
+    if (req.query.prizeId) {
+      filter['prize.id'] = String(req.query.prizeId);
+    }
+    const skip = (page - 1) * limit;
+    const sortObj = { [sortField]: order };
+    const [codes, total] = await Promise.all([
+      Code.find(filter)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .populate('lot', 'libelle type_lot')
+        .lean(),
+      Code.countDocuments(filter),
+    ]);
+    res.status(200).json({
+      success: true,
+      data: {
+        codes: codes.map(mapCodeForAdmin),
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.max(1, Math.ceil(total / limit)),
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

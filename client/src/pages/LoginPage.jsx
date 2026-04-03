@@ -8,6 +8,8 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import useAuthStore from '../store/authStore';
 
+const getAuthUser = () => useAuthStore.getState().user;
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
@@ -27,7 +29,8 @@ export default function LoginPage() {
     
     if (result.success) {
       toast.success('Connexion réussie ! 🎉');
-      navigate(from, { replace: true });
+      const dest = getAuthUser()?.role === 'admin' ? '/admin' : from;
+      navigate(dest, { replace: true });
     } else {
       toast.error(result.error);
     }

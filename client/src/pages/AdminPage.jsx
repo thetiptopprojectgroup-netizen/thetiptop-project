@@ -4,7 +4,7 @@ import {
   BarChart3, Users, Ticket, Gift, Trophy, Download, Store,
   Search, RefreshCw, AlertCircle, CheckCircle, Clock, Plus,
   Edit3, Trash2, ChevronLeft, ChevronRight,
-  Settings, CalendarDays, Percent, UserPlus, MapPin
+  Settings, CalendarDays, Percent, UserPlus, MapPin, ListOrdered,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -15,6 +15,44 @@ import Modal from '../components/common/Modal';
 import ContestDateManager from '../components/admin/ContestDateManager';
 import { adminService } from '../services/api';
 import toast from 'react-hot-toast';
+
+const PRIZE_FILTER_OPTIONS = [
+  { id: '', label: 'Tous les lots' },
+  { id: 'infuseur', label: 'Infuseur à thé' },
+  { id: 'the_detox', label: 'Thé détox / infusion 100g' },
+  { id: 'the_signature', label: 'Thé signature 100g' },
+  { id: 'coffret_39', label: 'Coffret 39€' },
+  { id: 'coffret_69', label: 'Coffret 69€' },
+];
+
+const ETAT_LABELS = {
+  disponible: 'Disponible',
+  utilise: 'Utilisé',
+  reclame: 'Réclamé',
+  expire: 'Expiré',
+};
+
+/** Numéros de page avec ellipses si beaucoup de pages */
+function buildVisiblePages(totalPages, current) {
+  if (totalPages <= 1) return [{ type: 'page', n: 1 }];
+  if (totalPages <= 12) {
+    return Array.from({ length: totalPages }, (_, i) => ({ type: 'page', n: i + 1 }));
+  }
+  const set = new Set([1, totalPages, current]);
+  for (let d = -2; d <= 2; d++) {
+    const p = current + d;
+    if (p >= 1 && p <= totalPages) set.add(p);
+  }
+  const sorted = [...set].sort((a, b) => a - b);
+  const out = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push({ type: 'ellipsis' });
+    out.push({ type: 'page', n: p });
+    prev = p;
+  }
+  return out;
+}
 
 export default function AdminPage() {
   const [stats, setStats] = useState(null);
@@ -50,6 +88,17 @@ export default function AdminPage() {
   const [showGrandPrizeModal, setShowGrandPrizeModal] = useState(false);
   const [grandPrizeResult, setGrandPrizeResult] = useState(null);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // Codes générés (liste paginée)
+  const [adminCodes, setAdminCodes] = useState([]);
+  const [codesPagination, setCodesPagination] = useState({ page: 1, pages: 1, total: 0, limit: 50 });
+  const [codesPage, setCodesPage] = useState(1);
+  const [codesSort, setCodesSort] = useState('code');
+  const [codesOrder, setCodesOrder] = useState('asc');
+  const [codesEtat, setCodesEtat] = useState('');
+  const [codesPrizeId, setCodesPrizeId] = useState('');
+  const [codeSamples, setCodeSamples] = useState(null);
+  const [codesLoading, setCodesLoading] = useState(false);
 
   useEffect(() => { fetchStats(); }, []);
 
@@ -135,6 +184,48 @@ export default function AdminPage() {
       fetchGameStats();
     }
   }, [activeTab]);
+
+  const fetchCodeSamples = useCallback(async () => {
+    try {
+      const response = await adminService.getAdminCodeSamples();
+      setCodeSamples(response.data.data.samples);
+    } catch (error) {
+      toast.error('Erreur chargement des aperçus de codes');
+    }
+  }, []);
+
+  const fetchAdminCodes = useCallback(async () => {
+    setCodesLoading(true);
+    try {
+      const params = {
+        page: codesPage,
+        limit: 50,
+        sort: codesSort,
+        order: codesOrder,
+      };
+      if (codesEtat) params.etat = codesEtat;
+      if (codesPrizeId) params.prizeId = codesPrizeId;
+      const response = await adminService.getAdminCodes(params);
+      setAdminCodes(response.data.data.codes);
+      setCodesPagination(response.data.data.pagination);
+    } catch (error) {
+      toast.error('Erreur chargement des codes');
+    } finally {
+      setCodesLoading(false);
+    }
+  }, [codesPage, codesSort, codesOrder, codesEtat, codesPrizeId]);
+
+  useEffect(() => {
+    if (activeTab === 'codes') {
+      fetchCodeSamples();
+    }
+  }, [activeTab, fetchCodeSamples]);
+
+  useEffect(() => {
+    if (activeTab === 'codes') {
+      fetchAdminCodes();
+    }
+  }, [activeTab, fetchAdminCodes]);
 
   // User actions
   const handleChangeRole = async (userId, newRole) => {
@@ -276,6 +367,7 @@ export default function AdminPage() {
 
   const tabs = [
     { id: 'overview', label: 'Vue d\'ensemble', icon: BarChart3 },
+    { id: 'codes', label: 'Codes générés', icon: ListOrdered },
     { id: 'contest-config', label: 'Dates du concours', icon: CalendarDays },
     { id: 'users', label: 'Utilisateurs', icon: Users },
     { id: 'boutiques', label: 'Boutiques', icon: Store },
@@ -305,9 +397,14 @@ export default function AdminPage() {
               <h1 className="text-3xl font-display font-bold text-tea-900 mb-2">Administration</h1>
               <p className="text-tea-600">Gérez le jeu-concours Thé Tip Top</p>
             </div>
-            <Button variant="secondary" size="sm" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={fetchStats}>
-              Actualiser
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" leftIcon={<ListOrdered className="w-4 h-4" />} onClick={() => setActiveTab('codes')}>
+                Voir les codes générés
+              </Button>
+              <Button variant="secondary" size="sm" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={fetchStats}>
+                Actualiser
+              </Button>
+            </div>
           </div>
         </motion.div>
 
@@ -435,6 +532,238 @@ export default function AdminPage() {
                 </Card>
               </div>
             )}
+          </motion.div>
+        )}
+
+        {/* ==================== CODES / TICKETS TAB ==================== */}
+        {activeTab === 'codes' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+            {codeSamples && (
+              <Card>
+                <Card.Header>
+                  <Card.Title>Aperçu : 2 codes par type de lot</Card.Title>
+                  <Card.Description>Exemples tirés pour chaque catégorie de gain</Card.Description>
+                </Card.Header>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {codeSamples.map((block) => (
+                    <div key={block.prize.id} className="rounded-2xl border border-cream-200 bg-cream-50/80 p-4">
+                      <div className="font-semibold text-tea-900 mb-3">{block.prize.name}</div>
+                      <div className="space-y-2">
+                        {block.examples.length === 0 ? (
+                          <p className="text-sm text-tea-500">Aucun code pour ce lot</p>
+                        ) : (
+                          block.examples.map((row) => (
+                            <div
+                              key={row.id || row.code}
+                              className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm border border-cream-100"
+                            >
+                              <span className="font-mono font-semibold text-tea-900 tracking-wide">{row.code}</span>
+                              <span
+                                className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${
+                                  row.etat === 'disponible'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : row.etat === 'utilise'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : row.etat === 'reclame'
+                                        ? 'bg-matcha-100 text-matcha-800'
+                                        : 'bg-cream-200 text-tea-600'
+                                }`}
+                              >
+                                {ETAT_LABELS[row.etat] || row.etat}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            <Card>
+              <Card.Header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <Card.Title>Tous les codes générés</Card.Title>
+                  <Card.Description>
+                    {codesPagination.total != null
+                      ? `${codesPagination.total.toLocaleString()} code(s) — affichage par vagues de ${codesPagination.limit || 50}`
+                      : 'Chargement…'}
+                  </Card.Description>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<RefreshCw className="w-4 h-4" />}
+                  onClick={fetchAdminCodes}
+                  disabled={codesLoading}
+                >
+                  Actualiser la liste
+                </Button>
+              </Card.Header>
+
+              <div className="flex flex-col lg:flex-row gap-4 mb-6 flex-wrap">
+                <select
+                  className="input max-w-[220px]"
+                  value={codesPrizeId}
+                  onChange={(e) => {
+                    setCodesPrizeId(e.target.value);
+                    setCodesPage(1);
+                  }}
+                >
+                  {PRIZE_FILTER_OPTIONS.map((o) => (
+                    <option key={o.id || 'all'} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input max-w-[200px]"
+                  value={codesEtat}
+                  onChange={(e) => {
+                    setCodesEtat(e.target.value);
+                    setCodesPage(1);
+                  }}
+                >
+                  <option value="">Tous les statuts</option>
+                  <option value="disponible">{ETAT_LABELS.disponible}</option>
+                  <option value="utilise">{ETAT_LABELS.utilise}</option>
+                  <option value="reclame">{ETAT_LABELS.reclame}</option>
+                  <option value="expire">{ETAT_LABELS.expire}</option>
+                </select>
+                <select
+                  className="input max-w-[220px]"
+                  value={codesSort}
+                  onChange={(e) => {
+                    setCodesSort(e.target.value);
+                    setCodesPage(1);
+                  }}
+                >
+                  <option value="code">Trier par code</option>
+                  <option value="date_generation">Trier par date de génération</option>
+                  <option value="etat">Trier par statut</option>
+                  <option value="createdAt">Trier par date de création</option>
+                </select>
+                <select
+                  className="input max-w-[160px]"
+                  value={codesOrder}
+                  onChange={(e) => {
+                    setCodesOrder(e.target.value);
+                    setCodesPage(1);
+                  }}
+                >
+                  <option value="asc">Croissant</option>
+                  <option value="desc">Décroissant</option>
+                </select>
+              </div>
+
+              <div className="overflow-x-auto min-h-[200px]">
+                {codesLoading && adminCodes.length === 0 ? (
+                  <div className="flex justify-center py-12">
+                    <div className="w-10 h-10 border-2 border-matcha-600 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-cream-200">
+                        <th className="text-left py-3 px-4 font-medium text-tea-600">Code</th>
+                        <th className="text-left py-3 px-4 font-medium text-tea-600">Lot</th>
+                        <th className="text-left py-3 px-4 font-medium text-tea-600">Gain</th>
+                        <th className="text-left py-3 px-4 font-medium text-tea-600">Statut</th>
+                        <th className="text-left py-3 px-4 font-medium text-tea-600">Généré le</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-cream-100">
+                      {adminCodes.map((row) => (
+                        <tr key={row.id} className="hover:bg-cream-50 transition-colors">
+                          <td className="py-3 px-4 font-mono font-medium text-tea-900">{row.code}</td>
+                          <td className="py-3 px-4 text-tea-700">
+                            {row.lot?.libelle || row.prize?.name || '—'}
+                          </td>
+                          <td className="py-3 px-4 text-tea-600 text-xs">{row.prize?.name || '—'}</td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`text-xs px-2 py-1 rounded-full ${
+                                row.etat === 'disponible'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : row.etat === 'utilise'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : row.etat === 'reclame'
+                                      ? 'bg-matcha-100 text-matcha-800'
+                                      : 'bg-cream-200 text-tea-600'
+                              }`}
+                            >
+                              {ETAT_LABELS[row.etat] || row.etat}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-tea-500 text-xs whitespace-nowrap">
+                            {row.date_generation
+                              ? format(new Date(row.date_generation), 'dd/MM/yyyy HH:mm', { locale: fr })
+                              : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {adminCodes.length === 0 && !codesLoading && (
+                <div className="py-12 text-center text-tea-600">
+                  <Ticket className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Aucun code ne correspond aux filtres</p>
+                </div>
+              )}
+
+              {(codesPagination.total ?? 0) > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-cream-200">
+                  <span className="text-sm text-tea-600">
+                    Page {codesPagination.page} / {codesPagination.pages} — {codesPagination.total?.toLocaleString()} codes
+                  </span>
+                  {codesPagination.pages > 1 && (
+                    <div className="flex flex-wrap items-center gap-1 justify-center">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={codesPage <= 1 || codesLoading}
+                        onClick={() => setCodesPage((p) => Math.max(1, p - 1))}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      {buildVisiblePages(codesPagination.pages, codesPage).map((item, idx) =>
+                        item.type === 'ellipsis' ? (
+                          <span key={`e-${idx}`} className="px-2 text-tea-400">
+                            …
+                          </span>
+                        ) : (
+                          <button
+                            key={item.n}
+                            type="button"
+                            onClick={() => setCodesPage(item.n)}
+                            disabled={codesLoading}
+                            className={`min-w-[2.25rem] h-9 rounded-lg text-sm font-medium transition-colors ${
+                              codesPage === item.n
+                                ? 'bg-matcha-600 text-white'
+                                : 'bg-cream-100 text-tea-700 hover:bg-cream-200'
+                            }`}
+                          >
+                            {item.n}
+                          </button>
+                        )
+                      )}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={codesPage >= codesPagination.pages || codesLoading}
+                        onClick={() => setCodesPage((p) => p + 1)}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
           </motion.div>
         )}
 

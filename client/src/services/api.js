@@ -74,6 +74,8 @@ export const adminService = {
   // Statistiques
   getStats: () => api.get('/admin/stats'),
   getGameStats: () => api.get('/admin/game-stats'),
+  getAdminCodes: (params) => api.get('/admin/codes', { params }),
+  getAdminCodeSamples: () => api.get('/admin/codes/samples'),
   getGameSession: () => api.get('/admin/game-session'),
 
   // Utilisateurs
