@@ -1,38 +1,44 @@
 services:
   traefik:
-    image: traefik:v3.0
+    image: "{{ traefik_image }}"
     container_name: thetiptop-traefik
     restart: unless-stopped
+    # Docker Engine récent exige une API ≥ 1.40 ; forcer la négociation côté client Traefik.
+    environment:
+      DOCKER_API_VERSION: "{{ traefik_docker_api_version }}"
+      TZ: Europe/Paris
     security_opt:
       - no-new-privileges:true
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      TZ: Europe/Paris
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./acme.json:/acme.json
-      - ./dynamic:/etc/traefik/dynamic:ro
+      - traefik_letsencrypt:/letsencrypt
+      - {{ traefik_install_dir }}/dynamic:/etc/traefik/dynamic:ro
     command:
-      - --api.dashboard=false
-      - --providers.docker=true
-      - --providers.file.directory=/etc/traefik/dynamic
-      - --providers.file.watch=true
-      - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=traefik
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      - --certificatesresolvers.le.acme.tlschallenge=true
-      - --certificatesresolvers.le.acme.email={{ traefik_acme_email }}
-      - --certificatesresolvers.le.acme.storage=/acme.json
+      - "--api.dashboard={{ traefik_dashboard_enabled | lower }}"
+      - "--providers.docker=true"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - "--certificatesresolvers.le.acme.email={{ traefik_acme_email }}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
     networks:
       - traefik
 
 networks:
   traefik:
     external: true
+
+volumes:
+  traefik_letsencrypt:
+    driver: local

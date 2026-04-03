@@ -1,15 +1,18 @@
-# Routage HTTPS public vers Harbor (HTTP interne sur le port {{ harbor_http_port }}).
+# Route Harbor sans provider Docker (contournement si Docker Engine refuse l’API client Traefik).
+# Le conteneur {{ traefik_harbor_backend }} doit être sur le réseau traefik (même que Traefik).
 http:
   routers:
-    harbor-ui:
-      rule: Host(`{{ harbor_hostname }}`)
+    harbor-file:
+      rule: "Host(`{{ traefik_harbor_hostname }}`)"
       entryPoints:
         - websecure
-      service: harbor-svc
+      service: harbor-file-svc
       tls:
         certResolver: le
+      priority: 200
   services:
-    harbor-svc:
+    harbor-file-svc:
       loadBalancer:
+        passHostHeader: true
         servers:
-          - url: http://host.docker.internal:{{ harbor_http_port }}
+          - url: "http://{{ traefik_harbor_backend }}:8080"

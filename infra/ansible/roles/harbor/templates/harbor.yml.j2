@@ -1,5 +1,9 @@
 # Généré par Ansible — Harbor {{ harbor_version }} (HTTP en local ; HTTPS public via Traefik)
 hostname: {{ harbor_hostname }}
+{% if harbor_external_url | default('') | length > 0 %}
+# URL publique derrière un reverse proxy (Traefik sur 443) — évite les redirections vers :8443
+external_url: {{ harbor_external_url }}
+{% endif %}
 
 # URL publique (TLS terminé par Traefik sur le port 443)
 external_url: https://{{ harbor_hostname }}
