@@ -85,6 +85,9 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPROD_ENV_FILE: ${{ secrets.VPROD_ENV_FILE || secrets.VPROD_ENV }}
           VPROD_ENV_FILE_B64: ${{ secrets.VPROD_ENV_FILE_B64 }}
+          HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+          HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          HARBOR_REGISTRY_HOST_RAW: ${{ secrets.HARBOR_REGISTRY_BASE }}
         run: |
           set -euo pipefail
           if [ -n "${VPROD_ENV_FILE_B64:-}" ]; then
@@ -113,6 +116,11 @@ jobs:
             --exclude 'infra/deploy/env/*.env' \
             -e "$RSYNC_SSH" \
             ./ "${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}:/opt/thetiptop/app/"
+          HARBOR_REGISTRY_HOST="${HARBOR_REGISTRY_HOST_RAW#https://}"
+          HARBOR_REGISTRY_HOST="${HARBOR_REGISTRY_HOST#http://}"
+          HARBOR_REGISTRY_HOST="${HARBOR_REGISTRY_HOST%%/*}"
+          printf '%s\n' "$HARBOR_PASSWORD" | "${SSH_BASE[@]}" "$REMOTE" \
+            "docker login \"$HARBOR_REGISTRY_HOST\" -u \"$HARBOR_USERNAME\" --password-stdin"
           ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes \
             "${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}" \
             "set -euo pipefail
