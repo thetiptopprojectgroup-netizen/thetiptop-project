@@ -60,3 +60,5 @@ restic_version: "0.16.4"
 restic_password: "thetiptop"
 # URL S3 style restic ; le bucket doit exister (ex. vdev-restic dans minio_buckets)
 restic_repository: "s3:http://127.0.0.1:9000/vdev-restic"
+
+
