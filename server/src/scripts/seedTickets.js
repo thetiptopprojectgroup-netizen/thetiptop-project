@@ -5,7 +5,26 @@ import Lot, { LOT_DEFINITIONS } from '../models/Lot.js';
 
 dotenv.config();
 
-const TOTAL_TICKETS = 500000;
+/** Nombre de codes à créer au premier seed uniquement (voir seed-app-users.sh). Défaut 500000. */
+function resolveTicketCount() {
+  const raw = process.env.SEED_TICKET_COUNT ?? process.env.TOTAL_TICKETS;
+  if (raw === undefined || raw === null || String(raw).trim() === '') {
+    return 500000;
+  }
+  const n = parseInt(String(raw), 10);
+  if (!Number.isFinite(n) || n < 1) {
+    console.warn('⚠️ SEED_TICKET_COUNT invalide, utilisation de 500000.');
+    return 500000;
+  }
+  const cap = 10_000_000;
+  if (n > cap) {
+    console.warn(`⚠️ SEED_TICKET_COUNT plafonné à ${cap.toLocaleString()}.`);
+    return cap;
+  }
+  return n;
+}
+
+const TOTAL_TICKETS = resolveTicketCount();
 const BATCH_SIZE = 10000;
 
 const generateCode = () => {
@@ -37,15 +56,16 @@ const seedTickets = async () => {
       lotMap[def.type_lot] = lot._id;
     }
 
-    // === Check existing codes ===
+    // === Check existing codes (idempotent : ne jamais régénérer au déploiement si déjà présent) ===
     const existingCount = await Code.countDocuments();
     if (existingCount > 0) {
-      console.log(`\n⚠️ ${existingCount} codes existent déjà.`);
+      console.log(`\n✅ ${existingCount.toLocaleString()} code(s) déjà en base — aucune régénération.`);
       if (!process.argv.includes('--force')) {
-        console.log('Utilisez --force pour supprimer et régénérer.');
+        console.log('   (Pour tout effacer et régénérer : node src/scripts/seedTickets.js --force)');
+        await mongoose.disconnect();
         process.exit(0);
       }
-      console.log('🗑️ Suppression des codes existants...');
+      console.log('🗑️ Option --force : suppression des codes existants...');
       await Code.deleteMany({});
     }
 
@@ -128,9 +148,15 @@ const seedTickets = async () => {
       console.log(`  - ${prize?.name || stat._id}: ${stat.count.toLocaleString()} (${pct}%)`);
     });
 
+    await mongoose.disconnect();
     process.exit(0);
   } catch (error) {
     console.error('❌ Erreur:', error);
+    try {
+      await mongoose.disconnect();
+    } catch (_) {
+      /* ignore */
+    }
     process.exit(1);
   }
 };
