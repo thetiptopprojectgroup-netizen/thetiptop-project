@@ -153,7 +153,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
     steps:
       - name: Ouvrir PR brouillon vdev → vpreprod si absente
@@ -168,6 +168,33 @@ jobs:
             const headBranch = 'vdev';
             const runUrl = process.env.RUN_URL;
             const sha = (process.env.COMMIT_SHORT || '').slice(0, 7);
+
+            // Branche de base obligatoire sur GitHub (sinon API : field base invalid)
+            try {
+              await github.rest.repos.getBranch({ owner, repo, branch: base });
+            } catch (e) {
+              if (e.status !== 404) throw e;
+              const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
+              const def = repoInfo.default_branch;
+              if (def === headBranch) {
+                core.setFailed(
+                  `La branche « ${base} » n’existe pas sur le dépôt. Crée-la une fois sur GitHub ` +
+                    `(onglet Code → branche « ${def} » → déroulant des branches → New branch → nom « ${base} »), ` +
+                    `puis relance ce job ou pousse à nouveau sur « ${headBranch} ».`
+                );
+                return;
+              }
+              const { data: refData } = await github.rest.git.getRef({
+                owner, repo,
+                ref: `heads/${def}`,
+              });
+              await github.rest.git.createRef({
+                owner, repo,
+                ref: `refs/heads/${base}`,
+                sha: refData.object.sha,
+              });
+              core.info(`Branche « ${base} » créée (même pointeur que « ${def} »).`);
+            }
 
             const { data: open } = await github.rest.pulls.list({
               owner, repo, state: 'open', base, per_page: 100,
