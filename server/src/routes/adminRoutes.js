@@ -7,6 +7,7 @@ import {
   getEmployees, createEmployee, updateEmployee, deleteEmployee,
   getGameSession, getGameStats,
   getContestConfig, updateContestConfig,
+  getAdminCodes, getAdminCodeSamples,
 } from '../controllers/adminController.js';
 import { protect, adminOnly, employeeOrAdmin } from '../middlewares/auth.js';
 
@@ -25,6 +26,10 @@ router.put('/contest-config', updateContestConfig);
 
 // Statistiques
 router.get('/stats', getStats);
+
+// Codes / tickets générés (liste paginée + aperçu par type de lot)
+router.get('/codes/samples', getAdminCodeSamples);
+router.get('/codes', getAdminCodes);
 
 // Utilisateurs
 router.get('/users', getUsers);

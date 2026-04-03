@@ -64,8 +64,10 @@ function EmployeeRoute({ children }) {
 }
 
 function GuestRoute({ children }) {
-  const { isAuthenticated } = useAuthStore();
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  const { isAuthenticated, user } = useAuthStore();
+  if (isAuthenticated) {
+    return <Navigate to={user?.role === 'admin' ? '/admin' : '/dashboard'} replace />;
+  }
   return children;
 }
 
@@ -139,7 +141,15 @@ function OAuthCallback() {
     const token = params.get('token');
     if (token) {
       localStorage.setItem('token', token);
-      window.location.href = '/dashboard';
+      api
+        .get('/auth/me')
+        .then((res) => {
+          const role = res?.data?.data?.user?.role;
+          window.location.href = role === 'admin' ? '/admin' : '/dashboard';
+        })
+        .catch(() => {
+          window.location.href = '/dashboard';
+        });
     } else {
       window.location.href = '/login?error=oauth_failed';
     }

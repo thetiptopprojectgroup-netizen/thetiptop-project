@@ -38,6 +38,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 7d
       CLIENT_URL: ${CLIENT_URL}
+      # Premier déploiement uniquement (seedTickets.js) ; ignoré si des codes existent déjà. Défaut 500000.
+      SEED_TICKET_COUNT: ${SEED_TICKET_COUNT:-}
     depends_on:
       mongodb:
         condition: service_healthy

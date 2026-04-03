@@ -131,4 +131,5 @@ jobs:
              export IMAGE_TAG='${{ github.sha }}'
              docker compose -f infra/deploy/docker-compose.stack.yml \
                --env-file infra/deploy/env/vprod.env \
-               up -d --remove-orphans"
+               up -d --remove-orphans
+             bash infra/deploy/seed-app-users.sh /opt/thetiptop/app infra/deploy/env/vprod.env"
