@@ -391,13 +391,13 @@ export default function AdminPage() {
     <div className="min-h-screen pt-24 pb-16 bg-cream-50">
       <div className="container-wide">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className="flex items-center justify-between">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 lg:mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-3xl font-display font-bold text-tea-900 mb-2">Administration</h1>
-              <p className="text-tea-600">Gérez le jeu-concours Thé Tip Top</p>
+              <h1 className="text-2xl sm:text-3xl font-display font-bold text-tea-900 mb-2">Administration</h1>
+              <p className="text-tea-600 text-sm sm:text-base">Gérez le jeu-concours Thé Tip Top</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 shrink-0">
               <Button variant="secondary" size="sm" leftIcon={<ListOrdered className="w-4 h-4" />} onClick={() => setActiveTab('codes')}>
                 Voir les codes générés
               </Button>
@@ -408,24 +408,52 @@ export default function AdminPage() {
           </div>
         </motion.div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap ${
-                  activeTab === tab.id ? 'bg-matcha-600 text-white' : 'bg-white text-tea-700 hover:bg-cream-100'
-                }`}
-              >
-                <Icon className="w-4 h-4" />{tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Navigation : liste déroulante (mobile / tablette) + barre latérale (desktop) */}
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 lg:items-start">
+          <div className="lg:hidden w-full">
+            <label htmlFor="admin-nav-select" className="block text-sm font-medium text-tea-700 mb-2">
+              Section
+            </label>
+            <select
+              id="admin-nav-select"
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+              className="w-full rounded-xl border border-cream-200 bg-white px-4 py-3 text-tea-900 text-base font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-matcha-500 focus:border-matcha-500"
+            >
+              {tabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
+          <nav
+            className="hidden lg:flex lg:flex-col lg:w-56 xl:w-60 shrink-0 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto gap-1 p-2 rounded-2xl bg-white border border-cream-200 shadow-sm"
+            aria-label="Sections administration"
+          >
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition-colors ${
+                    active
+                      ? 'bg-matcha-600 text-white shadow-sm'
+                      : 'text-tea-700 hover:bg-cream-50'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${active ? 'text-white' : 'text-matcha-600'}`} />
+                  <span className="leading-snug">{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="min-w-0 flex-1 w-full">
         {/* ==================== OVERVIEW TAB ==================== */}
         {activeTab === 'overview' && stats && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
@@ -1199,6 +1227,8 @@ export default function AdminPage() {
             </Card>
           </motion.div>
         )}
+          </div>
+        </div>
 
         {/* ==================== MODALS ==================== */}
 
