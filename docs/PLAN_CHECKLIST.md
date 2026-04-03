@@ -9,7 +9,7 @@ Document de suivi : cocher chaque étape au fur et à mesure. Le fichier Word `P
 |---------------|------|
 | vdev | `vdev.dsp5-archi-o22a-15m-g3.fr` |
 | vpreprod | `vpreprod.dsp5-archi-o22a-15m-g3.fr` |
-| vprod (alias) | `vprod.dsp5-archi-o22a-15m-g3.fr` |
+| vprod (URL publique) | `dsp5-archi-o22a-15m-g3.fr` (racine, pas de sous-domaine `vprod.`) |
 | Harbor (un seul registre, projets vdev / vpreprod / vprod) | `https://harbor.dsp5-archi-o22a-15m-g3.fr` |
 
 **Namespaces** : isolation par **projet Docker Compose** (`COMPOSE_PROJECT_NAME`) + labels Traefik (`STACK_NAME`), pas de Kubernetes.
