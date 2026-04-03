@@ -98,6 +98,7 @@ jobs:
             echo "::error::Secret VPROD_ENV_FILE (ou VPROD_ENV / VPROD_ENV_FILE_B64) manquant. Collez le contenu de vprod.env dans un secret de dépôt."
             exit 1
           fi
+          CONTENT="$(printf '%s' "$CONTENT" | tr -d '\r')"
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy

@@ -6,7 +6,7 @@
 # Variables attendues dans le fichier env :
 #   STACK_NAME, TRAEFIK_HOST_RULE, REGISTRY, IMAGE_TAG, MONGO_ROOT_PASSWORD, JWT_SECRET,
 #   MONGO_USER, MONGO_PASSWORD, CLIENT_URL
-# TRAEFIK_HOST_RULE : partie Host() Traefik, ex. Host(`vdev....`) ou Host(`vprod....`, `dsp5....`) pour l’apex.
+# TRAEFIK_HOST_RULE : règle Traefik v3 (Host n’accepte qu’un seul argument ; plusieurs FQDN : Host(`a`) || Host(`b`)).
 
 services:
   mongodb:

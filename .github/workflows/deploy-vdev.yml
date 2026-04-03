@@ -106,6 +106,8 @@ jobs:
             echo "::error::Aucun secret d’environnement pour le déploiement. Créez un secret de dépôt (Settings → Secrets and variables → Actions → New repository secret) nommé VDEV_ENV_FILE et collez-y tout le texte de votre fichier local infra/deploy/env/vdev.env (rempli à partir de vdev.env.example). Alias accepté : VDEV_ENV. Si les caractères posent problème : base64 -w0 vdev.env puis secret VDEV_ENV_FILE_B64. Les Variables du dépôt ne remplacent pas les Secrets pour ce champ."
             exit 1
           fi
+          # CRLF (Windows) dans le secret casse les règles Traefik (Host(`…`) devient invalide)
+          CONTENT="$(printf '%s' "$CONTENT" | tr -d '\r')"
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy

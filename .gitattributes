@@ -1,2 +1,7 @@
 # Scripts shell : LF obligatoire (CRLF sous Windows casse `set -o pipefail` sur les runners Linux).
 *.sh text eol=lf
+
+# Exemples d’env + workflows : LF pour limiter CRLF dans les copies vers secrets GitHub.
+*.env.example text eol=lf
+.github/workflows/*.yml text eol=lf
+infra/deploy/env/*.env.example text eol=lf
