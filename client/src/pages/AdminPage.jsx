@@ -391,13 +391,13 @@ export default function AdminPage() {
     <div className="min-h-screen pt-24 pb-16 bg-cream-50">
       <div className="container-wide">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className="flex items-center justify-between">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 sm:mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-3xl font-display font-bold text-tea-900 mb-2">Administration</h1>
               <p className="text-tea-600">Gérez le jeu-concours Thé Tip Top</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 shrink-0">
               <Button variant="secondary" size="sm" leftIcon={<ListOrdered className="w-4 h-4" />} onClick={() => setActiveTab('codes')}>
                 Voir les codes générés
               </Button>
@@ -408,23 +408,46 @@ export default function AdminPage() {
           </div>
         </motion.div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors whitespace-nowrap ${
-                  activeTab === tab.id ? 'bg-matcha-600 text-white' : 'bg-white text-tea-700 hover:bg-cream-100'
-                }`}
-              >
-                <Icon className="w-4 h-4" />{tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Navigation par sections — forte lisibilité, responsive, sticky */}
+        <nav
+          className="sticky top-24 z-30 mb-8 -mx-1 px-1 sm:mx-0 sm:px-0"
+          aria-label="Sections administration"
+        >
+          <div className="rounded-2xl border-2 border-tea-300 bg-gradient-to-b from-white via-white to-cream-100/90 p-3 shadow-[0_8px_30px_-8px_rgba(44,36,30,0.18)] sm:p-4">
+            <div className="mb-3 flex items-center justify-between gap-2 border-b border-tea-200/80 pb-2 sm:mb-4 sm:pb-3">
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-tea-700 sm:text-sm">
+                Sections
+              </span>
+              <span className="hidden text-xs text-tea-500 sm:inline sm:text-sm">
+                {tabs.find((t) => t.id === activeTab)?.label ?? ''}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={[
+                      'flex min-h-[3rem] items-center justify-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left text-sm font-semibold leading-tight shadow-sm transition-all duration-200 sm:min-h-[3.25rem] sm:px-4 sm:text-[0.9375rem]',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-matcha-500 focus-visible:ring-offset-2',
+                      isActive
+                        ? 'border-matcha-600 bg-matcha-600 text-white shadow-md ring-2 ring-matcha-500/35'
+                        : 'border-tea-200 bg-white text-tea-900 hover:border-matcha-400 hover:bg-matcha-50/80 hover:text-tea-950 hover:shadow active:scale-[0.98]',
+                    ].join(' ')}
+                  >
+                    <Icon className={`h-5 w-5 shrink-0 sm:h-[1.35rem] sm:w-[1.35rem] ${isActive ? 'text-white' : 'text-matcha-600'}`} />
+                    <span className="flex-1">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </nav>
 
         {/* ==================== OVERVIEW TAB ==================== */}
         {activeTab === 'overview' && stats && (
