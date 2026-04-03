@@ -1,8 +1,9 @@
 ---
 traefik_install_dir: /opt/thetiptop/traefik
-# v3.3.x peut encore négocier une API Docker trop basse avec Engine récent → erreur « client version 1.24 ».
-# v3.4+ + DOCKER_API_VERSION corrigent en général le provider Docker.
-traefik_image: traefik:v3.4
+# Docker Engine 29+ impose une API minimale ≥ 1.40 ; Traefik ≤ 3.5 utilisait encore l’API 1.24 côté client
+# → provider Docker en échec continu, aucune route depuis les labels, 404 + cert par défaut.
+# Traefik 3.6+ négocie l’API avec le daemon (voir issues Traefik #12253 / PR #12256).
+traefik_image: traefik:v3.6
 traefik_docker_api_version: "1.44"
 # Si non vide : fichier dynamic/harbor.yml (provider file) — fonctionne même si le provider Docker échoue (API Engine).
 traefik_harbor_hostname: ""

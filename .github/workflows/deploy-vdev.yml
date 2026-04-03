@@ -71,6 +71,7 @@ jobs:
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
           docker build \
+            --target production \
             --build-arg VITE_API_URL="${{ env.VITE_API_URL }}" \
             -t "${REGISTRY}/client:${{ github.sha }}" \
             -f client/Dockerfile client

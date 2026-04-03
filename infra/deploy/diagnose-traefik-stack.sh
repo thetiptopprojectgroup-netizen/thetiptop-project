@@ -25,5 +25,8 @@ else
   docker inspect "$CID" --format '{{range $k,$v := .Config.Labels}}{{$k}}={{$v}}{{"\n"}}{{end}}' | grep '^traefik' || true
 fi
 echo
+echo "=== Image Traefik (doit être ≥ v3.6 si Docker Engine 29+ — sinon provider Docker en échec) ==="
+docker inspect thetiptop-traefik --format '{{.Config.Image}}' 2>/dev/null || echo "(conteneur introuvable)"
+echo
 echo "=== Dernières lignes des logs Traefik (erreurs provider / certificats) ==="
 docker logs thetiptop-traefik 2>&1 | tail -40
