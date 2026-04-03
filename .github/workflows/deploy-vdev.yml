@@ -53,6 +53,12 @@ jobs:
             echo "::error::Secret HARBOR_REGISTRY vide."
             exit 1
           fi
+          if echo "${REG}" | grep -qE ':8443(:|$|/)'; then
+            echo "::error::HARBOR_REGISTRY ne doit pas contenir :8443 si le registry public passe par Traefik sur le port 443."
+            echo "Le 8443 sert souvent au certificat interne Harbor → docker login échoue sur GitHub (x509)."
+            echo "Mettez uniquement le hostname, ex. harbor.example.com"
+            exit 1
+          fi
           echo "Test HTTPS https://${REG}/v2/ …"
           # -k : pas de vérif TLS (ce job teste surtout la connectivité réseau depuis GitHub)
           code=$(curl -skS -o /dev/null -w "%{http_code}" --connect-timeout 20 --max-time 45 "https://${REG}/v2/" || echo "000")
@@ -62,7 +68,15 @@ jobs:
             exit 0
           fi
           if [ "$code" = "301" ] || [ "$code" = "302" ] || [ "$code" = "307" ] || [ "$code" = "308" ]; then
-            echo "OK — HTTPS répond avec redirection HTTP $code (vérifier external_url Harbor si la cible est :8443)."
+            loc=$(curl -skSI --max-time 25 "https://${REG}/v2/" | grep -i '^[Ll]ocation:' | head -1 | sed 's/^[Ll]ocation:[[:space:]]*//' | tr -d '\r' || true)
+            echo "Redirection HTTP $code → ${loc:-?}"
+            if echo "${loc}" | grep -q ':8443'; then
+              echo "::error::Le registry redirige vers :8443. docker login suivra ce port et échouera (certificat TLS invalide pour la CI)."
+              echo "Sur le VPS : dans /opt/harbor/harbor.yml → external_url: https://${REG%%/*} (sans :8443), hostname identique, puis ./prepare et docker compose up -d dans /opt/harbor."
+              echo "GitHub : HARBOR_REGISTRY = hostname seul (sans port), ex. ${REG%%/*}"
+              exit 1
+            fi
+            echo "OK — HTTPS répond avec redirection HTTP $code."
             exit 0
           fi
           # Suivre les redirections jusqu’au endpoint final
