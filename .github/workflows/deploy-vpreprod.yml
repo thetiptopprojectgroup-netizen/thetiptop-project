@@ -129,3 +129,66 @@ jobs:
                --env-file infra/deploy/env/vpreprod.env \
                up -d --remove-orphans
              bash infra/deploy/seed-app-users.sh /opt/thetiptop/app infra/deploy/env/vpreprod.env"
+
+  # ---------------------------------------------------------------------------
+  # Stage 4 — PR de promotion (uniquement si tout le CD ci-dessus est vert)
+  # ---------------------------------------------------------------------------
+  promotion-pr:
+    name: "4 · PR promotion → vprod"
+    needs: [deploy-vps]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Ouvrir PR brouillon vpreprod → vprod si absente
+        uses: actions/github-script@v7
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHORT: ${{ github.sha }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const base = 'vprod';
+            const headBranch = 'vpreprod';
+            const runUrl = process.env.RUN_URL;
+            const sha = (process.env.COMMIT_SHORT || '').slice(0, 7);
+
+            const { data: open } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base, per_page: 100,
+            });
+            const exists = open.some(
+              (p) => p.head.ref === headBranch && p.base.ref === base
+            );
+            if (exists) {
+              const pr = open.find((p) => p.head.ref === headBranch);
+              core.info(`PR déjà ouverte (#${pr.number}).`);
+              return;
+            }
+
+            const body = [
+              '## Promotion vers la production (vprod)',
+              '',
+              'PR en **brouillon** : merge **manuel** — toi ou ton binôme pouvez valider et merger.',
+              '',
+              '1. Vérifier sur **vpreprod** si besoin.',
+              '2. **Ready for review** puis **Merge** → lance le CD **production**.',
+              '',
+              '---',
+              '',
+              '**Déclenché automatiquement** après le déploiement vpreprod réussi (tous les jobs verts).',
+              '',
+              `- Run : [CD / vpreprod](${runUrl})`,
+              `- Commit : \`${sha}\``,
+            ].join('\n');
+
+            const created = await github.rest.pulls.create({
+              owner, repo,
+              head: headBranch,
+              base,
+              title: '[Promotion] vpreprod → vprod',
+              body,
+              draft: true,
+            });
+            core.info(`PR créée : #${created.data.number}`);
