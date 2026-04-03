@@ -1,0 +1,29 @@
+# Ingress dédié /api avec priorité haute pour que Traefik route vers le backend
+# (évite 404 "Page non trouvée" quand / est pris avant /api sur preprod.thetiptop-jeu.fr)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: thetiptop-ingress-api
+  namespace: thetiptop-preprod
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-security-headers@kubernetescrd
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.priority: "100"
+spec:
+  tls:
+    - hosts:
+        - preprod.thetiptop-jeu.fr
+      secretName: thetiptop-preprod-tls
+  rules:
+    - host: preprod.thetiptop-jeu.fr
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000

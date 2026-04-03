@@ -1,0 +1,44 @@
+# Même technique qu'en dev : génération des 500k tickets (npm run seed).
+# Lancé en arrière-plan : on n'attend pas, le déploiement continue.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-tickets
+  namespace: NAMESPACE_PLACEHOLDER
+  labels:
+    app: seed-tickets
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 2
+  activeDeadlineSeconds: 2400
+  template:
+    metadata:
+      labels:
+        app: seed-tickets
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: harbor-secret
+      containers:
+        - name: seed-tickets
+          image: BACKEND_IMAGE_PLACEHOLDER
+          imagePullPolicy: Always
+          command: ["npm", "run", "seed"]
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: mongodb-uri
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+
+
+
+
+

@@ -18,6 +18,8 @@ ENV VITE_API_URL=${VITE_API_URL}
 
 # Build the application
 RUN npm run build
+# Garantir que sitemap et robots sont bien dans dist (Vite les copie depuis public/, ceci est une sécurité)
+RUN cp -v public/sitemap.xml public/robots.txt dist/ 2>/dev/null || true
 
 # Development stage (docker build --target development)
 FROM node:20-alpine AS development

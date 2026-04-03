@@ -1,0 +1,120 @@
+# Déploiement automatique du stack Monitoring (Prometheus, Grafana, Alertmanager) sur les clusters K8s.
+# Utilise les mêmes secrets KUBECONFIG_DEV / KUBECONFIG_PREPROD / KUBECONFIG_PROD que le CD principal.
+# Optionnel : secret GRAFANA_ADMIN_PASSWORD pour définir le mot de passe Grafana (sinon valeur du values-*.yaml).
+
+name: CD - Monitoring (Grafana / Prometheus)
+
+on:
+  push:
+    branches:
+      - dev
+      - preprod
+      - prod
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environnement cible (dev, preprod, prod)'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - preprod
+          - prod
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-monitoring:
+    name: Déployer monitoring → ${{ github.event.inputs.environment || github.ref_name }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Déterminer l'environnement
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BRANCH="${{ github.event.inputs.environment }}"
+          else
+            BRANCH="${{ github.ref_name }}"
+          fi
+          case "$BRANCH" in
+            prod)    ENV=prod    ; VALUES="k8s/monitoring/values-prod.yaml"    ;;
+            preprod) ENV=preprod ; VALUES="k8s/monitoring/values-preprod.yaml" ;;
+            *)       ENV=dev     ; VALUES="k8s/monitoring/values-dev.yaml"     ;;
+          esac
+          echo "env=$ENV" >> $GITHUB_OUTPUT
+          echo "values=$VALUES" >> $GITHUB_OUTPUT
+          echo "Environnement : $ENV | Fichier values : $VALUES"
+
+      - name: Configurer kubectl
+        id: kube
+        env:
+          KC_DEV:     ${{ secrets.KUBECONFIG_DEV }}
+          KC_PREPROD: ${{ secrets.KUBECONFIG_PREPROD }}
+          KC_PROD:    ${{ secrets.KUBECONFIG_PROD }}
+        run: |
+          ENV="${{ steps.env.outputs.env }}"
+          case "$ENV" in
+            prod)    KC="$KC_PROD" ;;
+            preprod) KC="$KC_PREPROD" ;;
+            *)       KC="$KC_DEV" ;;
+          esac
+          if [ -z "$KC" ]; then
+            echo "⚠️ KUBECONFIG non configuré pour $ENV. Déploiement monitoring skippé."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          mkdir -p ~/.kube
+          echo "$KC" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl cluster-info
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      - name: Créer le namespace monitoring
+        if: steps.kube.outputs.skip != 'true'
+        run: |
+          kubectl apply -f k8s/monitoring/namespace.yaml
+
+      - name: Installer Helm
+        if: steps.kube.outputs.skip != 'true'
+        run: |
+          curl -fsSL https://get.helm.sh/helm-v3.16.3-linux-amd64.tar.gz | tar xz -C /tmp
+          sudo mv /tmp/linux-amd64/helm /usr/local/bin/helm
+          helm version
+
+      - name: Ajouter le dépôt Prometheus
+        if: steps.kube.outputs.skip != 'true'
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+
+      - name: Déployer le stack Monitoring (Prometheus + Grafana + Alertmanager)
+        if: steps.kube.outputs.skip != 'true'
+        env:
+          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+        run: |
+          VALUES="${{ steps.env.outputs.values }}"
+          if [ -n "$GRAFANA_PASSWORD" ]; then
+            helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+              --namespace monitoring \
+              --create-namespace \
+              -f "$VALUES" \
+              --set grafana.adminPassword="$GRAFANA_PASSWORD"
+          else
+            helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+              --namespace monitoring \
+              --create-namespace \
+              -f "$VALUES"
+          fi
+
+      - name: Vérifier les pods
+        if: steps.kube.outputs.skip != 'true'
+        run: |
+          kubectl -n monitoring get pods
+          echo "---"
+          kubectl -n monitoring get ingress 2>/dev/null || true

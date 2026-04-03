@@ -1,0 +1,43 @@
+# Job seed:all (500k tickets + admin) en une fois. Le CD utilise plutôt seed-admin-job + seed-tickets-job
+# (même technique qu'en dev : admin d'abord, tickets en arrière-plan). Ce fichier reste pour usage manuel.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-db
+  namespace: NAMESPACE_PLACEHOLDER
+  labels:
+    app: seed-db
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 4
+  activeDeadlineSeconds: 2400
+  template:
+    metadata:
+      labels:
+        app: seed-db
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: harbor-secret
+      containers:
+        - name: seed
+          image: BACKEND_IMAGE_PLACEHOLDER
+          imagePullPolicy: Always
+          command: ["npm", "run", "seed:all"]
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: mongodb-uri
+            - name: ADMIN_EMAIL
+              value: "ADMIN_EMAIL_PLACEHOLDER"
+            - name: ADMIN_PASSWORD
+              value: "ADMIN_PASSWORD_PLACEHOLDER"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi

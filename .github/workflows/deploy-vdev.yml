@@ -211,10 +211,10 @@ jobs:
             const body = [
               '## Promotion vers vpreprod',
               '',
-              'PR en **brouillon** : merge **manuel** — toi ou ton binôme pouvez valider et merger.',
+              'Merge **manuel** quand vous voulez promouvoir — toi ou ton binôme.',
               '',
               '1. Vérifier sur **vdev** si besoin.',
-              '2. **Ready for review** puis **Merge** → lance le CD **vpreprod**.',
+              '2. **Merge** → lance le CD **vpreprod**.',
               '',
               '---',
               '',
@@ -230,6 +230,6 @@ jobs:
               base,
               title: '[Promotion] vdev → vpreprod',
               body,
-              draft: true,
+              draft: false,
             });
             core.info(`PR créée : #${pr.data.number}`);

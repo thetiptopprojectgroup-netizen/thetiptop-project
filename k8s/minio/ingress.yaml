@@ -1,0 +1,29 @@
+# MinIO : 1 host par cluster. OBLIGATOIRE : appliquer avec sed (CD) pour remplacer MINIO_HOST_PLACEHOLDER.
+# Sinon l'Ingress ne matche pas le host réel → 404 ou comportement inattendu.
+# Dev: minio.dev.thetiptop-jeu.fr | Preprod: minio.preprod.thetiptop-jeu.fr | Prod: minio.thetiptop-jeu.fr
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio-ingress
+  namespace: minio
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-security-headers@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - MINIO_HOST_PLACEHOLDER
+      secretName: minio-tls
+  rules:
+    - host: MINIO_HOST_PLACEHOLDER
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 80

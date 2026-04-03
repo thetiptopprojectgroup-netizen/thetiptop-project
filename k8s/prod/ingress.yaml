@@ -1,0 +1,66 @@
+# Ingress – Cluster PROD
+# Domaines : thetiptop-jeu.fr + www.thetiptop-jeu.fr (frontend) + api.thetiptop-jeu.fr (backend)
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: thetiptop-ingress
+  namespace: thetiptop-prod
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-security-headers@kubernetescrd
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  tls:
+    - hosts:
+        - thetiptop-jeu.fr
+        - www.thetiptop-jeu.fr
+        - api.thetiptop-jeu.fr
+      secretName: thetiptop-prod-tls
+  rules:
+    # Sur le même host que le frontend : /api → backend (évite 502 quand le front utilise baseURL /api)
+    - host: thetiptop-jeu.fr
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: www.thetiptop-jeu.fr
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: api.thetiptop-jeu.fr
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000
