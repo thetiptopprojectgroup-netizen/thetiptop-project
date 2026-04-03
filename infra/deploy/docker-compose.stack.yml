@@ -49,7 +49,9 @@ services:
       - traefik.docker.network=traefik
       - "traefik.http.routers.${STACK_NAME}-api.rule=${TRAEFIK_HOST_RULE} && PathPrefix(`/api`)"
       - traefik.http.routers.${STACK_NAME}-api.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-api.tls=true
       - traefik.http.routers.${STACK_NAME}-api.tls.certresolver=le
+      - traefik.http.routers.${STACK_NAME}-api.service=${STACK_NAME}-api
       - traefik.http.routers.${STACK_NAME}-api.priority=10
       - traefik.http.services.${STACK_NAME}-api.loadbalancer.server.port=5000
 
@@ -65,7 +67,9 @@ services:
       - traefik.docker.network=traefik
       - "traefik.http.routers.${STACK_NAME}-web.rule=${TRAEFIK_HOST_RULE}"
       - traefik.http.routers.${STACK_NAME}-web.entrypoints=websecure
+      - traefik.http.routers.${STACK_NAME}-web.tls=true
       - traefik.http.routers.${STACK_NAME}-web.tls.certresolver=le
+      - traefik.http.routers.${STACK_NAME}-web.service=${STACK_NAME}-web
       - traefik.http.routers.${STACK_NAME}-web.priority=1
       - traefik.http.services.${STACK_NAME}-web.loadbalancer.server.port=80
 
