@@ -19,6 +19,7 @@ concurrency:
 env:
   HARBOR_PROJECT: vprod
   VITE_API_URL: https://dsp5-archi-o22a-15m-g3.fr/api
+  SITE_URL: https://dsp5-archi-o22a-15m-g3.fr
 
 jobs:
   harbor-project:
@@ -62,9 +63,12 @@ jobs:
       - name: Build & push client
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
+          LASTMOD_DATE="$(git log -1 --format=%cs)"
           docker build \
             --target production \
             --build-arg VITE_API_URL="${{ env.VITE_API_URL }}" \
+            --build-arg SITE_URL="${{ env.SITE_URL }}" \
+            --build-arg LASTMOD_DATE="${LASTMOD_DATE}" \
             -t "${REGISTRY}/client:${{ github.sha }}" \
             -f client/Dockerfile client
           docker push "${REGISTRY}/client:${{ github.sha }}"
