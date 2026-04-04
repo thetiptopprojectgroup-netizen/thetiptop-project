@@ -163,6 +163,8 @@ export const getTicketByCode = async (req, res, next) => {
           id: participation._id,
           user: participation.user,
           status: participation.status,
+          claimedAt: participation.claimedAt,
+          claimedMethod: participation.claimedMethod,
           date_participation: participation.date_participation,
         } : null,
       },

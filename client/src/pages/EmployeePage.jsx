@@ -10,6 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  PackageCheck,
+  Info,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -20,9 +22,41 @@ import { employeeService } from '../services/api';
 import useAuthStore from '../store/authStore';
 import toast from 'react-hot-toast';
 
+/** Statut participation côté client (pas confondu avec « remis » du ticket en base) */
+function participationStatusInfo(status) {
+  const s = status === 'claimed' ? 'remis' : status;
+  switch (s) {
+    case 'won':
+      return {
+        short: 'Gagné',
+        detail: 'Le client a gagné mais n’a pas encore demandé la réclamation en ligne.',
+        className: 'bg-gold-100 text-gold-800',
+      };
+    case 'reclaim_requested':
+      return {
+        short: 'Réclamé (en attente)',
+        detail:
+          'Le client a enregistré une demande (souvent en ligne). Le lot n’est pas encore « remis » tant que vous ne confirmez pas la remise physique.',
+        className: 'bg-blue-100 text-blue-800',
+      };
+    case 'remis':
+      return {
+        short: 'Remis',
+        detail: 'Lot remis au client — processus terminé (statut « remis » en base).',
+        className: 'bg-matcha-100 text-matcha-800',
+      };
+    default:
+      return {
+        short: String(status || '—'),
+        detail: '',
+        className: 'bg-cream-200 text-tea-700',
+      };
+  }
+}
+
 export default function EmployeePage() {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('search-client');
+  const [activeTab, setActiveTab] = useState('remise-lot');
 
   /* --- Recherche client + autocomplétion --- */
   const [searchQuery, setSearchQuery] = useState('');
@@ -195,8 +229,8 @@ export default function EmployeePage() {
   }, [activeTab, fetchRemises]);
 
   const tabs = [
+    { id: 'remise-lot', label: 'Remettre un lot', icon: PackageCheck },
     { id: 'search-client', label: 'Recherche client', icon: User },
-    { id: 'search-code', label: 'Vérifier un ticket', icon: Ticket },
     { id: 'remises', label: 'Lots remis', icon: ListChecks },
   ];
 
@@ -206,8 +240,9 @@ export default function EmployeePage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h1 className="text-3xl font-display font-bold text-tea-900 mb-2">Espace Caissier</h1>
           <p className="text-tea-600">
-            Bienvenue {user?.firstName}. Recherche client (email, nom ou code ticket), vérification
-            ticket, historique des lots remis.
+            Bienvenue {user?.firstName}. Seuls les employés et administrateurs peuvent confirmer la{' '}
+            <strong>remise physique</strong> d’un lot (statut « remis »). Une demande « réclamé » (en ligne) n’est pas une
+            remise tant que vous n’avez pas validé ici.
           </p>
         </motion.div>
 
@@ -324,6 +359,13 @@ export default function EmployeePage() {
                             <div className="text-xs text-tea-500">
                               {format(new Date(p.wonAt), "d MMM yyyy 'à' HH:mm", { locale: fr })}
                             </div>
+                            <div className="mt-1.5">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${participationStatusInfo(p.status).className}`}
+                              >
+                                {participationStatusInfo(p.status).short}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         {p.status === 'won' || p.status === 'reclaim_requested' ? (
@@ -346,12 +388,31 @@ export default function EmployeePage() {
           </motion.div>
         )}
 
-        {activeTab === 'search-code' && (
+        {activeTab === 'remise-lot' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <Card className="border border-gold-200 bg-gold-50/80">
+              <div className="flex gap-3">
+                <div className="w-10 h-10 rounded-full bg-gold-200 flex items-center justify-center shrink-0">
+                  <Info className="w-5 h-5 text-gold-800" />
+                </div>
+                <div className="text-sm text-tea-800 space-y-2">
+                  <p className="font-semibold text-tea-900">Réclamé ≠ remis</p>
+                  <p>
+                    Le client peut enregistrer une <strong>demande</strong> (« réclamé » / demande en ligne) — cela ne
+                    signifie pas que le lot a été remis en main propre. Seul un passage par cette interface (employé ou
+                    admin) après vérification d’identité fait passer le gain en <strong>remis</strong>.
+                  </p>
+                </div>
+              </div>
+            </Card>
+
             <Card>
               <Card.Header>
-                <Card.Title>Tester un numéro de ticket</Card.Title>
-                <Card.Description>Entrez le code à 10 caractères pour vérifier son statut</Card.Description>
+                <Card.Title>Remettre un lot au client</Card.Title>
+                <Card.Description>
+                  Saisissez le code ticket à 10 caractères. Si le gain est « gagné » ou « réclamé (en attente) », vous
+                  pouvez confirmer la remise physique — le statut passera alors à <strong>remis</strong>.
+                </Card.Description>
               </Card.Header>
               <form onSubmit={handleSearchTicket} className="space-y-4">
                 <Input
@@ -424,17 +485,43 @@ export default function EmployeePage() {
                         <span>{ticketDetails.participation.user.email}</span>
                       </div>
                     )}
+                    {ticketDetails.participation && (
+                      <div className="text-left p-3 bg-cream-50 rounded-xl space-y-2">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="text-tea-600 shrink-0">Gain (participation)</span>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${participationStatusInfo(ticketDetails.participation.status).className}`}
+                          >
+                            {participationStatusInfo(ticketDetails.participation.status).short}
+                          </span>
+                        </div>
+                        <p className="text-xs text-tea-600 leading-relaxed">
+                          {participationStatusInfo(ticketDetails.participation.status).detail}
+                        </p>
+                        {ticketDetails.participation.status === 'reclaim_requested' &&
+                          ticketDetails.participation.claimedMethod === 'online' && (
+                            <p className="text-xs text-blue-800 font-medium">
+                              → Demande enregistrée en ligne par le client.
+                            </p>
+                          )}
+                      </div>
+                    )}
                   </div>
 
-                  {ticketDetails.ticket.status === 'used' && (
-                    <Button
-                      variant="gold"
-                      size="lg"
-                      className="mt-6"
-                      onClick={() => handleClaimPrize(ticketDetails.ticket.code)}
-                    >
-                      Marquer comme remis
-                    </Button>
+                  {ticketDetails.ticket.status === 'used' &&
+                    ticketDetails.participation &&
+                    ['won', 'reclaim_requested'].includes(ticketDetails.participation.status) && (
+                      <Button
+                        variant="gold"
+                        size="lg"
+                        className="mt-6"
+                        onClick={() => handleClaimPrize(ticketDetails.ticket.code)}
+                      >
+                        Confirmer la remise du lot (→ remis)
+                      </Button>
+                    )}
+                  {ticketDetails.ticket.status === 'used' && !ticketDetails.participation && (
+                    <p className="mt-4 text-sm text-red-600">Participation introuvable pour ce ticket.</p>
                   )}
                 </div>
               </Card>
