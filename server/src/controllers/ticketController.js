@@ -361,45 +361,239 @@ export const getPrizes = async (req, res, next) => {
   }
 };
 
-// @desc    Recherche clients avec autocomplétion (employés)
-// @route   GET /api/tickets/customers/search
-export const searchCustomers = async (req, res, next) => {
+// @desc    Liste des lots remis (datatable employés / admin) — filtres optionnels
+// @route   GET /api/tickets/remises
+export const getRemisesLots = async (req, res, next) => {
   try {
-    const { q } = req.query;
-    
-    if (!q || q.length < 2) {
-      return res.status(200).json({
-        success: true,
-        data: { customers: [] },
-      });
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const skip = (page - 1) * limit;
+    const { dateFrom, dateTo, email, firstName, lastName, ticketCode } = req.query;
+
+    const collPart = Participation.collection.collectionName;
+    const collUser = User.collection.collectionName;
+    const collCode = Code.collection.collectionName;
+
+    const matchRemise = {};
+    if (dateFrom || dateTo) {
+      matchRemise.date_remise = {};
+      if (dateFrom) matchRemise.date_remise.$gte = new Date(dateFrom);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        matchRemise.date_remise.$lte = end;
+      }
     }
 
-    const searchRegex = new RegExp(q, 'i');
-    
-    const customers = await User.find({
-      role: 'user',
-      actif: true,
-      $or: [
-        { email: searchRegex },
-        { prenom: searchRegex },
-        { nom: searchRegex },
-      ],
-    })
-      .select('email prenom nom')
-      .limit(10)
-      .sort({ prenom: 1 });
+    const pipeline = [
+      { $match: matchRemise },
+      { $lookup: { from: collPart, localField: 'participation', foreignField: '_id', as: 'part' } },
+      { $unwind: '$part' },
+      { $lookup: { from: collUser, localField: 'part.user', foreignField: '_id', as: 'usr' } },
+      { $unwind: '$usr' },
+      { $lookup: { from: collCode, localField: 'part.ticket', foreignField: '_id', as: 'tic' } },
+      { $unwind: '$tic' },
+    ];
+
+    const matchUser = {};
+    const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (email?.trim()) matchUser['usr.email'] = new RegExp(esc(email.trim()), 'i');
+    if (firstName?.trim()) matchUser['usr.prenom'] = new RegExp(esc(firstName.trim()), 'i');
+    if (lastName?.trim()) matchUser['usr.nom'] = new RegExp(esc(lastName.trim()), 'i');
+    if (ticketCode?.trim()) {
+      matchUser['tic.code'] = new RegExp(esc(ticketCode.trim().toUpperCase()), 'i');
+    }
+    if (Object.keys(matchUser).length) pipeline.push({ $match: matchUser });
+
+    pipeline.push({ $lookup: { from: collUser, localField: 'employe', foreignField: '_id', as: 'emp' } });
+    pipeline.push({ $unwind: { path: '$emp', preserveNullAndEmptyArrays: true } });
+    pipeline.push({ $sort: { date_remise: -1 } });
+    pipeline.push({
+      $facet: {
+        meta: [{ $count: 'total' }],
+        rows: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              id: '$_id',
+              dateRemise: '$date_remise',
+              modeRemise: '$mode_remise',
+              statut: '$statut',
+              commentaire: '$commentaire',
+              prizeName: '$part.prize.name',
+              prizeValue: '$part.prize.value',
+              ticketCode: '$tic.code',
+              clientEmail: '$usr.email',
+              clientPrenom: '$usr.prenom',
+              clientNom: '$usr.nom',
+              remisPar:
+                '$emp',
+            },
+          },
+        ],
+      },
+    });
+
+    const [agg] = await RemiseLot.aggregate(pipeline);
+    const total = agg?.meta?.[0]?.total ?? 0;
+    const rawRows = agg?.rows ?? [];
+
+    const rows = rawRows.map((r) => ({
+      id: r.id,
+      dateRemise: r.dateRemise,
+      modeRemise: r.modeRemise,
+      statut: r.statut,
+      commentaire: r.commentaire,
+      prizeName: r.prizeName,
+      prizeValue: r.prizeValue,
+      ticketCode: r.ticketCode,
+      clientEmail: r.clientEmail,
+      clientPrenom: r.clientPrenom,
+      clientNom: r.clientNom,
+      remisPar:
+        r.remisPar && r.remisPar.prenom
+          ? `${r.remisPar.prenom} ${r.remisPar.nom}`.trim()
+          : r.modeRemise === 'en_ligne'
+            ? 'Client (en ligne)'
+            : '—',
+    }));
 
     res.status(200).json({
       success: true,
       data: {
-        customers: customers.map((c) => ({
-          id: c._id,
-          email: c.email,
-          fullName: `${c.prenom} ${c.nom}`,
-          firstName: c.prenom,
-          lastName: c.nom,
-        })),
+        remises: rows,
+        pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 },
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Recherche clients + codes ticket (autocomplétion employés)
+// @route   GET /api/tickets/customers/search
+export const searchCustomers = async (req, res, next) => {
+  try {
+    const qRaw = (req.query.q || '').trim();
+    if (qRaw.length < 2) {
+      return res.status(200).json({
+        success: true,
+        data: { suggestions: [] },
+      });
+    }
+
+    const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const suggestions = [];
+    const seen = new Set();
+
+    const codeUpper = qRaw.toUpperCase().replace(/\s/g, '');
+
+    // 1) Code ticket exact (10 caractères)
+    if (/^[A-Z0-9]{10}$/.test(codeUpper)) {
+      const codeDoc = await Code.findOne({ code: codeUpper }).populate('utilise_par', 'email prenom nom');
+      if (codeDoc?.utilise_par) {
+        const u = codeDoc.utilise_par;
+        const key = `t:${codeDoc.code}`;
+        seen.add(key);
+        suggestions.push({
+          type: 'ticket',
+          ticketCode: codeDoc.code,
+          firstName: u.prenom,
+          lastName: u.nom,
+          fullName: `${u.prenom} ${u.nom}`,
+          email: u.email,
+          userId: u._id,
+        });
+      }
+    }
+
+    // 2) Préfixe de code (3–9 caractères alphanum)
+    if (codeUpper.length >= 3 && codeUpper.length < 10 && /^[A-Z0-9]+$/.test(codeUpper)) {
+      const codes = await Code.find({ code: new RegExp(`^${escapeRegex(codeUpper)}`, 'i') })
+        .limit(10)
+        .populate('utilise_par', 'email prenom nom');
+      for (const c of codes) {
+        if (!c.utilise_par) continue;
+        const key = `t:${c.code}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const u = c.utilise_par;
+        suggestions.push({
+          type: 'ticket',
+          ticketCode: c.code,
+          firstName: u.prenom,
+          lastName: u.nom,
+          fullName: `${u.prenom} ${u.nom}`,
+          email: u.email,
+          userId: u._id,
+        });
+      }
+    }
+
+    // 3) Clients par email / prénom / nom
+    const searchRegex = new RegExp(escapeRegex(qRaw), 'i');
+    const users = await User.find({
+      role: 'user',
+      actif: true,
+      $or: [{ email: searchRegex }, { prenom: searchRegex }, { nom: searchRegex }],
+    })
+      .select('email prenom nom')
+      .limit(25)
+      .sort({ prenom: 1 });
+
+    const userIds = users.map((u) => u._id);
+    const participations =
+      userIds.length > 0
+        ? await Participation.find({ user: { $in: userIds } })
+            .populate('ticket', 'code')
+            .lean()
+        : [];
+    const codesByUser = {};
+    for (const p of participations) {
+      const uid = p.user.toString();
+      if (!codesByUser[uid]) codesByUser[uid] = [];
+      if (p.ticket?.code) codesByUser[uid].push(p.ticket.code);
+    }
+
+    for (const c of users) {
+      const uid = c._id.toString();
+      const key = `u:${uid}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      suggestions.push({
+        type: 'user',
+        userId: c._id,
+        email: c.email,
+        firstName: c.prenom,
+        lastName: c.nom,
+        fullName: `${c.prenom} ${c.nom}`,
+        ticketCodes: codesByUser[uid] || [],
+      });
+    }
+
+    suggestions.sort((a, b) => {
+      const t = a.type === 'ticket' ? -1 : a.type === 'user' ? 1 : 0;
+      const u = b.type === 'ticket' ? -1 : b.type === 'user' ? 1 : 0;
+      if (t !== u) return t - u;
+      return (a.fullName || '').localeCompare(b.fullName || '', 'fr');
+    });
+    const seenUid = new Set();
+    const deduped = [];
+    for (const s of suggestions) {
+      const id = s.userId?.toString();
+      if (!id) {
+        deduped.push(s);
+        continue;
+      }
+      if (seenUid.has(id)) continue;
+      seenUid.add(id);
+      deduped.push(s);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { suggestions: deduped.slice(0, 20) },
     });
   } catch (error) {
     next(error);

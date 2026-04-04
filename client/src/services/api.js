@@ -64,7 +64,10 @@ export const ticketService = {
 export const employeeService = {
   getTicketByCode: (code) => api.get(`/tickets/code/${code}`),
   claimPrize: (code, storeLocation) => api.put(`/tickets/${code}/claim`, { storeLocation }),
-  getCustomerPrizes: (email) => api.get(`/tickets/customer/${email}`),
+  getCustomerPrizes: (email) =>
+    api.get(`/tickets/customer/${encodeURIComponent(email)}`),
+  searchCustomers: (q) => api.get('/tickets/customers/search', { params: { q } }),
+  getRemisesLots: (params) => api.get('/tickets/remises', { params }),
 };
 
 // Services admin

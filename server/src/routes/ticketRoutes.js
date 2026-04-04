@@ -8,6 +8,7 @@ import {
   getTicketByCode,
   claimPrize,
   getCustomerPrizes,
+  getRemisesLots,
   searchCustomers,
   getPrizes,
   checkTicket,
@@ -45,6 +46,7 @@ router.delete('/my-participations/:id', deleteMyParticipation);
 
 // Routes employés/admin
 router.get('/customers/search', employeeOrAdmin, searchCustomers);
+router.get('/remises', employeeOrAdmin, getRemisesLots);
 router.get('/code/:code', employeeOrAdmin, getTicketByCode);
 router.put('/:code/claim', employeeOrAdmin, claimPrize);
 router.get('/customer/:email', employeeOrAdmin, getCustomerPrizes);
