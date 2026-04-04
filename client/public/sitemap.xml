@@ -1,58 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/</loc>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/</loc>
+    <lastmod>2026-04-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/prizes</loc>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/prizes</loc>
+    <lastmod>2026-04-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/how-it-works</loc>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/how-it-works</loc>
+    <lastmod>2026-04-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/rules</loc>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/rules</loc>
+    <lastmod>2026-04-04</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.85</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/faq</loc>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/faq</loc>
+    <lastmod>2026-04-04</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.85</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/legal</loc>
-    <changefreq>monthly</changefreq>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/legal</loc>
+    <lastmod>2026-04-04</lastmod>
+    <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/terms</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/terms</loc>
+    <lastmod>2026-04-04</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.55</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/privacy</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/privacy</loc>
+    <lastmod>2026-04-04</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.55</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/plan-du-site</loc>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/login</loc>
+    <lastmod>2026-04-04</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.65</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/login</loc>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/register</loc>
+    <lastmod>2026-04-04</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.65</priority>
   </url>
   <url>
-    <loc>https://dev.thetiptop-jeu.fr/register</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <loc>https://dsp5-archi-o22a-15m-g3.fr/forgot-password</loc>
+    <lastmod>2026-04-04</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
   </url>
 </urlset>

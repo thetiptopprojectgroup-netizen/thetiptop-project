@@ -139,7 +139,10 @@ jobs:
           echo "Image cible : $IMAGE"
           for attempt in 1 2 3; do
             echo "Docker build attempt $attempt/3"
-            if docker build -f client/Dockerfile --target production -t "$IMAGE" client; then
+            LASTMOD_DATE="$(git log -1 --format=%cs)"
+            if docker build -f client/Dockerfile --target production \
+              --build-arg LASTMOD_DATE="$LASTMOD_DATE" \
+              -t "$IMAGE" client; then
               echo "Build succeeded."
               exit 0
             fi

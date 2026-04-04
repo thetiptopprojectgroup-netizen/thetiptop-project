@@ -1,6 +1,8 @@
 # Backup MongoDB : MinIO + Restic
 
-**Tout est déployé automatiquement par un push sur la branche concernée** (dev, preprod ou prod). Aucune commande manuelle ni script à lancer en conditions normales.
+> **Mise à jour** : les **CronJobs Kubernetes** et le workflow **`run-backup.yml`** ont été supprimés avec le dossier **`k8s/`**. Les backups doivent être planifiés sur le **VPS** (cron, systemd timer, ou conteneur) en s’appuyant sur la même logique **mongodump + restic**. Le texte ci-dessous décrit encore l’ancienne automatisation au push pour référence.
+
+**Sur l’ancien pipeline**, tout était déployé par un push sur la branche concernée (dev, preprod ou prod).
 
 ## Ce qui est en place (automatique au push)
 

@@ -1,11 +1,17 @@
-# https://www.robotstxt.org/robotstxt.html
-# Même fichier servi en dev, preprod et prod.
+# The Tip Top - jeu-concours (genere au build ; SITE_URL = domaine public du deploiement)
+# https://developers.google.com/search/docs/crawling-indexing/robots/intro
 
 User-agent: *
 Allow: /
 
-# Sitemaps (un par environnement – les moteurs utilisent celui du domaine qu’ils crawlent)
-Sitemap: https://thetiptop-jeu.fr/sitemap.xml
-Sitemap: https://www.thetiptop-jeu.fr/sitemap.xml
-Sitemap: https://dev.thetiptop-jeu.fr/sitemap.xml
-Sitemap: https://preprod.thetiptop-jeu.fr/sitemap.xml
+# Zones compte / technique (pas utiles au referencement)
+Disallow: /admin
+Disallow: /employee
+Disallow: /play
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /oauth/
+Disallow: /reset-password/
+
+# Une seule URL Sitemap pour CE domaine (vdev / vpreprod / prod = builds avec SITE_URL different)
+Sitemap: https://dsp5-archi-o22a-15m-g3.fr/sitemap.xml

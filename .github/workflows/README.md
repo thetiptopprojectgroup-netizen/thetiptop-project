@@ -2,11 +2,11 @@
 
 ## 🎯 Architecture globale
 
-Le projet utilise **3 pipelines** (+ 1 manuel) pour orchestrer le cycle de vie du code :
+Le projet utilise **CI** + **déploiement VPS** + **1 workflow manuel** :
 
 1. **CI - Server (Backend)** : Tests, lint, build Docker backend + création PR de promotion en fin de run
 2. **CI - Client (Frontend)** : Tests, lint, E2E, build Docker frontend + création PR de promotion en fin de run
-3. **CD - Deploy** : Déploiement Kubernetes (dev / preprod / prod)
+3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — build images, push Harbor, SSH + Docker Compose sur le VPS (Ansible / `infra/deploy`). **Pas de Kubernetes / kubectl.**
 4. **Create promotion PR (manual)** : Création manuelle de la PR dev→preprod ou preprod→prod
 
 ---

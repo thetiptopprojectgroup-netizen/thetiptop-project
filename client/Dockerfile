@@ -16,10 +16,17 @@ COPY . .
 ARG VITE_API_URL=https://localhost/api
 ENV VITE_API_URL=${VITE_API_URL}
 
-# Build the application
+# URL publique du site (sitemap + robots + Vite VITE_SITE_URL pour canonical SEO dans le bundle)
+ARG SITE_URL=https://dsp5-archi-o22a-15m-g3.fr
+ENV SITE_URL=${SITE_URL}
+ENV VITE_SITE_URL=${SITE_URL}
+
+# Date YYYY-MM-DD pour <lastmod> (même logique que la CI : dernier commit). Obligatoire ici sans .git.
+ARG LASTMOD_DATE=
+ENV LASTMOD_DATE=${LASTMOD_DATE}
+
+# prebuild génère public/sitemap.xml et public/robots.txt puis vite build copie public/ → dist/
 RUN npm run build
-# Garantir que sitemap et robots sont bien dans dist (Vite les copie depuis public/, ceci est une sécurité)
-RUN cp -v public/sitemap.xml public/robots.txt dist/ 2>/dev/null || true
 
 # Development stage (docker build --target development)
 FROM node:20-alpine AS development
