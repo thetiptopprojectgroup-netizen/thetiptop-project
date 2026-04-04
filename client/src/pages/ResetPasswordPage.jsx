@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, Eye, EyeOff, Leaf, CheckCircle } from 'lucide-react';
+import { Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
+import { BrandLogoMark } from '../components/common/BrandLogo';
 import { authService } from '../services/api';
 
 export default function ResetPasswordPage() {
@@ -36,7 +37,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-cream-50 p-4">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <Link to="/" className="flex items-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-full bg-matcha-600 flex items-center justify-center"><Leaf className="w-5 h-5 text-white" /></div>
+          <BrandLogoMark size="md" />
           <span className="font-display text-xl font-bold text-tea-900">Thé Tip Top</span>
         </Link>
         <h1 className="text-2xl font-display font-bold text-tea-900 mb-2">Réinitialiser le mot de passe</h1>

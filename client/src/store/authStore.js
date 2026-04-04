@@ -69,6 +69,26 @@ const useAuthStore = create(
         });
       },
 
+      deleteAccount: async (payload) => {
+        set({ isLoading: true, error: null });
+        try {
+          await authService.deleteAccount(payload);
+          localStorage.removeItem('token');
+          set({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null,
+          });
+          return { success: true };
+        } catch (error) {
+          const message = error.response?.data?.message || 'Impossible de supprimer le compte';
+          set({ error: message, isLoading: false });
+          return { success: false, error: message };
+        }
+      },
+
       fetchUser: async () => {
         const token = localStorage.getItem('token');
         if (!token) {
