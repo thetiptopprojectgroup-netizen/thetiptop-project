@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   BarChart3, Users, Ticket, Gift, Trophy, Download, Store,
   Search, RefreshCw, AlertCircle, CheckCircle, Clock, Plus,
   Edit3, Trash2, ChevronLeft, ChevronRight,
-  Settings, CalendarDays, Percent, UserPlus, MapPin, ListOrdered,
+  Settings, CalendarDays, Percent, UserPlus, MapPin,   ListOrdered,
+  PackageCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -508,6 +510,26 @@ export default function AdminPage() {
                 </div>
               </Card>
             </div>
+
+            <Card className="border-2 border-matcha-200 bg-gradient-to-r from-matcha-50 to-cream-50">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-matcha-600 text-white flex items-center justify-center shrink-0">
+                    <PackageCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-semibold text-tea-900 text-lg">Remise des lots en boutique</h3>
+                    <p className="text-tea-600 text-sm mt-1">
+                      Seuls les employés et administrateurs peuvent confirmer qu’un lot a été remis au client (passage de
+                      « réclamé » à « remis »). Utilisez l’interface caisse dédiée.
+                    </p>
+                  </div>
+                </div>
+                <Link to="/employee" className="btn btn-primary shrink-0 inline-flex items-center justify-center text-center">
+                  Ouvrir la remise des lots
+                </Link>
+              </div>
+            </Card>
 
             <Card>
               <Card.Header><Card.Title>Répartition des lots</Card.Title></Card.Header>
