@@ -81,9 +81,11 @@ const useGameStore = create((set, get) => ({
   claimMyPrizeOnline: async (participationId) => {
     set({ isClaiming: true, error: null });
     try {
-      await ticketService.claimMyPrizeOnline(participationId);
+      const response = await ticketService.claimMyPrizeOnline(participationId);
       await get().fetchMyParticipations();
-      const updated = get().participations.find((p) => p.id === participationId);
+      const updated = get().participations.find(
+        (p) => String(p.id) === String(participationId)
+      );
       set((state) => ({
         isClaiming: false,
         currentWin:
@@ -93,7 +95,7 @@ const useGameStore = create((set, get) => ({
             ? { ...state.currentWin, status: updated.status, claimedMethod: updated.claimedMethod }
             : state.currentWin,
       }));
-      return { success: true };
+      return { success: true, message: response.data?.message };
     } catch (error) {
       const message = error.response?.data?.message || 'Impossible de réclamer le lot';
       set({ isClaiming: false });

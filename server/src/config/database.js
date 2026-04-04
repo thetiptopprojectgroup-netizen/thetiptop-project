@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import Participation from '../models/Participation.js';
 
 const connectDB = async () => {
   try {
@@ -7,6 +8,19 @@ const connectDB = async () => {
     });
     
     console.log(`✅ MongoDB connecté: ${conn.connection.host}`);
+
+    // Ancien statut "claimed" → "remis" (lot effectivement remis)
+    try {
+      const r = await Participation.updateMany(
+        { status: 'claimed' },
+        { $set: { status: 'remis' } }
+      );
+      if (r.modifiedCount > 0) {
+        console.log(`📦 Migration participations: ${r.modifiedCount} document(s) claimed → remis`);
+      }
+    } catch (e) {
+      console.warn('Migration status participation ignorée:', e.message);
+    }
     
     // Gestion de la déconnexion
     mongoose.connection.on('disconnected', () => {

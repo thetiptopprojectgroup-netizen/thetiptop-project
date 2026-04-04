@@ -326,14 +326,16 @@ export default function EmployeePage() {
                             </div>
                           </div>
                         </div>
-                        {p.status === 'won' ? (
+                        {p.status === 'won' || p.status === 'reclaim_requested' ? (
                           <Button size="sm" variant="gold" onClick={() => handleClaimPrize(p.ticketCode)}>
                             Remettre le lot
                           </Button>
-                        ) : (
+                        ) : p.status === 'remis' || p.status === 'claimed' ? (
                           <span className="badge badge-success flex items-center gap-1">
                             <CheckCircle className="w-3 h-3" /> Remis
                           </span>
+                        ) : (
+                          <span className="text-xs text-tea-500 capitalize">{p.status}</span>
                         )}
                       </div>
                     ))}
@@ -378,7 +380,7 @@ export default function EmployeePage() {
                   <div className="text-5xl mb-4">
                     {ticketDetails.ticket.status === 'available'
                       ? '🎫'
-                      : ticketDetails.ticket.status === 'claimed'
+                      : ticketDetails.ticket.etat === 'reclame'
                         ? '✅'
                         : '🎁'}
                   </div>
@@ -398,7 +400,7 @@ export default function EmployeePage() {
                       <span className="text-tea-600">Statut</span>
                       <span
                         className={`font-medium ${
-                          ticketDetails.ticket.status === 'claimed'
+                          ticketDetails.ticket.etat === 'reclame'
                             ? 'text-matcha-600'
                             : ticketDetails.ticket.status === 'used'
                               ? 'text-gold-600'
@@ -410,8 +412,8 @@ export default function EmployeePage() {
                         {ticketDetails.ticket.status === 'available'
                           ? 'Disponible'
                           : ticketDetails.ticket.status === 'used'
-                            ? 'Utilisé - À remettre'
-                            : ticketDetails.ticket.status === 'claimed'
+                            ? 'Utilisé — à remettre au client'
+                            : ticketDetails.ticket.etat === 'reclame'
                               ? 'Lot remis'
                               : ticketDetails.ticket.etat}
                       </span>

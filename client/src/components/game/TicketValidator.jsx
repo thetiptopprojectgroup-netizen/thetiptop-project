@@ -53,7 +53,10 @@ export default function TicketValidator() {
     if (!currentWin?.id) return;
     const result = await claimMyPrizeOnline(currentWin.id);
     if (result.success) {
-      toast.success('Lot réclamé en ligne. Retrouvez le détail dans Mes gains.');
+      toast.success(
+        result.message ||
+          'Demande enregistrée. Présentez-vous en boutique avec votre code pour récupérer le lot.'
+      );
     } else {
       toast.error(result.error || 'Impossible de réclamer le lot');
     }
@@ -246,6 +249,11 @@ export default function TicketValidator() {
                   >
                     {isClaiming ? 'Réclamation...' : 'Réclamer mon lot'}
                   </Button>
+                )}
+                {currentWin?.status === 'reclaim_requested' && (
+                  <p className="text-sm text-tea-600 text-center w-full sm:w-auto">
+                    Demande enregistrée. Présentez-vous en boutique pour récupérer le lot.
+                  </p>
                 )}
                 <Button onClick={handleReset} variant="primary">
                   Valider un autre code
