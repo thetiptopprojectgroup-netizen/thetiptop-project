@@ -6,13 +6,26 @@
  * avec les variables utilisées ci-dessous (ex. {{user_email}}, {{unsubscribe_url}}).
  */
 
-const SERVICE_ID = process.env.EMAILJS_SERVICE_ID || '';
-const PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY || '';
-const PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY || '';
-const TEMPLATE_WELCOME = process.env.EMAILJS_TEMPLATE_NEWSLETTER_WELCOME || '';
-const TEMPLATE_GOODBYE = process.env.EMAILJS_TEMPLATE_NEWSLETTER_GOODBYE || '';
-const TEMPLATE_PRIZE_DELIVERED = process.env.EMAILJS_TEMPLATE_PRIZE_DELIVERED || '';
-const CLIENT_URL = (process.env.CLIENT_URL || 'http://localhost:3000').replace(/\/$/, '');
+/** Nettoie les secrets collés depuis GitHub / .env (espaces, CRLF, guillemets). */
+function trimEnv(value) {
+  if (typeof value !== 'string') return '';
+  let s = value.trim().replace(/\r/g, '');
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
+const SERVICE_ID = trimEnv(process.env.EMAILJS_SERVICE_ID);
+const PUBLIC_KEY = trimEnv(process.env.EMAILJS_PUBLIC_KEY);
+const PRIVATE_KEY = trimEnv(process.env.EMAILJS_PRIVATE_KEY);
+const TEMPLATE_WELCOME = trimEnv(process.env.EMAILJS_TEMPLATE_NEWSLETTER_WELCOME);
+const TEMPLATE_GOODBYE = trimEnv(process.env.EMAILJS_TEMPLATE_NEWSLETTER_GOODBYE);
+const TEMPLATE_PRIZE_DELIVERED = trimEnv(process.env.EMAILJS_TEMPLATE_PRIZE_DELIVERED);
+const CLIENT_URL = (trimEnv(process.env.CLIENT_URL) || 'http://localhost:3000').replace(/\/$/, '');
 
 const EMAILJS_SEND_URL = 'https://api.emailjs.com/api/v1.0/email/send';
 
@@ -25,13 +38,14 @@ export function isEmailJsEnabled() {
  * @param {Record<string, string>} templateParams — variables disponibles dans le modèle EmailJS
  */
 async function sendTemplate(templateId, templateParams) {
-  if (!SERVICE_ID || !PUBLIC_KEY || !templateId) {
+  const tid = trimEnv(String(templateId || ''));
+  if (!SERVICE_ID || !PUBLIC_KEY || !tid) {
     throw new Error('EmailJS : EMAILJS_SERVICE_ID, EMAILJS_PUBLIC_KEY et le template sont requis.');
   }
 
   const body = {
     service_id: SERVICE_ID,
-    template_id: templateId,
+    template_id: tid,
     user_id: PUBLIC_KEY,
     template_params: templateParams,
   };

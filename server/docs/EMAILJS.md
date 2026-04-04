@@ -45,5 +45,6 @@ EMAILJS_TEMPLATE_PRIZE_DELIVERED=template_zzzz
 | 403 *non-browser environments disabled* | [Account → Security](https://dashboard.emailjs.com/admin/account/security) — API hors navigateur. |
 | 401 / 403 (autres) | `EMAILJS_PUBLIC_KEY` / `EMAILJS_PRIVATE_KEY`. |
 | Template introuvable | IDs `template_…` et `service_…`. |
+| 400 *The template ID not found* | Vérifier que l’ID est **exactement** celui du tableau de bord (ex. `template_keszo9j`), **sans guillemets** dans le `.env`, même compte EmailJS que `EMAILJS_SERVICE_ID`. Sur le VPS : `docker exec thetiptop-vdev-api-1 env \| grep EMAILJS_TEMPLATE_PRIZE` — la valeur doit être identique caractère par caractère. Après modification du secret GitHub, **redéployer** pour réécrire `vdev.env` et recréer le conteneur. |
 | 422 *recipients address is empty* | **To Email** = `{{to_email}}` dans le modèle EmailJS. |
 | Email non reçu | Spam ; quota ; variables du template. |
