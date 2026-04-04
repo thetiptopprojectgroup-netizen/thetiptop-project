@@ -29,17 +29,18 @@ Chaque secret a un **nom** (ex. `GOOGLE_CLIENT_ID`) et une **valeur** (que tu co
 
 ---
 
-### SendGrid (newsletter – email de bienvenue)
+### EmailJS (newsletter – emails transactionnels)
 
-| Nom du secret         | Description |
-|------------------------|-------------|
-| `SENDGRID_API_KEY`     | Clé API SendGrid (créée dans Settings → API Keys) |
-| `SENDGRID_FROM_EMAIL`  | Email expéditeur vérifié dans SendGrid (Single Sender) |
-| `SENDGRID_FROM_NAME`  | Nom affiché (optionnel, ex. `Thé Tip Top`) |
+| Nom du secret (exemple) | Description |
+|-------------------------|-------------|
+| `EMAILJS_SERVICE_ID` | ID du service email (EmailJS → Email Services) |
+| `EMAILJS_PUBLIC_KEY` | Clé publique (Account → API keys) |
+| `EMAILJS_PRIVATE_KEY` | Clé privée (recommandée pour les appels serveur) |
+| `EMAILJS_TEMPLATE_NEWSLETTER_WELCOME` | ID du modèle « bienvenue » |
+| `EMAILJS_TEMPLATE_NEWSLETTER_GOODBYE` | ID du modèle « désinscription » (optionnel) |
 
-- À injecter dans l’environnement du backend sur le VPS (fichier `.env` / compose), comme pour les autres variables applicatives.
-- Après déploiement avec les bonnes valeurs, la newsletter envoie l’email de bienvenue aux inscrits.
-- Si ces secrets sont absents, l’inscription à la newsletter fonctionne toujours (email en base) mais aucun email n’est envoyé.
+- Voir `server/docs/EMAILJS.md` pour la configuration des modèles et les variables (`{{user_email}}`, `{{unsubscribe_url}}`, etc.).
+- À injecter dans l’environnement du backend (VPS / `.env`). Sans ces variables, l’inscription reste enregistrée en base mais aucun email n’est envoyé.
 
 ---
 
