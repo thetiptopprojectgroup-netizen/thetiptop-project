@@ -12,10 +12,21 @@ import useGameStore from '../store/gameStore';
 
 const statusConfig = {
   won: { label: 'Gagné', color: 'bg-gold-100 text-gold-700', icon: Gift },
-  claimed: { label: 'Récupéré', color: 'bg-matcha-100 text-matcha-700', icon: CheckCircle },
+  reclaim_requested: {
+    label: 'Réclamé (en attente de remise)',
+    color: 'bg-blue-100 text-blue-800',
+    icon: Clock,
+  },
+  remis: { label: 'Remis', color: 'bg-matcha-100 text-matcha-700', icon: CheckCircle },
+  claimed: { label: 'Remis', color: 'bg-matcha-100 text-matcha-700', icon: CheckCircle },
   pending: { label: 'En attente', color: 'bg-cream-200 text-tea-700', icon: Clock },
   expired: { label: 'Expiré', color: 'bg-red-100 text-red-700', icon: Clock },
 };
+
+function normalizeParticipationStatus(status) {
+  if (status === 'claimed') return 'remis';
+  return status;
+}
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
@@ -31,15 +42,24 @@ export default function DashboardPage() {
     const result = await claimMyPrizeOnline(participationId);
     setClaimingId(null);
     if (result.success) {
-      toast.success('Lot enregistré comme réclamé en ligne. Merci !');
+      toast.success(
+        result.message ||
+          'Demande enregistrée. Présentez-vous en boutique avec votre code pour récupérer le lot.'
+      );
     } else {
       toast.error(result.error || 'Erreur');
     }
   };
 
   const totalValue = participations.reduce((sum, p) => sum + (p.prize?.value || 0), 0);
-  const claimedCount = participations.filter((p) => p.status === 'claimed').length;
-  const pendingCount = participations.filter((p) => p.status === 'won').length;
+  const remisCount = participations.filter((p) => {
+    const s = normalizeParticipationStatus(p.status);
+    return s === 'remis';
+  }).length;
+  const awaitingHandCount = participations.filter((p) => {
+    const s = normalizeParticipationStatus(p.status);
+    return s === 'won' || s === 'reclaim_requested';
+  }).length;
 
   return (
     <div className="min-h-screen pt-24 pb-16 bg-cream-50">
@@ -95,8 +115,8 @@ export default function DashboardPage() {
                 <CheckCircle className="w-6 h-6 text-matcha-600" />
               </div>
               <div>
-                <div className="text-3xl font-bold text-tea-900">{claimedCount}</div>
-                <div className="text-tea-600 text-sm">Lots récupérés</div>
+                <div className="text-3xl font-bold text-tea-900">{remisCount}</div>
+                <div className="text-tea-600 text-sm">Lots remis</div>
               </div>
             </div>
           </Card>
@@ -107,8 +127,8 @@ export default function DashboardPage() {
                 <Clock className="w-6 h-6 text-gold-600" />
               </div>
               <div>
-                <div className="text-3xl font-bold text-tea-900">{pendingCount}</div>
-                <div className="text-tea-600 text-sm">À récupérer</div>
+                <div className="text-3xl font-bold text-tea-900">{awaitingHandCount}</div>
+                <div className="text-tea-600 text-sm">Pas encore remis</div>
               </div>
             </div>
           </Card>
@@ -182,14 +202,10 @@ export default function DashboardPage() {
             ) : (
               <div className="divide-y divide-cream-200">
                 {participations.map((participation, index) => {
-                  const status = statusConfig[participation.status] || statusConfig.pending;
+                  const st = normalizeParticipationStatus(participation.status);
+                  const status = statusConfig[st] || statusConfig.pending;
                   const StatusIcon = status.icon;
-                  const claimedOnline =
-                    participation.status === 'claimed' && participation.claimedMethod === 'online';
-                  const statusLabel =
-                    participation.status === 'claimed' && claimedOnline
-                      ? 'Réclamé en ligne'
-                      : status.label;
+                  const statusLabel = status.label;
 
                   return (
                     <motion.div
@@ -232,7 +248,7 @@ export default function DashboardPage() {
                           <StatusIcon className="w-4 h-4" />
                           {statusLabel}
                         </div>
-                        {participation.status === 'won' && (
+                        {st === 'won' && (
                           <Button
                             size="sm"
                             variant="gold"
@@ -241,6 +257,11 @@ export default function DashboardPage() {
                           >
                             {claimingId === participation.id ? '...' : 'Réclamer mon lot'}
                           </Button>
+                        )}
+                        {st === 'reclaim_requested' && (
+                          <p className="text-xs text-tea-600 max-w-[220px]">
+                            Demande enregistrée. Présentez-vous en boutique pour le retrait du lot.
+                          </p>
                         )}
                       </div>
                     </motion.div>
@@ -252,7 +273,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Info box */}
-        {pendingCount > 0 && (
+        {awaitingHandCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -266,15 +287,18 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-tea-900 mb-1">
-                    Vous avez {pendingCount} lot{pendingCount > 1 ? 's' : ''} à récupérer
+                    {awaitingHandCount} lot{awaitingHandCount > 1 ? 's' : ''} : pas encore remis physiquement
                   </h3>
                   <p className="text-tea-600 text-sm mb-3">
-                    Vous pouvez <strong>réclamer votre lot en ligne</strong> avec le bouton « Réclamer mon lot »
-                    ci-dessus, ou vous rendre dans l'une de nos boutiques Thé Tip Top.
+                    <strong>Réclamé</strong> = demande enregistrée (en ligne ou en boutique) ;{' '}
+                    <strong>Remis</strong> = le caissier vous a remis le lot — processus terminé.
                   </p>
                   <div className="text-tea-600 text-sm space-y-1">
-                    <p>1. En boutique : présentez votre code au caissier avec une pièce d’identité</p>
-                    <p>2. En ligne : cliquez sur « Réclamer mon lot » pour enregistrer votre réclamation</p>
+                    <p>
+                      1. Cliquez sur « Réclamer mon lot » pour enregistrer une demande, puis présentez-vous en
+                      boutique avec votre code.
+                    </p>
+                    <p>2. Ou passez directement en boutique : le caissier cliquera sur « Remettre le lot ».</p>
                   </div>
                   <p className="text-xs text-tea-500 mt-3">
                     Vous avez jusqu'au 29 avril 2026 pour récupérer vos lots.
