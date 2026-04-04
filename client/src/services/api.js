@@ -48,6 +48,7 @@ export const authService = {
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => api.post(`/auth/reset-password/${token}`, { password }),
   logout: () => api.post('/auth/logout'),
+  deleteAccount: (data) => api.delete('/auth/me', { data }),
 };
 
 // Services des tickets
