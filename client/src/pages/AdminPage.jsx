@@ -27,10 +27,11 @@ const PRIZE_FILTER_OPTIONS = [
   { id: 'coffret_69', label: 'Coffret 69€' },
 ];
 
+/** États code (Ticket.js) : disponible | utilise | reclame | expire */
 const ETAT_LABELS = {
   disponible: 'Disponible',
-  utilise: 'Utilisé',
-  reclame: 'Réclamé',
+  utilise: 'Réclamé',
+  reclame: 'Remis',
   expire: 'Expiré',
 };
 
@@ -592,7 +593,11 @@ export default function AdminPage() {
               <Card>
                 <Card.Header>
                   <Card.Title>Aperçu : 2 codes par type de lot</Card.Title>
-                  <Card.Description>Exemples tirés pour chaque catégorie de gain</Card.Description>
+                  <Card.Description>
+                    Exemples par catégorie de gain. Statuts :{' '}
+                    <strong>Disponible</strong> (non joué), <strong>Réclamé</strong> (ticket utilisé / gain en cours),{' '}
+                    <strong>Remis</strong> (lot remis au client).
+                  </Card.Description>
                 </Card.Header>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {codeSamples.map((block) => (
@@ -613,7 +618,7 @@ export default function AdminPage() {
                                   row.etat === 'disponible'
                                     ? 'bg-emerald-100 text-emerald-800'
                                     : row.etat === 'utilise'
-                                      ? 'bg-amber-100 text-amber-800'
+                                      ? 'bg-blue-100 text-blue-800'
                                       : row.etat === 'reclame'
                                         ? 'bg-matcha-100 text-matcha-800'
                                         : 'bg-cream-200 text-tea-600'
@@ -637,7 +642,7 @@ export default function AdminPage() {
                   <Card.Title>Tous les codes générés</Card.Title>
                   <Card.Description>
                     {codesPagination.total != null
-                      ? `${codesPagination.total.toLocaleString()} code(s) — affichage par vagues de ${codesPagination.limit || 50}`
+                      ? `${codesPagination.total.toLocaleString()} code(s) — affichage par vagues de ${codesPagination.limit || 50}. Statuts : Disponible, Réclamé (ticket utilisé), Remis (lot remis), Expiré.`
                       : 'Chargement…'}
                   </Card.Description>
                 </div>
@@ -737,7 +742,7 @@ export default function AdminPage() {
                                 row.etat === 'disponible'
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : row.etat === 'utilise'
-                                    ? 'bg-amber-100 text-amber-800'
+                                    ? 'bg-blue-100 text-blue-800'
                                     : row.etat === 'reclame'
                                       ? 'bg-matcha-100 text-matcha-800'
                                       : 'bg-cream-200 text-tea-600'
