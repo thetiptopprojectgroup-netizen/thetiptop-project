@@ -1,0 +1,25 @@
+{
+  "name": "Thé Tip Top — Jeu-concours",
+  "short_name": "Thé Tip Top",
+  "description": "Grand jeu-concours thé : validez votre ticket et gagnez des lots Thé Tip Top.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fefdfb",
+  "theme_color": "#3f5f43",
+  "icons": [
+    {
+      "src": "/images/logo/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/logo/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
