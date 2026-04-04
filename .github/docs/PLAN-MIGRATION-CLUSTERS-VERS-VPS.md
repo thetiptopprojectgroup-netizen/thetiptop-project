@@ -81,7 +81,7 @@ Objectif : pouvoir lancer “prod” (ou un env) sur un VPS avec `docker compose
 | 2.1 | Décider du registry | Garder **Harbor** si accessible depuis le VPS, sinon **Docker Hub** (ou GitHub Container Registry). La CI continue à build et push les images (déjà en place) ; on change seulement la cible du déploiement. |
 | 2.2 | Accès du workflow au VPS | Créer un secret GitHub (ex. `VPS_HOST`, `VPS_SSH_KEY` ou `VPS_USER`) pour SSH. Le job CD se connecte en SSH au VPS concerné (selon la branche : dev → VPS dev, etc.). |
 | 2.3 | Nouveau workflow CD “VPS” | Créer un workflow (ex. `cd-deploy-vps.yml`) qui : (1) vérifie les CI comme aujourd’hui, (2) se connecte en SSH au bon VPS, (3) fait `docker compose pull` (ou `docker pull` des images par env), (4) `docker compose up -d` (ou équivalent). Pas de `kubectl`. |
-| 2.4 | Secrets applicatifs sur le VPS | Fichier `.env` sur chaque VPS (MONGODB_URI, JWT_SECRET, SENDGRID_*, etc.), rempli une fois à la main ou par un script sécurisé. Ne pas les mettre dans le dépôt. |
+| 2.4 | Secrets applicatifs sur le VPS | Fichier `.env` sur chaque VPS (MONGODB_URI, JWT_SECRET, EMAILJS_*, etc.), rempli une fois à la main ou par un script sécurisé. Ne pas les mettre dans le dépôt. |
 
 Objectif : push sur `dev` / `preprod` / `prod` déclenche un déploiement sur le(s) VPS correspondant(s) sans Kubernetes.
 
@@ -128,7 +128,7 @@ Objectif : push sur `dev` / `preprod` / `prod` déclenche un déploiement sur le
 | Dockerfiles, images (Harbor ou Docker Hub) | Manifests K8s (Deployments, Services, Ingress, StatefulSet, CronJobs, etc.) |
 | Docker Compose (local + nouveau “prod” VPS) | cert-manager, Traefik dans le cluster → Certbot + Nginx/Traefik sur le VPS |
 | Secrets dans GitHub (pour la CI et le déploiement SSH) | Secrets Kubernetes → fichier `.env` sur le VPS |
-| SendGrid, logique newsletter, sitemap, etc. | Helm (monitoring) → même stack en Docker Compose ou service externe |
+| EmailJS (newsletter), sitemap, etc. | Helm (monitoring) → même stack en Docker Compose ou service externe |
 | Backups (concept Restic + S3/MinIO) | CronJobs K8s → cron système ou conteneur sur le VPS |
 
 ---
@@ -151,7 +151,7 @@ Objectif : push sur `dev` / `preprod` / `prod` déclenche un déploiement sur le
 deploy/
   vps/
     docker-compose.prod.yml    # ou docker-compose.dev.yml, .preprod, .prod
-    .env.example               # MONGODB_URI, JWT_SECRET, SENDGRID_*, etc.
+    .env.example               # MONGODB_URI, JWT_SECRET, EMAILJS_*, etc.
     nginx/
       nginx.conf               # reverse proxy par host
       ssl/                     # certbot y met les certs (ou traefik)
@@ -173,4 +173,4 @@ Si des **clusters Kubernetes** existent encore hors dépôt, vous pouvez repoint
 
 ---
 
-Ce plan s’appuie sur ce qui est déjà accompli (CI, images, Docker Compose local, domaines, SendGrid, backups concept) et décrit les étapes pour quitter les clusters et opérer sur un ou plusieurs VPS avec Docker Compose et une CI/CD par SSH.
+Ce plan s’appuie sur ce qui est déjà accompli (CI, images, Docker Compose local, domaines, EmailJS newsletter, backups concept) et décrit les étapes pour quitter les clusters et opérer sur un ou plusieurs VPS avec Docker Compose et une CI/CD par SSH.

@@ -77,6 +77,18 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 configurePassport();
 app.use(passport.initialize());
 
+const newsletterLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 25,
+  message: {
+    success: false,
+    message: 'Trop de demandes newsletter. Réessayez dans quelques minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/newsletter', newsletterLimiter);
+
 // Routes API
 app.use('/api', routes);
 

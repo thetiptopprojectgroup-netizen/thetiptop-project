@@ -1,25 +1,37 @@
 import NewsletterSubscriber from '../models/NewsletterSubscriber.js';
 import { AppError } from '../middlewares/errorHandler.js';
-import { sendNewsletterWelcome, isSendGridEnabled } from '../services/sendgridService.js';
+import {
+  sendNewsletterWelcome,
+  sendNewsletterGoodbye,
+  isEmailJsEnabled,
+} from '../services/emailjsService.js';
 
 /**
  * Inscription à la newsletter (public).
  * POST /api/newsletter/subscribe
- * Body: { email, consent? }
- * Envoie un email de bienvenue via SendGrid si configuré.
+ * Body: { email, consent?, source? }
  */
 export const subscribe = async (req, res, next) => {
   try {
-    const { email, consent = true } = req.body;
+    const { email, consent = true, source = 'footer' } = req.body;
 
     if (!email || typeof email !== 'string') {
       return next(new AppError("L'email est requis.", 400));
+    }
+
+    if (!consent) {
+      return next(
+        new AppError('Le consentement est requis pour recevoir la newsletter (RGPD).', 400)
+      );
     }
 
     const normalizedEmail = email.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
       return next(new AppError("Format d'email invalide.", 400));
     }
+
+    const allowedSources = ['footer', 'home', 'modal'];
+    const src = allowedSources.includes(source) ? source : 'footer';
 
     const existing = await NewsletterSubscriber.findOne({ email: normalizedEmail });
     if (existing) {
@@ -31,19 +43,20 @@ export const subscribe = async (req, res, next) => {
 
     await NewsletterSubscriber.create({
       email: normalizedEmail,
-      consent: !!consent,
-      source: req.body.source || 'footer',
+      consent: true,
+      source: src,
     });
 
-    if (isSendGridEnabled()) {
+    if (isEmailJsEnabled()) {
       sendNewsletterWelcome(normalizedEmail).catch((err) => {
-        console.error('[Newsletter] Échec envoi email bienvenue:', err.response?.body || err.message);
+        console.error('[Newsletter] Échec EmailJS bienvenue:', err.message);
       });
     }
 
     res.status(201).json({
       success: true,
-      message: "Merci ! Vous êtes inscrit à la newsletter Thé Tip Top. Vous recevrez nos actualités et les infos du jeu-concours.",
+      message:
+        "Merci ! Vous êtes inscrit à la newsletter Thé Tip Top. Vérifiez votre boîte mail (y compris les courriers indésirables).",
     });
   } catch (error) {
     if (error.code === 11000) {
@@ -52,6 +65,45 @@ export const subscribe = async (req, res, next) => {
         message: "Vous êtes déjà inscrit à notre newsletter.",
       });
     }
+    next(error);
+  }
+};
+
+/**
+ * Désinscription (public).
+ * POST /api/newsletter/unsubscribe
+ * Body: { email }
+ */
+export const unsubscribe = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      return next(new AppError("L'email est requis.", 400));
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      return next(new AppError("Format d'email invalide.", 400));
+    }
+
+    const removed = await NewsletterSubscriber.findOneAndDelete({ email: normalizedEmail });
+    if (!removed) {
+      return res.status(200).json({
+        success: true,
+        message: 'Cette adresse ne figurait pas dans notre liste ou a déjà été retirée.',
+      });
+    }
+
+    if (isEmailJsEnabled()) {
+      sendNewsletterGoodbye(normalizedEmail).catch((err) => {
+        console.error('[Newsletter] Échec EmailJS au revoir:', err.message);
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Vous êtes désinscrit. Nous ne vous enverrons plus d’emails newsletter.',
+    });
+  } catch (error) {
     next(error);
   }
 };

@@ -11,6 +11,15 @@ const api = axios.create({
   timeout: 10000,
 });
 
+/** API publique (sans token) — évite qu’un JWT expiré bloque inscription newsletter, etc. */
+const publicApi = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000,
+});
+
 // Intercepteur pour ajouter le token
 api.interceptors.request.use(
   (config) => {
@@ -113,6 +122,13 @@ export const adminService = {
 export const contestService = {
   getInfo: () => api.get('/contest-info'),
   getHealth: () => api.get('/health'),
+};
+
+/** Newsletter (EmailJS côté serveur) — routes publiques */
+export const newsletterService = {
+  subscribe: (email, consent, source) =>
+    publicApi.post('/newsletter/subscribe', { email, consent, source }),
+  unsubscribe: (email) => publicApi.post('/newsletter/unsubscribe', { email }),
 };
 
 export default api;
