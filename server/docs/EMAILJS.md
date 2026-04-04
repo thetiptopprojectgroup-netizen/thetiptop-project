@@ -10,6 +10,7 @@ L’API backend envoie les emails via **EmailJS** (REST `POST /api/v1.0/email/se
    - **Newsletter — bienvenue** : un modèle HTML prêt à l’emploi se trouve dans **`docs/emailjs-template-welcome.html`** (copier le contenu dans EmailJS → Templates → onglet HTML). Variables : `{{user_email}}`, `{{to_email}}`, `{{unsubscribe_url}}`.
    - **Newsletter — au revoir** (optionnel) : `{{user_email}}`.
 4. **Account → API keys** : copier la **Public Key** et la **Private Key** (recommandée pour les appels serveur).
+5. **Account → Security** : activer l’accès API pour les applications **non navigateur** (serveur / Docker). Sinon l’API renvoie **403** : *API access from non-browser environments is currently disabled* — [réglages sécurité](https://dashboard.emailjs.com/admin/account/security).
 
 ## 2. Variables d’environnement (serveur)
 
@@ -37,6 +38,7 @@ EMAILJS_TEMPLATE_NEWSLETTER_GOODBYE=template_yyyy
 
 | Problème | Piste |
 |----------|--------|
-| 401 / 403 | Vérifier `EMAILJS_PUBLIC_KEY` ; ajouter `EMAILJS_PRIVATE_KEY` pour les appels serveur. |
+| 403 *non-browser environments disabled* | Activer l’accès API hors navigateur dans [Account → Security](https://dashboard.emailjs.com/admin/account/security). |
+| 401 / 403 (autres) | Vérifier `EMAILJS_PUBLIC_KEY` et `EMAILJS_PRIVATE_KEY`. |
 | Template introuvable | Vérifier les IDs `template_…` et `service_…`. |
 | Email non reçu | Spam ; quota EmailJS ; champs du modèle (destinataire = souvent `{{user_email}}` ou `{{to_email}}` selon la config du template). |
