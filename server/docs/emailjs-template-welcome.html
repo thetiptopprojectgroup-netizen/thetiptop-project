@@ -1,0 +1,109 @@
+<!--
+  Modèle EmailJS « Newsletter — bienvenue »
+  À copier-coller dans EmailJS → Email Templates → contenu HTML du modèle.
+
+  Variables utilisées par l’API (ne pas renommer) :
+  - {{user_email}}  — adresse du destinataire
+  - {{to_email}}      — identique (pour le champ « To » si besoin)
+  - {{unsubscribe_url}} — lien de désinscription
+
+  Dans EmailJS : définir « To Email » = {{to_email}} ou {{user_email}}
+  Subject suggéré : Bienvenue dans la newsletter Thé Tip Top 🍵
+-->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Newsletter Thé Tip Top</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#edeae4;font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <!-- Pré-en-tête (aperçu boîte mail) -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
+    Merci pour votre inscription — actualités jeu-concours et lots Thé Tip Top.
+  </div>
+
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#edeae4;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(44,36,30,0.08);">
+
+          <!-- Bandeau -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#3f5f43 0%,#537856 50%,#334c37 100%);padding:28px 32px;text-align:center;">
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:0.02em;">
+                Thé Tip Top
+              </p>
+              <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,0.9);font-weight:500;">
+                Newsletter · Jeu-concours
+              </p>
+            </td>
+          </tr>
+
+          <!-- Corps -->
+          <tr>
+            <td style="padding:36px 32px 28px;">
+              <h1 style="margin:0 0 16px;font-size:22px;line-height:1.35;color:#2c241e;font-weight:700;">
+                Bienvenue parmi nous
+              </h1>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#52453b;">
+                Merci pour votre inscription à notre newsletter. Vous recevrez nos <strong style="color:#3f5f43;">actualités</strong>, les infos sur le <strong style="color:#3f5f43;">jeu-concours</strong> et les <strong style="color:#3f5f43;">lots</strong> à gagner.
+              </p>
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#786452;">
+                Votre adresse enregistrée :<br>
+                <span style="color:#3f5f43;font-weight:600;">{{user_email}}</span>
+              </p>
+
+              <!-- Encadré -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f3f6f3;border-radius:12px;border:1px solid #c8d7c8;">
+                <tr>
+                  <td style="padding:18px 20px;">
+                    <p style="margin:0;font-size:14px;line-height:1.55;color:#334c37;">
+                      <span style="font-size:18px;vertical-align:middle;margin-right:6px;">🍵</span>
+                      <strong>À savoir</strong> — Vous pouvez vous désinscrire à tout moment via le lien ci-dessous. Aucun spam : uniquement des messages utiles sur le concours et la marque.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Bouton désinscription (secondaire) -->
+          <tr>
+            <td style="padding:0 32px 32px;text-align:center;">
+              <a href="{{unsubscribe_url}}" style="display:inline-block;padding:12px 24px;font-size:14px;font-weight:600;color:#537856;text-decoration:none;border:2px solid #a0b9a1;border-radius:999px;">
+                Se désinscrire
+              </a>
+              <p style="margin:16px 0 0;font-size:12px;line-height:1.5;color:#907a61;">
+                Ou copiez ce lien dans votre navigateur :<br>
+                <a href="{{unsubscribe_url}}" style="color:#3f5f43;word-break:break-all;">{{unsubscribe_url}}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Pied -->
+          <tr>
+            <td style="padding:20px 32px;background-color:#f7f6f3;border-top:1px solid #ddd7ca;">
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#907a61;text-align:center;">
+                Vous recevez cet email car vous vous êtes inscrit sur le site Thé Tip Top.<br>
+                © Thé Tip Top — Projet étudiant
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

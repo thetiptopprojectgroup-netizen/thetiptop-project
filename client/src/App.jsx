@@ -22,7 +22,9 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import CookieConsent from './components/common/CookieConsent';
 import InstallPrompt from './components/common/InstallPrompt';
 import SeoHead from './components/seo/SeoHead';
+import NewsletterUnsubscribePage from './pages/NewsletterUnsubscribePage';
 import useAuthStore from './store/authStore';
+import api from './services/api';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -130,6 +132,7 @@ function App() {
         <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/newsletter/unsubscribe" element={<NewsletterUnsubscribePage />} />
         <Route path="/oauth/callback" element={<OAuthCallback />} />
 
         {/* 404 */}

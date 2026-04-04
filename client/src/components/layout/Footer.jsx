@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
 import { BrandLogoMark } from '../common/BrandLogo';
+import NewsletterSignup from '../common/NewsletterSignup';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -121,6 +122,22 @@ export default function Footer() {
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+
+        <div className="mt-12 pt-10 border-t border-tea-800">
+          <div className="max-w-md mx-auto">
+            <NewsletterSignup source="footer" />
+            <p className="text-cream-500 text-xs text-center mt-4 leading-relaxed">
+              Envoi des messages via EmailJS.{' '}
+              <Link to="/newsletter/unsubscribe" className="text-matcha-400 hover:underline">
+                Se désinscrire
+              </Link>
+              {' · '}
+              <Link to="/privacy" className="text-matcha-400 hover:underline">
+                Confidentialité
+              </Link>
+            </p>
           </div>
         </div>
       </div>
