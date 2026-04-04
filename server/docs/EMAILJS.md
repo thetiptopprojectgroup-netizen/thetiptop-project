@@ -1,16 +1,19 @@
-# EmailJS — Newsletter Thé Tip Top
+# EmailJS — Emails Thé Tip Top
 
-L’API backend envoie les emails via **EmailJS** (REST `POST /api/v1.0/email/send`) : bienvenue à l’inscription, optionnellement confirmation de désinscription.
+L’API envoie les messages via **EmailJS** (REST `POST /api/v1.0/email/send`) : newsletter (bienvenue / désinscription), **attestation de remise de lot** après validation employé.
 
 ## 1. Compte et service
 
 1. Créer un compte sur [emailjs.com](https://www.emailjs.com/) (quota gratuit mensuel).
 2. **Email Services** : ajouter un service (Gmail, Outlook, etc.) et le connecter.
 3. **Email Templates** :
-   - **Newsletter — bienvenue** : un modèle HTML prêt à l’emploi se trouve dans **`docs/emailjs-template-welcome.html`** (copier le contenu dans EmailJS → Templates → onglet HTML). Variables : `{{user_email}}`, `{{to_email}}`, `{{unsubscribe_url}}`.
+   - **Newsletter — bienvenue** : **`docs/emailjs-template-welcome.html`**. Variables : `{{user_email}}`, `{{to_email}}`, `{{unsubscribe_url}}`.
    - **Newsletter — au revoir** (optionnel) : `{{user_email}}`.
-4. **Account → API keys** : copier la **Public Key** et la **Private Key** (recommandée pour les appels serveur).
-5. **Account → Security** : activer l’accès API pour les applications **non navigateur** (serveur / Docker). Sinon l’API renvoie **403** : *API access from non-browser environments is currently disabled* — [réglages sécurité](https://dashboard.emailjs.com/admin/account/security).
+   - **Lot remis — attestation** (optionnel) : **`docs/emailjs-template-prize-delivered.html`**. Variables : `{{to_email}}`, `{{recipient_name}}`, `{{prize_name}}`, `{{prize_description}}`, `{{ticket_code}}`, `{{store_location}}`, `{{date_remise}}`, `{{site_url}}`, etc.
+4. **Account → API keys** : **Public Key** et **Private Key** (appels serveur).
+5. **Account → Security** : autoriser l’API **hors navigateur** — [réglages](https://dashboard.emailjs.com/admin/account/security).
+
+Chaque template : champ **To Email** = `{{to_email}}` (ou `{{user_email}}`).
 
 ## 2. Variables d’environnement (serveur)
 
@@ -23,22 +26,24 @@ EMAILJS_PRIVATE_KEY=votre_private_key
 
 EMAILJS_TEMPLATE_NEWSLETTER_WELCOME=template_xxxx
 EMAILJS_TEMPLATE_NEWSLETTER_GOODBYE=template_yyyy
+EMAILJS_TEMPLATE_PRIZE_DELIVERED=template_zzzz
 ```
 
-- Sans `EMAILJS_TEMPLATE_*` / clés manquantes, l’inscription en base fonctionne mais **aucun email** n’est envoyé.
-- `EMAILJS_TEMPLATE_NEWSLETTER_GOODBYE` peut être omis : la désinscription ne déclenchera pas d’email de confirmation.
+- Si un `EMAILJS_TEMPLATE_*` est absent, la fonction associée **ne envoie pas** d’email (le reste de l’app continue).
+- **Attestation lot** : envoyée au **gagnant** quand un employé confirme la remise (`PUT /api/tickets/:code/claim`), uniquement si `EMAILJS_TEMPLATE_PRIZE_DELIVERED` est défini.
 
 ## 3. Test
 
 1. Renseigner le `.env` du serveur.
 2. Redémarrer l’API.
-3. S’inscrire depuis le pied de page : vérifier la réception et les logs serveur en cas d’erreur.
+3. Newsletter : inscription pied de page. Lot remis : compte employé → remise physique avec code ticket valide.
 
 ## 4. Dépannage
 
 | Problème | Piste |
 |----------|--------|
-| 403 *non-browser environments disabled* | Activer l’accès API hors navigateur dans [Account → Security](https://dashboard.emailjs.com/admin/account/security). |
-| 401 / 403 (autres) | Vérifier `EMAILJS_PUBLIC_KEY` et `EMAILJS_PRIVATE_KEY`. |
-| Template introuvable | Vérifier les IDs `template_…` et `service_…`. |
-| Email non reçu | Spam ; quota EmailJS ; champs du modèle (destinataire = souvent `{{user_email}}` ou `{{to_email}}` selon la config du template). |
+| 403 *non-browser environments disabled* | [Account → Security](https://dashboard.emailjs.com/admin/account/security) — API hors navigateur. |
+| 401 / 403 (autres) | `EMAILJS_PUBLIC_KEY` / `EMAILJS_PRIVATE_KEY`. |
+| Template introuvable | IDs `template_…` et `service_…`. |
+| 422 *recipients address is empty* | **To Email** = `{{to_email}}` dans le modèle EmailJS. |
+| Email non reçu | Spam ; quota ; variables du template. |
