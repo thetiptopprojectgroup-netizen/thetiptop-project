@@ -4,6 +4,10 @@ import RemiseLot from '../models/RemiseLot.js';
 import User from '../models/User.js';
 import { AppError } from '../middlewares/errorHandler.js';
 import { getContestDates } from '../utils/contestConfig.js';
+import {
+  sendPrizeDeliveredEmail,
+  isPrizeDeliveredEmailConfigured,
+} from '../services/emailjsService.js';
 
 // @desc    Valider un ticket et participer au jeu
 // @route   POST /api/tickets/validate
@@ -292,6 +296,21 @@ export const claimPrize = async (req, res, next) => {
         ? `Remis en boutique suite à une demande en ligne (${storeLocation || 'boutique'})`
         : `Remis en ${storeLocation || 'boutique'}`,
     });
+
+    const winner = await User.findById(participation.user).select('email prenom nom');
+    if (winner?.email && isPrizeDeliveredEmailConfigured()) {
+      sendPrizeDeliveredEmail({
+        email: winner.email,
+        firstName: winner.prenom,
+        lastName: winner.nom,
+        prizeName: participation.prize?.name || 'Votre lot Thé Tip Top',
+        prizeDescription: participation.prize?.description || '',
+        ticketCode: formattedCode,
+        storeLocation: storeLocation || '',
+      }).catch((err) => {
+        console.error('[Lot remis] Échec EmailJS attestation:', err.message);
+      });
+    }
 
     res.status(200).json({
       success: true,
