@@ -149,7 +149,9 @@ jobs:
              bash infra/deploy/seed-app-users.sh /opt/thetiptop/app infra/deploy/env/vdev.env"
 
   # ---------------------------------------------------------------------------
-  # Stage 4 — PR de promotion (uniquement si tout le CD ci-dessus est vert)
+  # Stage 4 — Ouvre une PR vdev → vpreprod (brouillon) après CD vert.
+  # Aucun merge automatique : vous validez sur GitHub (« Ready for review » puis Merge).
+  # Même principe que la PR vpreprod → vprod dans deploy-vpreprod.yml.
   # ---------------------------------------------------------------------------
   promotion-pr:
     name: "4 · PR promotion → vpreprod"
@@ -215,14 +217,14 @@ jobs:
             const body = [
               '## Promotion vers vpreprod',
               '',
-              'Merge **manuel** quand vous voulez promouvoir — toi ou ton binôme.',
+              'Cette PR est en **brouillon** : cliquez **Ready for review** quand vous validez, puis **Merge**.',
               '',
               '1. Vérifier sur **vdev** si besoin.',
               '2. **Merge** → lance le CD **vpreprod**.',
               '',
               '---',
               '',
-              '**Déclenché automatiquement** après le déploiement vdev réussi (tous les jobs verts).',
+              '**Ouverture automatique de la PR** seulement (après déploiement vdev réussi) — **pas de fusion automatique**.',
               '',
               `- Run : [CD / vdev](${runUrl})`,
               `- Commit : \`${sha}\``,
@@ -235,7 +237,7 @@ jobs:
                 base,
                 title: '[Promotion] vdev → vpreprod',
                 body,
-                draft: false,
+                draft: true,
               });
               core.info(`PR créée : #${created.number}`);
             } catch (err) {
