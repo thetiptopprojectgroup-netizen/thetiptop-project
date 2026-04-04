@@ -48,7 +48,7 @@ const participationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'won', 'claimed', 'expired'],
+      enum: ['pending', 'won', 'reclaim_requested', 'remis', 'expired'],
       default: 'won',
     },
     claimedAt: Date,

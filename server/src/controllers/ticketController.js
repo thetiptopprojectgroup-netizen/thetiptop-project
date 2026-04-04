@@ -87,8 +87,8 @@ export const deleteMyParticipation = async (req, res, next) => {
     if (!participation) {
       return next(new AppError('Participation introuvable ou vous n\'êtes pas autorisé à la supprimer', 404));
     }
-    if (participation.status === 'claimed') {
-      return next(new AppError('Impossible de supprimer une participation dont le lot a déjà été récupéré', 400));
+    if (participation.status === 'remis') {
+      return next(new AppError('Impossible de supprimer une participation dont le lot a déjà été remis', 400));
     }
 
     await Participation.findByIdAndDelete(id);
@@ -172,7 +172,7 @@ export const getTicketByCode = async (req, res, next) => {
   }
 };
 
-// @desc    Réclamer son lot en ligne (client connecté : propriétaire de la participation)
+// @desc    Demande de réclamation en ligne (enregistre la demande ; le lot sera « remis » en boutique par un employé)
 // @route   POST /api/tickets/my-participations/:id/claim-online
 export const claimMyPrizeOnline = async (req, res, next) => {
   try {
@@ -188,7 +188,7 @@ export const claimMyPrizeOnline = async (req, res, next) => {
     const participation = await Participation.findOneAndUpdate(
       { _id: id, user: userId, status: 'won' },
       {
-        status: 'claimed',
+        status: 'reclaim_requested',
         claimedAt: new Date(),
         claimedMethod: 'online',
       },
@@ -200,38 +200,27 @@ export const claimMyPrizeOnline = async (req, res, next) => {
       if (!existing) {
         return next(new AppError('Participation introuvable', 404));
       }
-      return next(new AppError('Ce lot a déjà été réclamé', 400));
+      if (existing.status === 'reclaim_requested') {
+        return next(
+          new AppError('Vous avez déjà enregistré une demande de réclamation pour ce lot', 400)
+        );
+      }
+      if (existing.status === 'remis') {
+        return next(new AppError('Ce lot a déjà été remis', 400));
+      }
+      return next(new AppError('Ce lot ne peut pas être réclamé en ligne dans son état actuel', 400));
     }
 
-    const codeDoc = await Code.findOneAndUpdate(
-      { _id: participation.ticket, etat: 'utilise' },
-      { etat: 'reclame' },
-      { new: true }
-    );
-
-    if (!codeDoc) {
-      await Participation.findByIdAndUpdate(participation._id, {
-        status: 'won',
-        $unset: { claimedAt: 1, claimedMethod: 1 },
-      });
-      return next(new AppError('Impossible de finaliser la réclamation (ticket déjà traité)', 400));
-    }
-
-    await RemiseLot.create({
-      participation: participation._id,
-      mode_remise: 'en_ligne',
-      statut: 'remis',
-      date_remise: new Date(),
-      commentaire: 'Réclamation en ligne par le client',
-    });
+    const codeDoc = await Code.findById(participation.ticket);
 
     res.status(200).json({
       success: true,
-      message: 'Votre lot a bien été enregistré comme réclamé en ligne',
+      message:
+        'Demande enregistrée. Présentez-vous en boutique avec votre code pour récupérer le lot.',
       data: {
         participation: {
           id: participation._id,
-          ticketCode: codeDoc.code,
+          ticketCode: codeDoc?.code,
           prize: participation.prize,
           status: participation.status,
           wonAt: participation.createdAt,
@@ -245,7 +234,7 @@ export const claimMyPrizeOnline = async (req, res, next) => {
   }
 };
 
-// @desc    Marquer un lot comme remis (employés)
+// @desc    Remettre physiquement le lot au client (employé / admin) — statut final « remis »
 // @route   PUT /api/tickets/:code/claim
 export const claimPrize = async (req, res, next) => {
   try {
@@ -266,30 +255,40 @@ export const claimPrize = async (req, res, next) => {
       return next(new AppError('Ce lot a déjà été remis', 400));
     }
 
-    // Marquer le code comme réclamé
+    const participation = await Participation.findOne({ ticket: codeDoc._id });
+    if (!participation) {
+      return next(new AppError('Participation introuvable pour ce ticket', 404));
+    }
+    if (participation.status === 'remis') {
+      return next(new AppError('Ce lot a déjà été remis', 400));
+    }
+    if (!['won', 'reclaim_requested'].includes(participation.status)) {
+      return next(new AppError('La remise de ce lot n’est pas possible dans l’état actuel', 400));
+    }
+
     codeDoc.etat = 'reclame';
     await codeDoc.save();
 
-    // Mettre à jour la participation
-    const participation = await Participation.findOneAndUpdate(
-      { ticket: codeDoc._id },
-      {
-        status: 'claimed',
-        claimedAt: new Date(),
-        claimedMethod: 'store',
-        claimedInStore: storeLocation,
-      },
-      { new: true }
-    );
+    const wasOnlineRequest =
+      participation.status === 'reclaim_requested' && participation.claimedMethod === 'online';
 
-    // Créer l'enregistrement de remise de lot (MCD: REMISE_LOT)
+    participation.status = 'remis';
+    participation.claimedAt = participation.claimedAt || new Date();
+    if (!wasOnlineRequest) {
+      participation.claimedMethod = 'store';
+      participation.claimedInStore = storeLocation;
+    }
+    await participation.save();
+
     await RemiseLot.create({
       participation: participation._id,
       employe: employeeId,
       date_remise: new Date(),
       mode_remise: 'boutique',
       statut: 'remis',
-      commentaire: `Remis en ${storeLocation || 'boutique'}`,
+      commentaire: wasOnlineRequest
+        ? `Remis en boutique suite à une demande en ligne (${storeLocation || 'boutique'})`
+        : `Remis en ${storeLocation || 'boutique'}`,
     });
 
     res.status(200).json({
