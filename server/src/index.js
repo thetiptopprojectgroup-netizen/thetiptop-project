@@ -21,6 +21,9 @@ connectDB();
 // Initialisation de l'application Express
 const app = express();
 
+// Derrière Traefik / nginx (X-Forwarded-For) — requis pour express-rate-limit et req.ip corrects
+app.set('trust proxy', 1);
+
 // Configuration de la sécurité
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
