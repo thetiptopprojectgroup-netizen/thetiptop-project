@@ -1,21 +1,30 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import {
-  User, Mail, Phone, MapPin, Calendar, Shield, Save, Lock, Eye, EyeOff, CheckCircle
+  User, Mail, Phone, MapPin, Calendar, Shield, Save, Lock, Eye, EyeOff, CheckCircle, Trash2, AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
+import Modal from '../components/common/Modal';
 import useAuthStore from '../store/authStore';
 import { authService } from '../services/api';
 
+const OAUTH_DELETE_PHRASE = 'SUPPRIMER MON COMPTE';
+
 export default function ProfilePage() {
-  const { user, updateProfile } = useAuthStore();
+  const navigate = useNavigate();
+  const { user, updateProfile, deleteAccount } = useAuthStore();
   const [activeTab, setActiveTab] = useState('info');
   const [showPassword, setShowPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmPhrase, setDeleteConfirmPhrase] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm();
 
@@ -86,6 +95,31 @@ export default function ProfilePage() {
       setIsChangingPassword(false);
     }
   };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeletePassword('');
+    setDeleteConfirmPhrase('');
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    const usePassword = user?.type_authentification === 'local';
+    const payload = usePassword
+      ? { password: deletePassword }
+      : { confirmPhrase: deleteConfirmPhrase.trim() };
+    const result = await deleteAccount(payload);
+    setIsDeletingAccount(false);
+    if (result.success) {
+      toast.success('Votre compte a été supprimé.');
+      handleCloseDeleteModal();
+      navigate('/', { replace: true });
+    } else {
+      toast.error(result.error || 'Erreur');
+    }
+  };
+
+  const isClientAccount = user?.role === 'user' || user?.role === undefined;
 
   const tabs = [
     { id: 'info', label: 'Informations', icon: User },
@@ -209,9 +243,97 @@ export default function ProfilePage() {
                   </Card.Footer>
                 </form>
               )}
+
+              {isClientAccount && (
+                <div className="border-t border-cream-200 mt-8 pt-8">
+                  <div className="rounded-2xl border border-red-200 bg-red-50/80 p-6">
+                    <div className="flex gap-3 mb-4">
+                      <AlertTriangle className="w-6 h-6 text-red-600 shrink-0" />
+                      <div>
+                        <h3 className="font-display font-semibold text-tea-900">Supprimer mon compte</h3>
+                        <p className="text-sm text-tea-700 mt-1">
+                          Vos données personnelles seront effacées et vous ne pourrez plus vous connecter avec cet
+                          email. Cette action est irréversible.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      leftIcon={<Trash2 className="w-4 h-4" />}
+                      onClick={() => setShowDeleteModal(true)}
+                    >
+                      Supprimer définitivement mon compte
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!isClientAccount && (
+                <p className="text-sm text-tea-500 mt-6">
+                  La suppression du compte depuis le profil est réservée aux comptes clients. Pour un compte employé ou
+                  administrateur, contactez un administrateur.
+                </p>
+              )}
             </Card>
           </motion.div>
         )}
+
+        <Modal
+          isOpen={showDeleteModal}
+          onClose={handleCloseDeleteModal}
+          title="Confirmer la suppression du compte"
+          size="md"
+        >
+          <div className="space-y-4 text-tea-800">
+            <p className="text-sm">
+              En continuant, votre compte sera désactivé, votre email libéré pour une nouvelle inscription, et vos
+              informations personnelles anonymisées conformément au RGPD.
+            </p>
+            {user?.type_authentification === 'local' ? (
+              <Input
+                label="Mot de passe actuel"
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                leftIcon={<Lock className="w-5 h-5" />}
+              />
+            ) : (
+              <div>
+                <label className="label">Confirmation</label>
+                <p className="text-xs text-tea-600 mb-2">
+                  Saisissez exactement : <strong className="font-mono">{OAUTH_DELETE_PHRASE}</strong>
+                </p>
+                <input
+                  type="text"
+                  className="input font-mono text-sm"
+                  value={deleteConfirmPhrase}
+                  onChange={(e) => setDeleteConfirmPhrase(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+            )}
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
+              <Button type="button" variant="secondary" onClick={handleCloseDeleteModal}>
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                isLoading={isDeletingAccount}
+                disabled={
+                  user?.type_authentification === 'local'
+                    ? !deletePassword.trim()
+                    : deleteConfirmPhrase.trim() !== OAUTH_DELETE_PHRASE
+                }
+                onClick={handleConfirmDeleteAccount}
+              >
+                Supprimer mon compte
+              </Button>
+            </div>
+          </div>
+        </Modal>
 
         {/* Consent Tab */}
         {activeTab === 'consent' && (

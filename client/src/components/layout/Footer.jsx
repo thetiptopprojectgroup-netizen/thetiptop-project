@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Leaf, Mail, Phone, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
+import { Mail, Phone, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
+import { BrandLogoMark } from '../common/BrandLogo';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -38,9 +39,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-6">
-              <div className="w-10 h-10 rounded-full bg-matcha-600 flex items-center justify-center">
-                <Leaf className="w-5 h-5 text-white" />
-              </div>
+              <BrandLogoMark size="md" />
               <span className="font-display text-xl font-bold text-white">
                 Thé Tip Top
               </span>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Eye, EyeOff, Leaf, Check } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -91,9 +91,7 @@ export default function RegisterPage() {
         >
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-full bg-matcha-600 flex items-center justify-center">
-              <Leaf className="w-5 h-5 text-white" />
-            </div>
+            <BrandLogoMark size="md" />
             <span className="font-display text-xl font-bold text-tea-900">Thé Tip Top</span>
           </Link>
 

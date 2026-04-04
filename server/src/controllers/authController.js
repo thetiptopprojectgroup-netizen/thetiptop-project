@@ -275,19 +275,64 @@ export const logout = async (req, res, next) => {
   }
 };
 
-// @desc    Supprimer son compte (client)
+const OAUTH_DELETE_CONFIRM = 'SUPPRIMER MON COMPTE';
+
+// @desc    Supprimer son compte (clients uniquement — pas employé/admin)
 // @route   DELETE /api/auth/me
+// Body : { password } si compte local ; { confirmPhrase: "SUPPRIMER MON COMPTE" } si OAuth sans mot de passe
 export const deleteMyAccount = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select('+mot_de_passe_hash');
     if (!user) {
       return next(new AppError('Utilisateur non trouvé', 404));
     }
+    if (user.role !== 'user') {
+      return next(
+        new AppError(
+          'Les comptes employé et administrateur ne peuvent pas être supprimés depuis le profil. Contactez un administrateur.',
+          403
+        )
+      );
+    }
+
+    const { password, confirmPhrase } = req.body || {};
+
+    if (user.mot_de_passe_hash) {
+      if (!password || typeof password !== 'string') {
+        return next(new AppError('Indiquez votre mot de passe pour confirmer la suppression du compte.', 400));
+      }
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return next(new AppError('Mot de passe incorrect.', 400));
+      }
+    } else {
+      if (confirmPhrase !== OAUTH_DELETE_CONFIRM) {
+        return next(
+          new AppError(
+            `Pour confirmer, saisissez exactement : ${OAUTH_DELETE_CONFIRM}`,
+            400
+          )
+        );
+      }
+    }
+
+    const uid = user._id.toString();
+    user.email = `deleted_${uid}_${Date.now()}@deleted.local`;
+    user.mot_de_passe_hash = undefined;
+    user.googleId = undefined;
+    user.facebookId = undefined;
+    user.prenom = 'Utilisateur';
+    user.nom = 'Supprimé';
+    user.telephone = undefined;
+    user.adresse = undefined;
+    user.code_postal = undefined;
+    user.ville = undefined;
     user.actif = false;
-    await user.save();
+    await user.save({ validateBeforeSave: false });
+
     res.status(200).json({
       success: true,
-      message: 'Votre compte a été supprimé.',
+      message: 'Votre compte a été supprimé. Vos données personnelles ont été effacées.',
     });
   } catch (error) {
     next(error);
