@@ -7,6 +7,7 @@ const useGameStore = create((set, get) => ({
   contestInfo: null,
   currentWin: null,
   isLoading: false,
+  isClaiming: false,
   isValidating: false,
   error: null,
 
@@ -73,6 +74,30 @@ const useGameStore = create((set, get) => ({
       return response.data.data;
     } catch (error) {
       return { valid: false, message: 'Erreur de vérification' };
+    }
+  },
+
+  // Réclamer un lot en ligne (Mes gains)
+  claimMyPrizeOnline: async (participationId) => {
+    set({ isClaiming: true, error: null });
+    try {
+      await ticketService.claimMyPrizeOnline(participationId);
+      await get().fetchMyParticipations();
+      const updated = get().participations.find((p) => p.id === participationId);
+      set((state) => ({
+        isClaiming: false,
+        currentWin:
+          state.currentWin &&
+          String(state.currentWin.id) === String(participationId) &&
+          updated
+            ? { ...state.currentWin, status: updated.status, claimedMethod: updated.claimedMethod }
+            : state.currentWin,
+      }));
+      return { success: true };
+    } catch (error) {
+      const message = error.response?.data?.message || 'Impossible de réclamer le lot';
+      set({ isClaiming: false });
+      return { success: false, error: message };
     }
   },
 

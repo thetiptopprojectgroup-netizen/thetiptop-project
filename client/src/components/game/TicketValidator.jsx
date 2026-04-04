@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, Sparkles, PartyPopper, Ticket } from 'lucide-react';
 import { clsx } from 'clsx';
+import toast from 'react-hot-toast';
 import Button from '../common/Button';
 import useGameStore from '../../store/gameStore';
 import Confetti from './Confetti';
@@ -9,7 +10,16 @@ import Confetti from './Confetti';
 export default function TicketValidator() {
   const [code, setCode] = useState('');
   const [step, setStep] = useState('input'); // input, validating, won
-  const { validateTicket, currentWin, isValidating, error, clearError, clearCurrentWin } = useGameStore();
+  const {
+    validateTicket,
+    currentWin,
+    isValidating,
+    isClaiming,
+    error,
+    clearError,
+    clearCurrentWin,
+    claimMyPrizeOnline,
+  } = useGameStore();
 
   const handleCodeChange = (e) => {
     // Format: majuscules, max 10 caractères, alphanumériques uniquement
@@ -37,6 +47,16 @@ export default function TicketValidator() {
     setStep('input');
     clearCurrentWin();
     clearError();
+  };
+
+  const handleClaimOnline = async () => {
+    if (!currentWin?.id) return;
+    const result = await claimMyPrizeOnline(currentWin.id);
+    if (result.success) {
+      toast.success('Lot réclamé en ligne. Retrouvez le détail dans Mes gains.');
+    } else {
+      toast.error(result.error || 'Impossible de réclamer le lot');
+    }
   };
 
   return (
@@ -217,12 +237,21 @@ export default function TicketValidator() {
                 Code du ticket : <span className="font-mono font-bold">{currentWin.ticketCode}</span>
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center flex-wrap">
+                {currentWin?.status === 'won' && currentWin?.id && (
+                  <Button
+                    onClick={handleClaimOnline}
+                    variant="gold"
+                    disabled={isClaiming}
+                  >
+                    {isClaiming ? 'Réclamation...' : 'Réclamer mon lot'}
+                  </Button>
+                )}
                 <Button onClick={handleReset} variant="primary">
                   Valider un autre code
                 </Button>
-                <Button onClick={() => window.location.href = '/dashboard'} variant="secondary">
-                  Voir mes gains
+                <Button onClick={() => (window.location.href = '/dashboard')} variant="secondary">
+                  Mes gains
                 </Button>
               </div>
             </motion.div>

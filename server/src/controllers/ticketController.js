@@ -172,6 +172,79 @@ export const getTicketByCode = async (req, res, next) => {
   }
 };
 
+// @desc    Réclamer son lot en ligne (client connecté : propriétaire de la participation)
+// @route   POST /api/tickets/my-participations/:id/claim-online
+export const claimMyPrizeOnline = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const now = new Date();
+    const { claim_end_date } = await getContestDates();
+    if (now > claim_end_date) {
+      return next(new AppError('La période de réclamation en ligne est terminée', 400));
+    }
+
+    const participation = await Participation.findOneAndUpdate(
+      { _id: id, user: userId, status: 'won' },
+      {
+        status: 'claimed',
+        claimedAt: new Date(),
+        claimedMethod: 'online',
+      },
+      { new: true }
+    );
+
+    if (!participation) {
+      const existing = await Participation.findOne({ _id: id, user: userId });
+      if (!existing) {
+        return next(new AppError('Participation introuvable', 404));
+      }
+      return next(new AppError('Ce lot a déjà été réclamé', 400));
+    }
+
+    const codeDoc = await Code.findOneAndUpdate(
+      { _id: participation.ticket, etat: 'utilise' },
+      { etat: 'reclame' },
+      { new: true }
+    );
+
+    if (!codeDoc) {
+      await Participation.findByIdAndUpdate(participation._id, {
+        status: 'won',
+        $unset: { claimedAt: 1, claimedMethod: 1 },
+      });
+      return next(new AppError('Impossible de finaliser la réclamation (ticket déjà traité)', 400));
+    }
+
+    await RemiseLot.create({
+      participation: participation._id,
+      mode_remise: 'en_ligne',
+      statut: 'remis',
+      date_remise: new Date(),
+      commentaire: 'Réclamation en ligne par le client',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Votre lot a bien été enregistré comme réclamé en ligne',
+      data: {
+        participation: {
+          id: participation._id,
+          ticketCode: codeDoc.code,
+          prize: participation.prize,
+          status: participation.status,
+          wonAt: participation.createdAt,
+          claimedAt: participation.claimedAt,
+          claimedMethod: participation.claimedMethod,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Marquer un lot comme remis (employés)
 // @route   PUT /api/tickets/:code/claim
 export const claimPrize = async (req, res, next) => {

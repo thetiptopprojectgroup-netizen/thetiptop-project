@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Gift, Trophy, Clock, CheckCircle, ArrowRight, Ticket } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import toast from 'react-hot-toast';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import useAuthStore from '../store/authStore';
@@ -18,11 +19,23 @@ const statusConfig = {
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const { participations, isLoading, fetchMyParticipations } = useGameStore();
+  const { participations, isLoading, fetchMyParticipations, claimMyPrizeOnline } = useGameStore();
+  const [claimingId, setClaimingId] = useState(null);
 
   useEffect(() => {
     fetchMyParticipations();
   }, [fetchMyParticipations]);
+
+  const handleClaimOnline = async (participationId) => {
+    setClaimingId(participationId);
+    const result = await claimMyPrizeOnline(participationId);
+    setClaimingId(null);
+    if (result.success) {
+      toast.success('Lot enregistré comme réclamé en ligne. Merci !');
+    } else {
+      toast.error(result.error || 'Erreur');
+    }
+  };
 
   const totalValue = participations.reduce((sum, p) => sum + (p.prize?.value || 0), 0);
   const claimedCount = participations.filter((p) => p.status === 'claimed').length;
@@ -171,6 +184,12 @@ export default function DashboardPage() {
                 {participations.map((participation, index) => {
                   const status = statusConfig[participation.status] || statusConfig.pending;
                   const StatusIcon = status.icon;
+                  const claimedOnline =
+                    participation.status === 'claimed' && participation.claimedMethod === 'online';
+                  const statusLabel =
+                    participation.status === 'claimed' && claimedOnline
+                      ? 'Réclamé en ligne'
+                      : status.label;
 
                   return (
                     <motion.div
@@ -178,7 +197,7 @@ export default function DashboardPage() {
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="py-4 flex flex-col sm:flex-row sm:items-center gap-4"
+                      className="py-4 flex flex-col lg:flex-row lg:items-center gap-4"
                     >
                       {/* Prize icon */}
                       <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-100 to-gold-200 flex items-center justify-center text-2xl flex-shrink-0">
@@ -199,16 +218,30 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Value */}
-                      <div className="text-right">
+                      <div className="text-right lg:text-left">
                         <div className="font-bold text-tea-900">
                           {participation.prize?.value}€
                         </div>
                       </div>
 
-                      {/* Status */}
-                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${status.color}`}>
-                        <StatusIcon className="w-4 h-4" />
-                        {status.label}
+                      {/* Status + action */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 lg:min-w-[220px]">
+                        <div
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${status.color}`}
+                        >
+                          <StatusIcon className="w-4 h-4" />
+                          {statusLabel}
+                        </div>
+                        {participation.status === 'won' && (
+                          <Button
+                            size="sm"
+                            variant="gold"
+                            onClick={() => handleClaimOnline(participation.id)}
+                            disabled={claimingId === participation.id}
+                          >
+                            {claimingId === participation.id ? '...' : 'Réclamer mon lot'}
+                          </Button>
+                        )}
                       </div>
                     </motion.div>
                   );
@@ -236,12 +269,12 @@ export default function DashboardPage() {
                     Vous avez {pendingCount} lot{pendingCount > 1 ? 's' : ''} à récupérer
                   </h3>
                   <p className="text-tea-600 text-sm mb-3">
-                    Rendez-vous dans l'une de nos boutiques Thé Tip Top pour récupérer vos lots.
+                    Vous pouvez <strong>réclamer votre lot en ligne</strong> avec le bouton « Réclamer mon lot »
+                    ci-dessus, ou vous rendre dans l'une de nos boutiques Thé Tip Top.
                   </p>
                   <div className="text-tea-600 text-sm space-y-1">
-                    <p>1. Présentez votre code ticket au caissier</p>
-                    <p>2. Munissez-vous d'une pièce d'identité</p>
-                    <p>3. Récupérez votre lot sur place</p>
+                    <p>1. En boutique : présentez votre code au caissier avec une pièce d’identité</p>
+                    <p>2. En ligne : cliquez sur « Réclamer mon lot » pour enregistrer votre réclamation</p>
                   </div>
                   <p className="text-xs text-tea-500 mt-3">
                     Vous avez jusqu'au 29 avril 2026 pour récupérer vos lots.

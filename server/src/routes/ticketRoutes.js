@@ -4,6 +4,7 @@ import {
   validateTicket,
   getMyParticipations,
   deleteMyParticipation,
+  claimMyPrizeOnline,
   getTicketByCode,
   claimPrize,
   getCustomerPrizes,
@@ -39,6 +40,7 @@ router.post(
 
 // Historique des participations
 router.get('/my-participations', getMyParticipations);
+router.post('/my-participations/:id/claim-online', claimMyPrizeOnline);
 router.delete('/my-participations/:id', deleteMyParticipation);
 
 // Routes employés/admin
