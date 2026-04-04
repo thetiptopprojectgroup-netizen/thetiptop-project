@@ -1,30 +1,31 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 const STORAGE_KEY = 'pwa-install-dismissed';
 const DISMISS_LATER_HOURS = 24;
-const DISMISS_DAYS = 7;
-/** Délai avant d’afficher le bandeau (court pour que la proposition soit visible). */
-const SHOW_DELAY_MS = 2500;
+const DISMISS_REFUSE_DAYS = 180;
+
+/** Délai avant d’afficher le bandeau (laisser la page se charger). */
+const SHOW_DELAY_MS = 2800;
 
 function getDismissedUntil() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const t = parseInt(raw, 10);
-    return isNaN(t) ? null : t;
+    return Number.isNaN(t) ? null : t;
   } catch {
     return null;
   }
 }
 
-function setDismissedUntil(hours = DISMISS_DAYS * 24) {
+function setDismissedUntil(hoursFromNow) {
   try {
-    const t = Date.now() + hours * 60 * 60 * 1000;
+    const t = Date.now() + hoursFromNow * 60 * 60 * 1000;
     localStorage.setItem(STORAGE_KEY, String(t));
   } catch {
-    return;
+    /* ignore */
   }
 }
 
@@ -36,10 +37,13 @@ export default function InstallPrompt() {
   const [isInstalling, setIsInstalling] = useState(false);
   const [delayPassed, setDelayPassed] = useState(false);
 
+  const hide = useCallback(() => setVisible(false), []);
+
   useEffect(() => {
-    const standalone = window.matchMedia('(display-mode: standalone)').matches
-      || window.navigator.standalone === true
-      || document.referrer.includes('android-app://');
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true ||
+      document.referrer.includes('android-app://');
     setIsStandalone(standalone);
 
     if (standalone) return;
@@ -56,45 +60,55 @@ export default function InstallPrompt() {
       setDeferredPrompt(e);
     };
 
+    const onAppInstalled = () => {
+      hide();
+      setDeferredPrompt(null);
+    };
+
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    window.addEventListener('appinstalled', onAppInstalled);
 
     const timer = setTimeout(() => setDelayPassed(true), SHOW_DELAY_MS);
 
     return () => {
       clearTimeout(timer);
       window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('appinstalled', onAppInstalled);
     };
-  }, []);
+  }, [hide]);
 
-  // Afficher le bandeau pour tous après le délai (pas seulement si beforeinstallprompt a été reçu).
   useEffect(() => {
     if (delayPassed && !isStandalone) setVisible(true);
   }, [delayPassed, isStandalone]);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      setIsInstalling(true);
-      try {
-        await deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') setVisible(false);
-      } finally {
-        setIsInstalling(false);
-      }
+    if (!deferredPrompt) return;
+    setIsInstalling(true);
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') hide();
+      setDeferredPrompt(null);
+    } finally {
+      setIsInstalling(false);
     }
   };
 
-  const handleDismissLater = () => {
-    setVisible(false);
+  /** Refuser : ne plus proposer pendant longtemps */
+  const handleDecline = () => {
+    hide();
+    setDismissedUntil(DISMISS_REFUSE_DAYS * 24);
+  };
+
+  /** Plus tard : reposer la question après 24 h */
+  const handleLater = () => {
+    hide();
     setDismissedUntil(DISMISS_LATER_HOURS);
   };
 
-  const handleDismissNotNow = () => {
-    setVisible(false);
-    setDismissedUntil(DISMISS_DAYS * 24);
-  };
-
   if (!visible || isStandalone) return null;
+
+  const canNativeInstall = Boolean(deferredPrompt) && !isIOS;
 
   return (
     <AnimatePresence>
@@ -103,7 +117,10 @@ export default function InstallPrompt() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
         transition={{ duration: 0.3 }}
-        className="fixed bottom-0 left-0 right-0 z-[100] p-4 pb-6 safe-area-pb"
+        className="fixed bottom-0 left-0 right-0 z-[100] p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+        role="dialog"
+        aria-labelledby="pwa-install-title"
+        aria-describedby="pwa-install-desc"
       >
         <div className="mx-auto max-w-lg rounded-2xl bg-tea-900 text-white shadow-xl border border-tea-700 overflow-hidden">
           <div className="p-4 flex items-start gap-4">
@@ -111,39 +128,40 @@ export default function InstallPrompt() {
               <Download className="w-6 h-6 text-matcha-300" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-display font-semibold text-lg">Installer l’application</h3>
-              <p className="text-sm text-cream-200 mt-0.5">
+              <h3 id="pwa-install-title" className="font-display font-semibold text-lg">
+                Installer l’application ?
+              </h3>
+              <p id="pwa-install-desc" className="text-sm text-cream-200 mt-1">
                 {isIOS
-                  ? 'Accédez au jeu plus vite : ajoutez Thé Tip Top sur l’écran d’accueil. Safari → Partager → « Sur l’écran d’accueil ».'
-                  : deferredPrompt
-                    ? 'Installez l’app pour y accéder depuis votre bureau ou votre téléphone.'
-                    : 'Sur Chrome/Edge : cliquez sur l’icône ⊕ ou « Installer » dans la barre d’adresse, ou menu ⋮ → « Installer Thé Tip Top ». Sur mobile : menu ⋯ → « Ajouter à l’écran d’accueil ». Le site doit être en HTTPS.'}
+                  ? 'Ajoutez Thé Tip Top sur l’écran d’accueil : Safari → Partager → « Sur l’écran d’accueil ».'
+                  : canNativeInstall
+                    ? 'Installez le site comme une application pour un accès rapide depuis votre bureau ou l’écran d’accueil.'
+                    : 'Sur Chrome ou Edge (ordinateur ou Android), utilisez le menu ou l’icône d’installation dans la barre d’adresse. Le site doit être en HTTPS.'}
               </p>
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                {deferredPrompt && !isIOS ? (
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                {canNativeInstall ? (
                   <button
                     type="button"
                     onClick={handleInstall}
                     disabled={isInstalling}
-                    className="px-4 py-2 rounded-xl bg-matcha-500 hover:bg-matcha-600 text-white font-medium text-sm transition-colors disabled:opacity-60"
+                    className="px-4 py-2.5 rounded-xl bg-matcha-500 hover:bg-matcha-600 text-white font-medium text-sm transition-colors disabled:opacity-60"
                   >
                     {isInstalling ? 'Installation…' : 'Installer'}
                   </button>
                 ) : null}
                 <button
                   type="button"
-                  onClick={handleDismissLater}
-                  className="px-3 py-2 rounded-xl text-cream-200 hover:bg-white/10 text-sm transition-colors"
+                  onClick={handleDecline}
+                  className="px-4 py-2.5 rounded-xl border-2 border-white/30 text-white hover:bg-white/10 font-medium text-sm transition-colors"
                 >
-                  Plus tard
+                  Refuser
                 </button>
                 <button
                   type="button"
-                  onClick={handleDismissNotNow}
-                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                  aria-label="Fermer"
+                  onClick={handleLater}
+                  className="px-3 py-2 rounded-xl text-cream-300 hover:text-white hover:bg-white/10 text-sm transition-colors underline-offset-2 hover:underline"
                 >
-                  <X className="w-5 h-5" />
+                  Plus tard
                 </button>
               </div>
             </div>
