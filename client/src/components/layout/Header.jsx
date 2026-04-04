@@ -177,9 +177,9 @@ export default function Header() {
               <>
                 <Link to="/login">
                   <Button
-                    variant={isScrolled ? 'ghost' : 'secondary'}
+                    variant="ghost"
                     size="sm"
-                    className={!isScrolled ? 'border-white/30 text-white hover:bg-white/10' : ''}
+                    className="!bg-white !text-matcha-600 shadow-sm transition-colors hover:!bg-matcha-600 hover:!text-white focus-visible:!ring-2 focus-visible:!ring-matcha-500 focus-visible:!ring-offset-2"
                   >
                     Connexion
                   </Button>
@@ -281,7 +281,10 @@ export default function Header() {
               ) : (
                 <div className="flex gap-3 pt-2">
                   <Link to="/login" className="flex-1">
-                    <Button variant="secondary" className="w-full">
+                    <Button
+                      variant="ghost"
+                      className="w-full !bg-white !text-matcha-600 border-2 border-cream-200 transition-colors hover:!bg-matcha-600 hover:!text-white hover:!border-matcha-600"
+                    >
                       Connexion
                     </Button>
                   </Link>
