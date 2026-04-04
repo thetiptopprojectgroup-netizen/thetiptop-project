@@ -1,4 +1,10 @@
-# MongoDB en Kubernetes (preprod / prod)
+# MongoDB en Kubernetes (preprod / prod) — archive
+
+> **Déploiement actuel** : MongoDB tourne dans **Docker Compose sur VPS** ; l’URI est du type `mongodb://...@mongodb:27017/...` (réseau compose) ou l’hôte défini dans `infra/deploy/env/*.env`. Le dossier **`k8s/`** et le CD **`kubectl`** ont été **supprimés** du dépôt.
+
+Le texte ci-dessous décrit l’ancienne configuration **Kubernetes** (services `*.svc.cluster.local`) et reste utile pour comprendre d’anciennes URI ou une migration de données.
+
+---
 
 ## L’URI MongoDB est-elle générée ?
 

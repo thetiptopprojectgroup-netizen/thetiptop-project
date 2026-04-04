@@ -1,5 +1,7 @@
 # Analyse – MinIO, Ingress, boucle de redirection
 
+> **Contexte** : document rédigé pour **Traefik + Ingress Kubernetes**. Le dépôt n’inclut plus **`k8s/`** ni **`kubectl`** ; MinIO et Traefik sont gérés via **Docker Compose sur VPS** (`infra/deploy`). Les idées (hosts distincts, HTTPS) restent valables.
+
 ## 1. Ce qui a été vérifié
 
 ### 1.1 Traefik (values-dev)

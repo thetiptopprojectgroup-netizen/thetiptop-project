@@ -99,15 +99,16 @@ function buildSitemapXml() {
   return xml;
 }
 
+/** Commentaires en ASCII uniquement : evite affichage "MÃªme" si le serveur n\'envoie pas UTF-8. */
 function buildRobotsTxt() {
   const lines = [
-    '# Thé Tip Top — jeu-concours (fichier généré au build ; SITE_URL = domaine public du déploiement)',
+    '# The Tip Top - jeu-concours (genere au build ; SITE_URL = domaine public du deploiement)',
     '# https://developers.google.com/search/docs/crawling-indexing/robots/intro',
     '',
     'User-agent: *',
     'Allow: /',
     '',
-    '# Espaces nécessitant une connexion ou flux techniques — pas utiles au référencement naturel',
+    '# Zones compte / technique (pas utiles au referencement)',
     'Disallow: /admin',
     'Disallow: /employee',
     'Disallow: /play',
@@ -116,7 +117,7 @@ function buildRobotsTxt() {
     'Disallow: /oauth/',
     'Disallow: /reset-password/',
     '',
-    '# Fichier sitemap pour ce domaine (une URL absolue par déploiement)',
+    '# Une seule URL Sitemap pour CE domaine (vdev / vpreprod / prod = builds avec SITE_URL different)',
     `Sitemap: ${baseUrl}/sitemap.xml`,
     '',
   ];

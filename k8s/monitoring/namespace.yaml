@@ -1,8 +1,0 @@
-# Namespace dédié au monitoring (Prometheus, Grafana, Alertmanager)
-# À appliquer sur chaque cluster où vous déployez le monitoring
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: monitoring
-  labels:
-    name: monitoring

@@ -1,6 +1,12 @@
 # Plan de migration : Clusters Kubernetes → VPS
 
-Objectif : quitter les **3 clusters Kubernetes** (DigitalOcean DOKS) et faire tourner l’application sur **un ou plusieurs VPS** avec **Docker Compose**, en conservant dev / preprod / prod et la CI/CD.
+## État (mis à jour)
+
+La migration est **réalisée** : le dossier **`k8s/`** et les workflows basés sur **`kubectl`** (`cd-deploy.yml`, `cd-monitoring.yml`, `fix-prod-tls.yml`, `reset-minio-volume.yml`, `run-backup.yml`) ont été **supprimés**. Le déploiement passe par **`infra/ansible`**, **`infra/deploy`**, et les workflows **`deploy-vdev.yml`**, **`deploy-vpreprod.yml`**, **`deploy-vprod.yml`**.
+
+---
+
+Objectif historique : quitter les **3 clusters Kubernetes** (DigitalOcean DOKS) et faire tourner l’application sur **un ou plusieurs VPS** avec **Docker Compose**, en conservant dev / preprod / prod et la CI/CD.
 
 ---
 
@@ -98,9 +104,9 @@ Objectif : push sur `dev` / `preprod` / `prod` déclenche un déploiement sur le
 |---|--------|--------|
 | 4.1 | Bascule DNS | Quand un environnement VPS est prêt et testé, pointer les DNS (dev, preprod ou prod) vers l’IP du VPS. |
 | 4.2 | Vérifications | Smoke tests (frontend, API, newsletter, auth, etc.) sur chaque env. |
-| 4.3 | Désactiver l’ancien CD K8s | Une fois les 3 env sur VPS : supprimer ou désactiver le workflow `cd-deploy.yml` (ou le garder en secours le temps de la transition). |
+| 4.3 | Désactiver l’ancien CD K8s | **Fait** : workflows `kubectl` supprimés du dépôt. |
 | 4.4 | Supprimer les clusters | Après une période de rollback (ex. 1–2 semaines), supprimer les clusters DigitalOcean (et les volumes si plus besoin) pour arrêter les coûts. |
-| 4.5 | Nettoyage du repo | Supprimer ou déplacer dans un dossier `archive/` les dossiers `k8s/`, les références aux KUBECONFIG_* dans la doc, et mettre à jour la doc (README, ROADMAP, etc.) pour décrire l’architecture VPS. |
+| 4.5 | Nettoyage du repo | **Fait** : `k8s/` supprimé ; doc et secrets orientés VPS / Ansible. |
 
 ---
 
@@ -117,8 +123,8 @@ Objectif : push sur `dev` / `preprod` / `prod` déclenche un déploiement sur le
 
 | Garder | Enlever / Remplacer |
 |--------|----------------------|
-| GitHub, branches dev/preprod/prod, PR de promotion | Déploiement vers les clusters (kubectl, KUBECONFIG_*) |
-| CI (lint, tests, build images, push registry) | Workflow CD actuel `cd-deploy.yml` (ou le désactiver) |
+| GitHub, branches dev/preprod/prod, PR de promotion | ~~Déploiement vers les clusters (kubectl, KUBECONFIG_*)~~ — **retiré** |
+| CI (lint, tests, build images, push registry) | ~~`cd-deploy.yml`~~ — remplacé par **`deploy-vdev` / `deploy-vpreprod` / `deploy-vprod`** |
 | Dockerfiles, images (Harbor ou Docker Hub) | Manifests K8s (Deployments, Services, Ingress, StatefulSet, CronJobs, etc.) |
 | Docker Compose (local + nouveau “prod” VPS) | cert-manager, Traefik dans le cluster → Certbot + Nginx/Traefik sur le VPS |
 | Secrets dans GitHub (pour la CI et le déploiement SSH) | Secrets Kubernetes → fichier `.env` sur le VPS |
@@ -163,12 +169,7 @@ deploy/
 
 ## 7. Rollback possible
 
-Tant que les clusters et les DNS d’origine existent, en cas de problème sur le VPS vous pouvez :
-
-- Repointer les DNS vers les clusters (ou garder les anciens enregistrements).
-- Réactiver le workflow `cd-deploy.yml` et refaire un déploiement sur les clusters.
-
-Il est donc prudent de ne pas supprimer les clusters tout de suite après la bascule.
+Si des **clusters Kubernetes** existent encore hors dépôt, vous pouvez repointer le DNS vers eux en urgence. Le workflow **`cd-deploy.yml`** n’existe plus dans ce dépôt ; un rollback K8s nécessiterait de restaurer d’anciens manifests depuis l’historique Git ou une sauvegarde.
 
 ---
 

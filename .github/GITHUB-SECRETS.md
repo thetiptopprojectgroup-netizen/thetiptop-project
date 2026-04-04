@@ -24,7 +24,7 @@ Chaque secret a un **nom** (ex. `GOOGLE_CLIENT_ID`) et une **valeur** (que tu co
 | `GOOGLE_CLIENT_ID`   | ID client OAuth « Application Web » (Google)     | `847397925440-xxx.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | Secret client OAuth Google                    | `GOCSPX-xxx`                               |
 
-- Utilisés par le **workflow CD** (`cd-deploy.yml`) pour remplir le secret Kubernetes `backend-secret` (clés `google-client-id` et `google-client-secret`).
+- Pour le déploiement **VPS** : à renseigner dans le fichier d’environnement du serveur (ex. secrets référencés par `V*_ENV_FILE` dans les workflows `deploy-vdev.yml` / `deploy-vpreprod.yml` / `deploy-vprod.yml`), ou variables équivalentes côté backend.
 - Le backend lit ces variables d’environnement ; si elles sont absentes, la connexion Google est simplement désactivée.
 
 ---
@@ -37,8 +37,8 @@ Chaque secret a un **nom** (ex. `GOOGLE_CLIENT_ID`) et une **valeur** (que tu co
 | `SENDGRID_FROM_EMAIL`  | Email expéditeur vérifié dans SendGrid (Single Sender) |
 | `SENDGRID_FROM_NAME`  | Nom affiché (optionnel, ex. `Thé Tip Top`) |
 
-- Utilisés par le **workflow CD** pour remplir le secret Kubernetes `backend-secret` (clés `sendgrid-api-key`, `sendgrid-from-email`, `sendgrid-from-name`).
-- À chaque push sur `dev`, `preprod` ou `prod`, ces secrets sont injectés dans le backend déployé ; la newsletter envoie alors l’email de bienvenue aux inscrits.
+- À injecter dans l’environnement du backend sur le VPS (fichier `.env` / compose), comme pour les autres variables applicatives.
+- Après déploiement avec les bonnes valeurs, la newsletter envoie l’email de bienvenue aux inscrits.
 - Si ces secrets sont absents, l’inscription à la newsletter fonctionne toujours (email en base) mais aucun email n’est envoyé.
 
 ---
@@ -51,24 +51,17 @@ Chaque secret a un **nom** (ex. `GOOGLE_CLIENT_ID`) et une **valeur** (que tu co
 | `HARBOR_USERNAME`  | Utilisateur Harbor       |
 | `HARBOR_PASSWORD`  | Mot de passe Harbor      |
 
-Utilisés par les CI (build + push des images) et le CD (imagePullSecrets).
+Utilisés par les CI (build + push des images) et par les workflows de déploiement VPS (pull d’images depuis Harbor).
 
 ---
 
-### Kubernetes (accès aux clusters)
+### Déploiement VPS (SSH, Ansible)
 
-| Nom du secret     | Description |
-|-------------------|-------------|
-| `KUBECONFIG_DEV`     | Contenu du fichier kubeconfig du cluster **dev**, encodé en base64 |
-| `KUBECONFIG_PREPROD` | Idem pour le cluster **preprod** |
-| `KUBECONFIG_PROD`    | Idem pour le cluster **prod** |
-
-Pour encoder un kubeconfig :  
-`base64 -w0 ~/.kube/config-dev` (Linux) ou équivalent sur Windows (PowerShell : encoder le contenu du fichier en base64).
+Pas de **kubeconfig**. Les secrets typiques sont décrits dans les workflows `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` (clés SSH, `V*_ENV_FILE`, registry Harbor, etc.). L’inventaire et les rôles Ansible sont sous `infra/ansible/`.
 
 ---
 
-### Base de données et JWT (par environnement)
+### Base de données et JWT (référence historique / variables serveur)
 
 | Nom du secret          | Utilisé pour |
 |------------------------|--------------|
@@ -81,7 +74,7 @@ Pour encoder un kubeconfig :
 | `MONGO_ROOT_USERNAME`  | Utilisateur root MongoDB (ex. `root`) |
 | `MONGO_ROOT_PASSWORD`  | Mot de passe root MongoDB |
 
-Les URI MongoDB peuvent être en clair ou encodées en base64 ; le workflow CD gère le décodage si nécessaire (voir `.github/MONGODB-K8S.md`).
+Sur le VPS, l’URI MongoDB est dans le fichier d’environnement utilisé par Docker Compose (voir `infra/deploy/env/`). Pour l’historique des anciennes URI Kubernetes, voir `.github/MONGODB-K8S.md` (conservé comme archive).
 
 ---
 
@@ -97,7 +90,7 @@ Pour que la **connexion / inscription avec Google** fonctionne en dev, preprod e
    - Name : `GOOGLE_CLIENT_SECRET`  
      Value : ton secret client Google (ex. `GOCSPX-...`).
 
-Après le prochain déploiement (push sur `dev` / `preprod` / `prod`), le backend déployé recevra ces variables et la connexion Google sera active pour cet environnement.
+Après mise à jour du fichier d’environnement sur le VPS et redémarrage du backend (ou prochain déploiement via les workflows `deploy-v*`), la connexion Google sera active si les variables sont présentes côté serveur.
 
 ---
 

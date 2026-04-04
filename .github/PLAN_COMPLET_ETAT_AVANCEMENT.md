@@ -3,6 +3,8 @@
 Référence : **Plan complet – CRUD Répertoire Téléphonique (workflow DevOps conforme au cahier des spécifications)**  
 Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 
+**Note (infra)** : le déploiement cible est **VPS + Docker Compose + Ansible** (`infra/ansible`, `infra/deploy`, workflows `deploy-vdev.yml` / `deploy-vpreprod.yml` / `deploy-vprod.yml`). Le dossier **`k8s/`** et le CD **kubectl** ont été retirés du dépôt. Les lignes **PHASE 5 / 6** ci‑dessous restent une **référence** au cahier des charges initial (Kubernetes) ; l’implémentation réelle est sur VPS (Traefik, TLS, etc.).
+
 ---
 
 ## PHASE 1 – GESTION DU CODE SOURCE (GITHUB)
@@ -68,7 +70,7 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 | Namespaces dev / preprod / prod | ✅ Fait | thetiptop-dev, thetiptop-preprod, thetiptop-prod |
 | Backend et Frontend en Deployment | ✅ Fait | Deployments par environnement |
 | Base MongoDB en StatefulSet | ✅ Fait | `mongodb-statefulset.yaml` par env |
-| Helm Charts pour packaging et déploiement | ❌ Non fait | Déploiement via manifests YAML + `kubectl apply` ; pas de `Chart.yaml` |
+| Helm Charts pour packaging et déploiement | ❌ Non fait | Déploiement via **Docker Compose + Ansible** (pas de Helm) |
 | Autoscaling HPA | ⚠️ Partiel | HPA uniquement en **prod** (backend 3→10, frontend 3→8) ; dev/preprod en replicas fixes |
 | Rolling Update + Rollback automatique | ✅ Fait | Stratégie de déploiement Kubernetes par défaut ; CD met à jour les images |
 
@@ -78,11 +80,11 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 
 | Point du plan | Statut | Détail |
 |---------------|--------|--------|
-| Déploiement Traefik par environnement | ✅ Fait | Dossier `k8s/traefik/`, values par env (dev/preprod/prod) |
-| Routage automatique des services | ✅ Fait | Ingress (backend + frontend) par env |
-| Certificats TLS via Let's Encrypt | ✅ Fait | `k8s/traefik/letsencrypt-issuer.yaml`, cert-manager |
-| Middlewares de sécurité | ✅ Fait | `k8s/traefik/middleware-security.yaml` |
-| Haute disponibilité en production | ✅ Fait | Plusieurs replicas + HPA en prod |
+| Déploiement Traefik par environnement | ✅ Fait | **Traefik en Docker** sur VPS (`infra/deploy`, labels / fichiers par env) |
+| Routage automatique des services | ✅ Fait | Routage par host vers frontend / backend |
+| Certificats TLS via Let's Encrypt | ✅ Fait | ACME **Traefik** (plus cert-manager K8s) |
+| Middlewares de sécurité | ✅ Fait | Headers / middlewares Traefik côté compose |
+| Haute disponibilité en production | ⚠️ Selon VPS | Réplicas Docker / redémarrage ; pas d’HPA Kubernetes |
 
 
 ---
@@ -164,11 +166,11 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 |--------|----------|-----|
 | **E2E multi-navigateurs en CI** | Conforme à la spec (Chromium + Firefox + WebKit), détecte les régressions navigateur. | `.github/workflows/ci-client.yml` : installer et lancer les 3 navigateurs Playwright au lieu de Chromium seul. |
 | **Versioning sémantique** | Tags `v1.0.0` pour les releases, traçabilité. | Créer un workflow (ou étape dans le CD) qui crée un tag Git + release GitHub quand on merge vers `prod` (ou manuellement). |
-| **HPA en preprod (optionnel)** | Même comportement qu’en prod, tests de montée en charge. | Dupliquer les `HorizontalPodAutoscaler` de `k8s/prod/` vers `k8s/preprod/` avec des min/max adaptés (ex. 1→4). |
+| **HPA en preprod (optionnel)** | Non applicable en **VPS** sans orchestrateur ; scaler manuellement les ressources Docker / le serveur. |
 
-### 2. Monitoring (Phase 8) – En place (Prometheus, Grafana, Alertmanager)
+### 2. Monitoring (Phase 8)
 
-- **Prometheus + Grafana + Alertmanager** : déployés via `k8s/monitoring/` (values-dev, values-preprod, values-prod). À déployer sur chaque cluster si pas encore fait.
+- **Prometheus + Grafana** : à déployer sur le **VPS** (compose, stack externe, ou service managé) — plus de manifests `k8s/monitoring/`.
 - **Reste** : centralisation des **logs** (ELK ou Loki) – optionnel pour compléter la Phase 8.
 
 ### 3. Backups (Phase 9) – Juste après la visibilité
@@ -180,16 +182,15 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 - **Prod** : même mécanisme en quotidien ; preprod/dev en hebdomadaire comme dans le plan.
 - **Test de restauration** : prévoir une fois par mois un run en sandbox (namespace dédié ou cluster de test).
 
-### 4. Helm (Phase 5) – Si la spec l’exige
+### 4. Helm (Phase 5) – Optionnel
 
-- Créer un chart qui regroupe backend, frontend, MongoDB, Ingress, ConfigMaps/Secrets (ou références).
-- Remplacer progressivement les `kubectl apply -f k8s/...` par `helm upgrade --install` en dev puis preprod puis prod.
+- Non requis pour le déploiement **VPS** actuel (Docker Compose + Ansible).
 
 ### Résumé “par quoi commencer”
 
-1. ~~Prometheus + Grafana~~ : **fait** (dev / preprod / prod via `k8s/monitoring/`).  
-2. **À faire maintenant** : Backups (MinIO + Restic + CronJob), puis optionnellement ELK/Loki pour les logs.  
-3. **Gains rapides** : E2E multi-navigateurs en CI, versioning sémantique (tags), HPA en preprod.
+1. **Monitoring** : à provisionner sur VPS ou service externe si besoin.  
+2. **À faire maintenant** : Backups (MinIO + Restic + cron sur VPS), puis optionnellement ELK/Loki pour les logs.  
+3. **Gains rapides** : E2E multi-navigateurs en CI, versioning sémantique (tags).
 
 ---
 
@@ -197,8 +198,8 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 
 | Priorité | Action | Détail |
 |----------|--------|--------|
-| **1** | Vérifier le monitoring sur les 3 clusters | Si pas encore fait : déployer le stack (Helm + values-preprod / values-prod) sur **preprod** et **prod**. Vérifier l’accès à Grafana (DNS : grafana.preprod.thetiptop-jeu.fr, grafana.thetiptop-jeu.fr). |
-| **2** | **Backups (Phase 9)** | Déployer MinIO (bucket S3), puis Restic ou un CronJob qui fait un dump MongoDB et l’envoie vers MinIO. Commencer en **dev**, tester une restauration, puis étendre en preprod/prod. |
+| **1** | Monitoring sur VPS | Déployer ou brancher Prometheus/Grafana (ou équivalent) sur les environnements concernés. |
+| **2** | **Backups (Phase 9)** | MinIO + Restic + **cron système ou conteneur** sur le VPS (plus de CronJob Kubernetes). Tester une restauration. |
 | **3** | Logs (optionnel) | Mettre en place ELK ou Loki pour centraliser les logs (complète la Phase 8). |
 | **4** | Gains rapides | E2E multi-navigateurs (Firefox + WebKit) en CI ; tag de version (v1.0.0) sur merge prod ; HPA en preprod. |
   

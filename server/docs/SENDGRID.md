@@ -90,7 +90,7 @@ Pour que l’email de bienvenue soit envoyé **en dev, preprod et prod** à chaq
    - **`SENDGRID_FROM_EMAIL`** : l’email vérifié dans SendGrid (ex. `thetiptopprojectgroup@gmail.com`).
    - **`SENDGRID_FROM_NAME`** (optionnel) : `Thé Tip Top`.
 
-Le workflow CD (`cd-deploy.yml`) injecte ces valeurs dans le secret Kubernetes `backend-secret` à chaque déploiement. Les backends dev, preprod et prod utilisent alors la même clé et le même expéditeur (vous pouvez créer des clés ou expéditeurs différents plus tard si besoin).
+Sur le déploiement **VPS**, ces valeurs sont dans le fichier d’environnement du backend (géré par Ansible / Docker Compose, secrets GitHub `V*_ENV_FILE` selon le workflow). Les environnements peuvent partager la même clé SendGrid ou des clés distinctes.
 
 - **Ne jamais** commiter la clé API dans le dépôt.
 - Pour un domaine dédié (ex. `thetiptop.fr`), configurer **Domain Authentication** dans SendGrid pour améliorer la délivrabilité.
