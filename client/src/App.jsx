@@ -20,6 +20,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import CookieConsent from './components/common/CookieConsent';
+import SeoHead from './components/seo/SeoHead';
 import useAuthStore from './store/authStore';
 
 function ProtectedRoute({ children }) {
@@ -80,6 +81,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <SeoHead />
       <Toaster
         position="top-center"
         toastOptions={{

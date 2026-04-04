@@ -16,9 +16,10 @@ COPY . .
 ARG VITE_API_URL=https://localhost/api
 ENV VITE_API_URL=${VITE_API_URL}
 
-# URL publique du site (sitemap + robots) — un par environnement (vdev / vpreprod / prod)
+# URL publique du site (sitemap + robots + Vite VITE_SITE_URL pour canonical SEO dans le bundle)
 ARG SITE_URL=https://dsp5-archi-o22a-15m-g3.fr
 ENV SITE_URL=${SITE_URL}
+ENV VITE_SITE_URL=${SITE_URL}
 
 # Date YYYY-MM-DD pour <lastmod> (même logique que la CI : dernier commit). Obligatoire ici sans .git.
 ARG LASTMOD_DATE=
