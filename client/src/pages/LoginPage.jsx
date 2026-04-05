@@ -13,6 +13,7 @@ const getAuthUser = () => useAuthStore.getState().user;
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isLoading } = useAuthStore();
@@ -26,14 +27,17 @@ export default function LoginPage() {
   } = useForm();
 
   const onSubmit = async (data) => {
+    setLoginError(null);
     const result = await login(data.email, data.password);
-    
+
     if (result.success) {
       toast.success('Connexion réussie ! 🎉');
       const dest = getAuthUser()?.role === 'admin' ? '/admin' : from;
       navigate(dest, { replace: true });
     } else {
-      toast.error(result.error);
+      const msg = result.error || 'Connexion impossible. Réessayez.';
+      setLoginError(msg);
+      toast.error(msg);
     }
   };
 
@@ -101,6 +105,14 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {loginError && (
+              <div
+                role="alert"
+                className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+              >
+                {loginError}
+              </div>
+            )}
             <Input
               label="Email"
               type="email"
