@@ -18,6 +18,9 @@ permissions:
   issues: write
   actions: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   server-ci:
     name: Server - Tests (Jest)

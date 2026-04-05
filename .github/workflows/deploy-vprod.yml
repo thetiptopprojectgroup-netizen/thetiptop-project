@@ -17,6 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   HARBOR_PROJECT: vprod
   VITE_API_URL: https://dsp5-archi-o22a-15m-g3.fr/api
   SITE_URL: https://dsp5-archi-o22a-15m-g3.fr
