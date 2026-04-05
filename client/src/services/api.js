@@ -38,7 +38,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const reqUrl = String(error.config?.url || '');
+    // 401 sur POST /auth/login = identifiants invalides : ne pas rediriger (sinon le toast d’erreur ne s’affiche pas)
+    const isFailedLogin =
+      status === 401 &&
+      (reqUrl.includes('/auth/login') || reqUrl.endsWith('/login'));
+
+    if (status === 401 && !isFailedLogin) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
