@@ -18,9 +18,6 @@ permissions:
   issues: write
   actions: read
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-
 jobs:
   server-ci:
     name: Server - Tests (Jest)
@@ -31,12 +28,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm install
@@ -85,7 +83,7 @@ jobs:
 
       - name: Checkout
         if: steps.harbor.outputs.configured == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         if: steps.harbor.outputs.configured == 'true'
@@ -180,7 +178,7 @@ jobs:
 
       - name: Commenter sur la PR avec le résultat CI (server)
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -207,7 +205,7 @@ jobs:
       (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/preprod')
     steps:
       - name: Vérifier les 2 CI et créer la PR si vertes
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
