@@ -40,12 +40,16 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const reqUrl = String(error.config?.url || '');
-    // 401 sur POST /auth/login = identifiants invalides : ne pas rediriger (sinon le toast d’erreur ne s’affiche pas)
-    const isFailedLogin =
-      status === 401 &&
-      (reqUrl.includes('/auth/login') || reqUrl.endsWith('/login'));
+    const fullUrl = `${error.config?.baseURL || ''}${reqUrl}`;
+    // Connexion : 401 = identifiants invalides — ne jamais rediriger (sinon rechargement + perte du message)
+    const skip401Redirect =
+      error.config?.skip401Redirect === true ||
+      (status === 401 &&
+        (reqUrl.includes('/auth/login') ||
+          fullUrl.includes('/auth/login') ||
+          reqUrl.endsWith('/login')));
 
-    if (status === 401 && !isFailedLogin) {
+    if (status === 401 && !skip401Redirect) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -57,7 +61,8 @@ api.interceptors.response.use(
 // Services d'authentification
 export const authService = {
   register: (data) => api.post('/auth/register', data),
-  login: (data) => api.post('/auth/login', data),
+  login: (data) =>
+    api.post('/auth/login', data, { skip401Redirect: true }),
   getMe: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/me', data),
   updatePassword: (data) => api.put('/auth/password', data),
