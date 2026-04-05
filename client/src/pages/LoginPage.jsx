@@ -104,7 +104,14 @@ export default function LoginPage() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <form
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSubmit(onSubmit)(e);
+            }}
+            className="space-y-5"
+          >
             {loginError && (
               <div
                 role="alert"
