@@ -7,7 +7,23 @@ http:
       stripPrefix:
         prefixes:
           - "/console"
+    # La racine https://minio…/ ne matche pas PathPrefix(/console) → 404 sans cette redirection
+    minio-redirect-root-to-console:
+      redirectRegex:
+        regex: "^https://minio\\.dsp5-archi-o22a-15m-g3\\.fr/?$"
+        replacement: "https://minio.dsp5-archi-o22a-15m-g3.fr/console/"
+        permanent: false
   routers:
+    minio-root-to-console:
+      rule: "Host(`minio.dsp5-archi-o22a-15m-g3.fr`) && Path(`/`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - minio-redirect-root-to-console
+      service: noop@internal
+      tls:
+        certResolver: le
+      priority: 150
     minio-console-file:
       rule: "Host(`minio.dsp5-archi-o22a-15m-g3.fr`) && PathPrefix(`/console`)"
       entryPoints:

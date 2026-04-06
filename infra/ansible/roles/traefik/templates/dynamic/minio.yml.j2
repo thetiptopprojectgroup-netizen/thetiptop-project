@@ -9,7 +9,26 @@ http:
       stripPrefix:
         prefixes:
           - "/console"
+{% if h_console | length > 0 %}
+    minio-redirect-root-to-console:
+      redirectRegex:
+        regex: "^https://{{ h_console | replace('.', '\\.') }}/?$"
+        replacement: "https://{{ h_console }}/console/"
+        permanent: false
+{% endif %}
   routers:
+{% if h_console | length > 0 %}
+    minio-root-to-console:
+      rule: "Host(`{{ h_console }}`) && Path(`/`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - minio-redirect-root-to-console
+      service: noop@internal
+      tls:
+        certResolver: le
+      priority: 150
+{% endif %}
 {% if console_host | length > 0 %}
     minio-console-file:
       rule: "Host(`{{ console_host }}`) && PathPrefix(`/console`)"
