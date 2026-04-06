@@ -168,6 +168,34 @@
     animation-delay: 500ms;
   }
 
+  /* Hero GIF : vignette forte (bords bien fondus dans le dégradé matcha) */
+  .hero-heroanime {
+    -webkit-mask-image: radial-gradient(
+      circle farthest-corner at 50% 50%,
+      #000 0%,
+      #000 20%,
+      rgba(0, 0, 0, 0.92) 36%,
+      rgba(0, 0, 0, 0.55) 50%,
+      rgba(0, 0, 0, 0.14) 66%,
+      transparent 78%
+    );
+    mask-image: radial-gradient(
+      circle farthest-corner at 50% 50%,
+      #000 0%,
+      #000 20%,
+      rgba(0, 0, 0, 0.92) 36%,
+      rgba(0, 0, 0, 0.55) 50%,
+      rgba(0, 0, 0, 0.14) 66%,
+      transparent 78%
+    );
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
   /* Steam animation for tea cup */
   .steam {
     position: relative;
