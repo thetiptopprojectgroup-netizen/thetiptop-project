@@ -47,6 +47,7 @@ api.interceptors.response.use(
       (status === 401 &&
         (reqUrl.includes('/auth/login') ||
           fullUrl.includes('/auth/login') ||
+          reqUrl.includes('/auth/google/credential') ||
           reqUrl.endsWith('/login')));
 
     if (status === 401 && !skip401Redirect) {
@@ -63,6 +64,12 @@ export const authService = {
   register: (data) => api.post('/auth/register', data),
   login: (data) =>
     api.post('/auth/login', data, { skip401Redirect: true }),
+  loginWithGoogleCredential: (credential) =>
+    api.post(
+      '/auth/google/credential',
+      { credential },
+      { skip401Redirect: true }
+    ),
   getMe: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/me', data),
   updatePassword: (data) => api.put('/auth/password', data),

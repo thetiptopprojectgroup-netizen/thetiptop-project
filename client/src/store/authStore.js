@@ -35,6 +35,25 @@ const useAuthStore = create(
         }
       },
 
+      loginWithGoogleCredential: async (credential) => {
+        set({ error: null });
+        try {
+          const response = await authService.loginWithGoogleCredential(credential);
+          const { user, token } = response.data.data;
+          localStorage.setItem('token', token);
+          set({
+            user,
+            token,
+            isAuthenticated: true,
+          });
+          return { success: true };
+        } catch (error) {
+          const message = error.response?.data?.message || 'Erreur de connexion Google';
+          set({ error: message });
+          return { success: false, error: message };
+        }
+      },
+
       register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
