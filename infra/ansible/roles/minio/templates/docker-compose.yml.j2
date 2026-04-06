@@ -14,7 +14,7 @@ services:
       MINIO_ROOT_PASSWORD: "{{ minio_root_password }}"
 {% if use_traefik %}
       MINIO_SERVER_URL: "https://{{ server_host }}"
-      MINIO_BROWSER_REDIRECT_URL: "https://{{ console_host }}/console"
+      MINIO_BROWSER_REDIRECT_URL: "https://{{ console_host }}/"
 {% endif %}
     volumes:
       - "{{ minio_data_path }}:/data"

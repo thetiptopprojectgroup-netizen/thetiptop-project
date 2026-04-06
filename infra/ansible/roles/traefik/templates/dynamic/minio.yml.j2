@@ -1,45 +1,38 @@
 # Routage MinIO via provider fichier (contourne les soucis Traefik + API Docker sur certains Engine).
-# Backend : conteneur thetiptop-minio sur le réseau Docker « traefik » (même que Traefik).
+# Console sur le host « console » à la racine / (pas /console — évite page blanche du SPA).
 {% set h_console = minio_traefik_hostname | default('') %}
 {% set h_s3 = minio_s3_hostname | default('') %}
-{% set console_host = (h_console if (h_console | length > 0) else h_s3) %}
 http:
   middlewares:
-    minio-console-strip:
-      stripPrefix:
-        prefixes:
-          - "/console"
 {% if h_console | length > 0 %}
-    minio-redirect-root-to-console:
+    minio-legacy-console-redirect:
       redirectRegex:
-        regex: "^https://{{ h_console | replace('.', '\\.') }}/?$"
-        replacement: "https://{{ h_console }}/console/"
+        regex: "^https://{{ h_console | replace('.', '\\.') }}/console.*"
+        replacement: "https://{{ h_console }}/"
         permanent: false
 {% endif %}
   routers:
 {% if h_console | length > 0 %}
-    minio-root-to-console:
-      rule: "Host(`{{ h_console }}`) && Path(`/`)"
+    minio-console-legacy-path:
+      rule: "Host(`{{ h_console }}`) && PathPrefix(`/console`)"
       entryPoints:
         - websecure
       middlewares:
-        - minio-redirect-root-to-console
+        - minio-legacy-console-redirect
       service: noop@internal
       tls:
         certResolver: le
-      priority: 150
+      priority: 200
 {% endif %}
-{% if console_host | length > 0 %}
+{% if h_console | length > 0 %}
     minio-console-file:
-      rule: "Host(`{{ console_host }}`) && PathPrefix(`/console`)"
+      rule: "Host(`{{ h_console }}`)"
       entryPoints:
         - websecure
-      middlewares:
-        - minio-console-strip
       service: minio-console-file-svc
       tls:
         certResolver: le
-      priority: 100
+      priority: 10
 {% endif %}
 {% if h_s3 | length > 0 %}
     minio-s3-file:
@@ -50,25 +43,16 @@ http:
       tls:
         certResolver: le
       priority: 10
-{% elif h_console | length > 0 %}
-    minio-api-single-file:
-      rule: "Host(`{{ h_console }}`)"
-      entryPoints:
-        - websecure
-      service: minio-s3-file-svc
-      tls:
-        certResolver: le
-      priority: 10
 {% endif %}
   services:
-{% if console_host | length > 0 %}
+{% if h_console | length > 0 %}
     minio-console-file-svc:
       loadBalancer:
         passHostHeader: true
         servers:
           - url: "http://thetiptop-minio:9001"
 {% endif %}
-{% if h_s3 | length > 0 or h_console | length > 0 %}
+{% if h_s3 | length > 0 %}
     minio-s3-file-svc:
       loadBalancer:
         passHostHeader: true

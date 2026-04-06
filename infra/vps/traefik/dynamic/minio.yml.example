@@ -1,38 +1,35 @@
 # Référence : le fichier versionné est minio.yml (sans .example).
 # Déploiement sans SSH manuel : push Git → GitHub Actions exécute infra/deploy/apply-traefik-minio-from-app.sh.
+#
+# Console à la racine du host minio (pas /console + StripPrefix → SPA cassée).
+# Les URLs /console/* redirigent vers /.
 
 http:
   middlewares:
-    minio-console-strip:
-      stripPrefix:
-        prefixes:
-          - "/console"
-    minio-redirect-root-to-console:
+    minio-legacy-console-redirect:
       redirectRegex:
-        regex: "^https://minio\\.dsp5-archi-o22a-15m-g3\\.fr/?$"
-        replacement: "https://minio.dsp5-archi-o22a-15m-g3.fr/console/"
+        regex: "^https://minio\\.dsp5-archi-o22a-15m-g3\\.fr/console.*"
+        replacement: "https://minio.dsp5-archi-o22a-15m-g3.fr/"
         permanent: false
   routers:
-    minio-root-to-console:
-      rule: "Host(`minio.dsp5-archi-o22a-15m-g3.fr`) && Path(`/`)"
-      entryPoints:
-        - websecure
-      middlewares:
-        - minio-redirect-root-to-console
-      service: noop@internal
-      tls:
-        certResolver: le
-      priority: 150
-    minio-console-file:
+    minio-console-legacy-path:
       rule: "Host(`minio.dsp5-archi-o22a-15m-g3.fr`) && PathPrefix(`/console`)"
       entryPoints:
         - websecure
       middlewares:
-        - minio-console-strip
+        - minio-legacy-console-redirect
+      service: noop@internal
+      tls:
+        certResolver: le
+      priority: 200
+    minio-console-file:
+      rule: "Host(`minio.dsp5-archi-o22a-15m-g3.fr`)"
+      entryPoints:
+        - websecure
       service: minio-console-file-svc
       tls:
         certResolver: le
-      priority: 100
+      priority: 10
     minio-s3-file:
       rule: "Host(`restic.dsp5-archi-o22a-15m-g3.fr`)"
       entryPoints:

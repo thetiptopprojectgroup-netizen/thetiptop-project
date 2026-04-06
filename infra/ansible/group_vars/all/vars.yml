@@ -31,7 +31,7 @@ minio_root_password: "thetiptop"
 minio_data_path: "/opt/thetiptop/minio/data"
 # HTTPS via Traefik ; isolation vdev / vpreprod / vprod = buckets S3 distincts.
 # DNS : enregistrements A (ou CNAME) vers l’IP publique du VPS :
-#   - minio.dsp5… → console web MinIO (/console/)
+#   - minio.dsp5… → console web MinIO (racine https://minio…/, pas /console)
 #   - restic.dsp5… → API S3 (Restic, clients distants) — voir minio_s3_hostname
 minio_traefik_hostname: "minio.dsp5-archi-o22a-15m-g3.fr"
 minio_s3_hostname: "restic.dsp5-archi-o22a-15m-g3.fr"
