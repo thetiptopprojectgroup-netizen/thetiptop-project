@@ -491,6 +491,117 @@ export const getRemisesLots = async (req, res, next) => {
   }
 };
 
+// @desc    Lots en attente de remise physique (gagné ou demande en ligne — ticket pas encore « reclame »)
+// @route   GET /api/tickets/pending-remises
+export const getPendingLotsForRemise = async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const skip = (page - 1) * limit;
+    const { dateFrom, dateTo, email, firstName, lastName, ticketCode, search } = req.query;
+
+    const collUser = User.collection.collectionName;
+    const collCode = Code.collection.collectionName;
+
+    const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const pipeline = [
+      {
+        $match: {
+          status: { $in: ['won', 'reclaim_requested'] },
+        },
+      },
+      { $lookup: { from: collCode, localField: 'ticket', foreignField: '_id', as: 'tic' } },
+      { $unwind: '$tic' },
+      { $match: { 'tic.etat': 'utilise' } },
+      { $lookup: { from: collUser, localField: 'user', foreignField: '_id', as: 'usr' } },
+      { $unwind: '$usr' },
+      {
+        $addFields: {
+          dateReclamation: { $ifNull: ['$claimedAt', '$createdAt'] },
+        },
+      },
+    ];
+
+    if (search?.trim()) {
+      const rx = new RegExp(esc(search.trim()), 'i');
+      pipeline.push({
+        $match: {
+          $or: [{ 'usr.email': rx }, { 'usr.prenom': rx }, { 'usr.nom': rx }],
+        },
+      });
+    } else {
+      const matchUser = {};
+      if (email?.trim()) matchUser['usr.email'] = new RegExp(esc(email.trim()), 'i');
+      if (firstName?.trim()) matchUser['usr.prenom'] = new RegExp(esc(firstName.trim()), 'i');
+      if (lastName?.trim()) matchUser['usr.nom'] = new RegExp(esc(lastName.trim()), 'i');
+      if (ticketCode?.trim()) {
+        matchUser['tic.code'] = new RegExp(esc(ticketCode.trim().toUpperCase()), 'i');
+      }
+      if (Object.keys(matchUser).length) pipeline.push({ $match: matchUser });
+    }
+
+    if (search?.trim() && ticketCode?.trim()) {
+      pipeline.push({
+        $match: {
+          'tic.code': new RegExp(esc(ticketCode.trim().toUpperCase()), 'i'),
+        },
+      });
+    }
+
+    if (dateFrom || dateTo) {
+      const dr = {};
+      if (dateFrom) dr.$gte = new Date(dateFrom);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        dr.$lte = end;
+      }
+      pipeline.push({ $match: { dateReclamation: dr } });
+    }
+
+    pipeline.push({ $sort: { dateReclamation: -1 } });
+    pipeline.push({
+      $facet: {
+        meta: [{ $count: 'total' }],
+        rows: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              id: '$_id',
+              ticketCode: '$tic.code',
+              clientEmail: '$usr.email',
+              clientPrenom: '$usr.prenom',
+              clientNom: '$usr.nom',
+              prizeName: '$prize.name',
+              prizeValue: '$prize.value',
+              status: '$status',
+              claimedAt: '$claimedAt',
+              claimedMethod: '$claimedMethod',
+              dateReclamation: 1,
+            },
+          },
+        ],
+      },
+    });
+
+    const [agg] = await Participation.aggregate(pipeline);
+    const total = agg?.meta?.[0]?.total ?? 0;
+    const rows = agg?.rows ?? [];
+
+    res.status(200).json({
+      success: true,
+      data: {
+        rows,
+        pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Recherche clients + codes ticket (autocomplétion employés)
 // @route   GET /api/tickets/customers/search
 export const searchCustomers = async (req, res, next) => {
