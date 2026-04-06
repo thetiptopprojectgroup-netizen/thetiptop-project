@@ -35,6 +35,19 @@ const ETAT_LABELS = {
   expire: 'Expiré',
 };
 
+/** type_authentification (User) — affichage admin */
+function inscriptionMethodBadge(type) {
+  switch (type) {
+    case 'google':
+      return { label: 'Google', className: 'bg-blue-50 text-blue-800 border border-blue-100' };
+    case 'facebook':
+      return { label: 'Facebook', className: 'bg-indigo-50 text-indigo-800 border border-indigo-100' };
+    case 'local':
+    default:
+      return { label: 'Site', className: 'bg-cream-100 text-tea-800 border border-cream-200' };
+  }
+}
+
 /** Numéros de page avec ellipses si beaucoup de pages */
 function buildVisiblePages(totalPages, current) {
   if (totalPages <= 1) return [{ type: 'page', n: 1 }];
@@ -836,7 +849,10 @@ export default function AdminPage() {
               <Card.Header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <Card.Title>Gestion des utilisateurs</Card.Title>
-                  <Card.Description>Ajouter, modifier, supprimer les rôles utilisateurs</Card.Description>
+                  <Card.Description>
+                    Inscription : <strong>Site</strong> (e-mail + mot de passe), <strong>Google</strong> ou{' '}
+                    <strong>Facebook</strong> selon le choix du client.
+                  </Card.Description>
                 </div>
                 <Button variant="secondary" leftIcon={<Download className="w-4 h-4" />} onClick={handleExportEmails} size="sm">
                   Exporter CSV
@@ -870,9 +886,10 @@ export default function AdminPage() {
                     <tr className="border-b border-cream-200">
                       <th className="text-left py-3 px-4 font-medium text-tea-600">Utilisateur</th>
                       <th className="text-left py-3 px-4 font-medium text-tea-600">Email</th>
+                      <th className="text-left py-3 px-4 font-medium text-tea-600">Inscription</th>
                       <th className="text-left py-3 px-4 font-medium text-tea-600">Rôle</th>
                       <th className="text-left py-3 px-4 font-medium text-tea-600">Statut</th>
-                      <th className="text-left py-3 px-4 font-medium text-tea-600">Inscription</th>
+                      <th className="text-left py-3 px-4 font-medium text-tea-600">Inscrit le</th>
                       <th className="text-right py-3 px-4 font-medium text-tea-600">Actions</th>
                     </tr>
                   </thead>
@@ -888,6 +905,14 @@ export default function AdminPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-tea-600">{u.email}</td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${inscriptionMethodBadge(u.type_authentification).className}`}
+                            title="Méthode d’inscription du compte"
+                          >
+                            {inscriptionMethodBadge(u.type_authentification).label}
+                          </span>
+                        </td>
                         <td className="py-3 px-4">
                           <select
                             value={u.role}
@@ -907,7 +932,7 @@ export default function AdminPage() {
                             {u.isActive !== false ? 'Actif' : 'Inactif'}
                           </button>
                         </td>
-                        <td className="py-3 px-4 text-tea-500 text-xs">
+                        <td className="py-3 px-4 text-tea-500 text-xs whitespace-nowrap">
                           {u.createdAt ? format(new Date(u.createdAt), 'dd/MM/yyyy', { locale: fr }) : '-'}
                         </td>
                         <td className="py-3 px-4 text-right">
