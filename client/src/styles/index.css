@@ -168,24 +168,32 @@
     animation-delay: 500ms;
   }
 
-  /* Hero GIF : masque radial pour fondre les bords du carré GIF dans le dégradé matcha du hero */
+  /* Hero GIF : vignette jusqu’aux coins (farthest-corner), sinon les angles du rectangle restaient opaques */
   .hero-heroanime {
     -webkit-mask-image: radial-gradient(
-      ellipse 96% 96% at 50% 52%,
+      circle farthest-corner at 50% 50%,
       #000 0%,
-      #000 56%,
-      transparent 90%
+      #000 22%,
+      rgba(0, 0, 0, 0.9) 34%,
+      rgba(0, 0, 0, 0.48) 48%,
+      rgba(0, 0, 0, 0.12) 62%,
+      transparent 74%
     );
     mask-image: radial-gradient(
-      ellipse 96% 96% at 50% 52%,
+      circle farthest-corner at 50% 50%,
       #000 0%,
-      #000 56%,
-      transparent 90%
+      #000 22%,
+      rgba(0, 0, 0, 0.9) 34%,
+      rgba(0, 0, 0, 0.48) 48%,
+      rgba(0, 0, 0, 0.12) 62%,
+      transparent 74%
     );
     -webkit-mask-size: 100% 100%;
     mask-size: 100% 100%;
     -webkit-mask-repeat: no-repeat;
     mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
   }
 
   /* Steam animation for tea cup */
