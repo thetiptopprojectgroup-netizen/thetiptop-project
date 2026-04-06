@@ -62,7 +62,7 @@ jobs:
 
       - name: Build & push client
         env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
           LASTMOD_DATE="$(git log -1 --format=%cs)"
