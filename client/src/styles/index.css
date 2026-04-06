@@ -168,25 +168,25 @@
     animation-delay: 500ms;
   }
 
-  /* Hero GIF : vignette renforcée (bords plus fondus dans le hero) */
+  /* Hero GIF : vignette forte (bords bien fondus dans le dégradé matcha) */
   .hero-heroanime {
     -webkit-mask-image: radial-gradient(
       circle farthest-corner at 50% 50%,
       #000 0%,
-      #000 28%,
-      rgba(0, 0, 0, 0.9) 44%,
-      rgba(0, 0, 0, 0.52) 58%,
-      rgba(0, 0, 0, 0.15) 74%,
-      transparent 86%
+      #000 20%,
+      rgba(0, 0, 0, 0.92) 36%,
+      rgba(0, 0, 0, 0.55) 50%,
+      rgba(0, 0, 0, 0.14) 66%,
+      transparent 78%
     );
     mask-image: radial-gradient(
       circle farthest-corner at 50% 50%,
       #000 0%,
-      #000 28%,
-      rgba(0, 0, 0, 0.9) 44%,
-      rgba(0, 0, 0, 0.52) 58%,
-      rgba(0, 0, 0, 0.15) 74%,
-      transparent 86%
+      #000 20%,
+      rgba(0, 0, 0, 0.92) 36%,
+      rgba(0, 0, 0, 0.55) 50%,
+      rgba(0, 0, 0, 0.14) 66%,
+      transparent 78%
     );
     -webkit-mask-size: 100% 100%;
     mask-size: 100% 100%;
