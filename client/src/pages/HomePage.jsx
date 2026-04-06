@@ -67,6 +67,9 @@ export default function HomePage() {
 
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="relative hidden lg:block">
               <div className="relative w-full aspect-square max-w-lg mx-auto flex items-center justify-center">
+                {/*
+                  Ancienne illustration « tasse » en pur CSS (forme + liquide + vapeur animate-steam + anse + soucoupe).
+                  Conservée en commentaire pour référence ; remplacée par heroanime.gif (boucle native du navigateur, sans fin).
                 <div className="relative">
                   <div className="w-64 h-64 bg-gradient-to-br from-cream-100 to-cream-200 rounded-b-[50%] rounded-t-xl shadow-2xl relative overflow-hidden">
                     <div className="absolute bottom-0 left-0 right-0 h-3/4 bg-gradient-to-b from-gold-300/60 to-gold-500/80" />
@@ -76,8 +79,18 @@ export default function HomePage() {
                   <div className="absolute right-0 top-1/4 w-8 h-20 border-4 border-cream-200 rounded-r-full translate-x-1/2" />
                   <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-72 h-8 bg-gradient-to-b from-cream-100 to-cream-300 rounded-full shadow-lg" />
                 </div>
-                <div className="absolute top-10 left-10 animate-float"><Leaf className="w-12 h-12 text-matcha-300/40" /></div>
-                <div className="absolute bottom-20 right-10 animate-float animate-delay-300"><Leaf className="w-8 h-8 text-gold-300/40" /></div>
+                */}
+                <img
+                  src="/images/imagesite/heroanime.gif"
+                  alt="Animation thé — accessoires et coffret"
+                  className="hero-heroanime relative z-0 w-full max-h-[min(28rem,70vh)] h-auto object-contain select-none pointer-events-none"
+                  width={512}
+                  height={512}
+                  loading="eager"
+                  decoding="async"
+                />
+                <div className="absolute top-10 left-10 animate-float pointer-events-none"><Leaf className="w-12 h-12 text-matcha-300/40" /></div>
+                <div className="absolute bottom-20 right-10 animate-float animate-delay-300 pointer-events-none"><Leaf className="w-8 h-8 text-gold-300/40" /></div>
               </div>
             </motion.div>
           </div>
