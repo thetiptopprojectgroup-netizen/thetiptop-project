@@ -168,25 +168,25 @@
     animation-delay: 500ms;
   }
 
-  /* Hero GIF : vignette un peu plus marquée qu’avant, sans retomber sur l’excès initial */
+  /* Hero GIF : vignette renforcée (bords plus fondus dans le hero) */
   .hero-heroanime {
     -webkit-mask-image: radial-gradient(
       circle farthest-corner at 50% 50%,
       #000 0%,
-      #000 36%,
-      rgba(0, 0, 0, 0.84) 50%,
-      rgba(0, 0, 0, 0.4) 66%,
-      rgba(0, 0, 0, 0.1) 84%,
-      transparent 93%
+      #000 28%,
+      rgba(0, 0, 0, 0.9) 44%,
+      rgba(0, 0, 0, 0.52) 58%,
+      rgba(0, 0, 0, 0.15) 74%,
+      transparent 86%
     );
     mask-image: radial-gradient(
       circle farthest-corner at 50% 50%,
       #000 0%,
-      #000 36%,
-      rgba(0, 0, 0, 0.84) 50%,
-      rgba(0, 0, 0, 0.4) 66%,
-      rgba(0, 0, 0, 0.1) 84%,
-      transparent 93%
+      #000 28%,
+      rgba(0, 0, 0, 0.9) 44%,
+      rgba(0, 0, 0, 0.52) 58%,
+      rgba(0, 0, 0, 0.15) 74%,
+      transparent 86%
     );
     -webkit-mask-size: 100% 100%;
     mask-size: 100% 100%;
