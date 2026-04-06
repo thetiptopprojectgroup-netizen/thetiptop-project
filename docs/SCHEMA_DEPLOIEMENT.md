@@ -28,8 +28,6 @@ flowchart TB
 
 ## 2. À chaque push sur `vdev` — GitHub Actions
 
-Le workflow **CD / vdev** enchaîne des **stades numérotés** : **1a/1b** qualité (tests API, lint + build front) → **2** Harbor → **3** build & push images → **4** VPS → **5** smoke (`/api/health` + page d’accueil) → **6** ouverture éventuelle d’une PR brouillon vers `vpreprod`. Déclenchement aussi possible manuellement (**Actions** → **CD / vdev** → **Run workflow**). L’environnement GitHub **`vdev`** (Deployments) est associé au job de déploiement.
-
 ```mermaid
 flowchart TB
   subgraph PUSH["Déclencheur"]
