@@ -135,7 +135,8 @@ jobs:
              docker compose -f infra/deploy/docker-compose.stack.yml \
                --env-file infra/deploy/env/vpreprod.env \
                up -d --remove-orphans
-             bash infra/deploy/seed-app-users.sh /opt/thetiptop/app infra/deploy/env/vpreprod.env"
+             bash infra/deploy/seed-app-users.sh /opt/thetiptop/app infra/deploy/env/vpreprod.env
+             bash infra/deploy/apply-traefik-minio-from-app.sh /opt/thetiptop/app"
 
   # ---------------------------------------------------------------------------
   # Stage 4 — Ouvre une PR vpreprod → vprod (brouillon) après CD vert.

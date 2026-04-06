@@ -29,11 +29,19 @@ minio_image: "minio/minio:latest"
 minio_root_user: "admin"
 minio_root_password: "thetiptop"
 minio_data_path: "/opt/thetiptop/minio/data"
+# HTTPS via Traefik ; isolation vdev / vpreprod / vprod = buckets S3 distincts.
+# DNS : enregistrements A (ou CNAME) vers l’IP publique du VPS :
+#   - minio.dsp5… → console web MinIO (/console/)
+#   - restic.dsp5… → API S3 (Restic, clients distants) — voir minio_s3_hostname
+minio_traefik_hostname: "minio.dsp5-archi-o22a-15m-g3.fr"
+minio_s3_hostname: "restic.dsp5-archi-o22a-15m-g3.fr"
 minio_buckets:
   - vdev
   - vpreprod
   - vprod
   - vdev-restic
+  - vpreprod-restic
+  - vprod-restic
 
 # Registre Docker : avec Traefik en HTTPS sur harbor_hostname, le pull/push utilise le port 443 (plus besoin d’insecure).
 # Décommenter uniquement si vous forcez encore docker login sur le port HTTP direct (harbor_http_port) :
@@ -58,7 +66,9 @@ harbor_external_url: ""
 restic_install: true
 restic_version: "0.16.4"
 restic_password: "thetiptop"
-# URL S3 style restic ; le bucket doit exister (ex. vdev-restic dans minio_buckets)
+# Restic : un dépôt par environnement (bucket dédié).
+# Sur le VPS (cron) : loopback OK. Depuis l’extérieur ou HTTPS public :
+#   s3:https://restic.dsp5-archi-o22a-15m-g3.fr/vdev-restic
 restic_repository: "s3:http://127.0.0.1:9000/vdev-restic"
 
 

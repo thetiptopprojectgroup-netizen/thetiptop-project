@@ -18,6 +18,19 @@
     mode: "0644"
   when: traefik_harbor_hostname | default('') | length > 0
 
+- name: Route MinIO via fichier (provider file)
+  ansible.builtin.template:
+    src: dynamic/minio.yml.j2
+    dest: "{{ traefik_install_dir }}/dynamic/minio.yml"
+    mode: "0644"
+  when: (minio_traefik_hostname | default('') | length > 0) or (minio_s3_hostname | default('') | length > 0)
+
+- name: Retirer la config dynamique MinIO si aucun host défini
+  ansible.builtin.file:
+    path: "{{ traefik_install_dir }}/dynamic/minio.yml"
+    state: absent
+  when: (minio_traefik_hostname | default('') | length == 0) and (minio_s3_hostname | default('') | length == 0)
+
 - name: Déployer docker-compose Traefik
   ansible.builtin.template:
     src: docker-compose.yml.j2

@@ -1,0 +1,39 @@
+# Déployé automatiquement sur le VPS par GitHub Actions (voir infra/deploy/apply-traefik-minio-from-app.sh).
+# Modifier ce fichier dans Git puis pousser sur vdev / vpreprod / vprod — pas besoin de SSH manuel.
+
+http:
+  middlewares:
+    minio-console-strip:
+      stripPrefix:
+        prefixes:
+          - "/console"
+  routers:
+    minio-console-file:
+      rule: "Host(`minio.dsp5-archi-o22a-15m-g3.fr`) && PathPrefix(`/console`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - minio-console-strip
+      service: minio-console-file-svc
+      tls:
+        certResolver: le
+      priority: 100
+    minio-s3-file:
+      rule: "Host(`restic.dsp5-archi-o22a-15m-g3.fr`)"
+      entryPoints:
+        - websecure
+      service: minio-s3-file-svc
+      tls:
+        certResolver: le
+      priority: 10
+  services:
+    minio-console-file-svc:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://thetiptop-minio:9001"
+    minio-s3-file-svc:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://thetiptop-minio:9000"
