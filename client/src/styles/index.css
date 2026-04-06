@@ -168,25 +168,25 @@
     animation-delay: 500ms;
   }
 
-  /* Hero GIF : vignette jusqu’aux coins (farthest-corner), sinon les angles du rectangle restaient opaques */
+  /* Hero GIF : vignette légère (farthest-corner pour les coins), bords fondus sans manger le centre */
   .hero-heroanime {
     -webkit-mask-image: radial-gradient(
       circle farthest-corner at 50% 50%,
       #000 0%,
-      #000 22%,
-      rgba(0, 0, 0, 0.9) 34%,
-      rgba(0, 0, 0, 0.48) 48%,
-      rgba(0, 0, 0, 0.12) 62%,
-      transparent 74%
+      #000 42%,
+      rgba(0, 0, 0, 0.82) 54%,
+      rgba(0, 0, 0, 0.35) 72%,
+      rgba(0, 0, 0, 0.06) 88%,
+      transparent 96%
     );
     mask-image: radial-gradient(
       circle farthest-corner at 50% 50%,
       #000 0%,
-      #000 22%,
-      rgba(0, 0, 0, 0.9) 34%,
-      rgba(0, 0, 0, 0.48) 48%,
-      rgba(0, 0, 0, 0.12) 62%,
-      transparent 74%
+      #000 42%,
+      rgba(0, 0, 0, 0.82) 54%,
+      rgba(0, 0, 0, 0.35) 72%,
+      rgba(0, 0, 0, 0.06) 88%,
+      transparent 96%
     );
     -webkit-mask-size: 100% 100%;
     mask-size: 100% 100%;
