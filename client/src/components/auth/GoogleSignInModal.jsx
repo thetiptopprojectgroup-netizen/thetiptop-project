@@ -1,101 +1,34 @@
 import { createPortal } from 'react-dom';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import toast from 'react-hot-toast';
-import useAuthStore from '../../store/authStore';
 import { getOAuthStartUrl } from '../../utils/oauth';
-
-const GSI_SCRIPT = 'https://accounts.google.com/gsi/client';
-
-function loadGsiScript() {
-  return new Promise((resolve, reject) => {
-    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
-      resolve();
-      return;
-    }
-    const existing = document.querySelector(`script[src="${GSI_SCRIPT}"]`);
-    if (existing) {
-      if (window.google?.accounts?.id) {
-        resolve();
-        return;
-      }
-      existing.addEventListener('load', () => resolve());
-      existing.addEventListener('error', () => reject(new Error('GSI')));
-      return;
-    }
-    const s = document.createElement('script');
-    s.src = GSI_SCRIPT;
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('GSI'));
-    document.head.appendChild(s);
-  });
-}
+import { ensureGoogleIdentityInitialized } from '../../utils/googleIdentity';
 
 /**
- * Modale type Canva : sélecteur de comptes Google (Google Identity Services) sans quitter la page.
+ * Modale : bouton officiel Google (renderButton). L’initialisation GIS est partagée avec One Tap (utils/googleIdentity).
  */
 export default function GoogleSignInModal({
   open,
   onClose,
-  onSuccess,
   title = 'Connexion avec Google',
   description = 'Choisissez un compte enregistré sur cet appareil.',
 }) {
   const buttonRef = useRef(null);
-  const credentialHandlerRef = useRef(null);
   const [gsiReady, setGsiReady] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  const loginWithGoogleCredential = useAuthStore((s) => s.loginWithGoogleCredential);
-
-  const handleCredential = useCallback(
-    async (response) => {
-      if (!response?.credential) {
-        toast.error('Réponse Google inattendue.');
-        return;
-      }
-      setSubmitting(true);
-      const result = await loginWithGoogleCredential(response.credential);
-      setSubmitting(false);
-      if (result.success) {
-        onSuccess?.();
-        onClose();
-      } else {
-        toast.error(result.error || 'Connexion impossible');
-      }
-    },
-    [loginWithGoogleCredential, onClose, onSuccess]
-  );
-
-  useEffect(() => {
-    credentialHandlerRef.current = handleCredential;
-  }, [handleCredential]);
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   useEffect(() => {
-    if (!clientId) return;
+    if (!open || !clientId) return;
     let cancelled = false;
-    loadGsiScript()
-      .then(() => {
-        if (cancelled || !window.google?.accounts?.id) return;
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: (response) => credentialHandlerRef.current?.(response),
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
-        setGsiReady(true);
-      })
-      .catch(() => {
-        toast.error('Impossible de charger Google.');
-      });
+    (async () => {
+      const ok = await ensureGoogleIdentityInitialized(clientId);
+      if (!cancelled && ok) setGsiReady(true);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [clientId]);
+  }, [open, clientId]);
 
   useEffect(() => {
     if (!open || !gsiReady || !buttonRef.current || !clientId) return;
@@ -149,18 +82,7 @@ export default function GoogleSignInModal({
         <p className="mt-2 text-sm text-tea-600">{description}</p>
 
         <div className="relative mt-6 flex min-h-[48px] flex-col items-center justify-center">
-          <div
-            ref={buttonRef}
-            className={`flex w-full justify-center ${submitting ? 'pointer-events-none opacity-40' : ''}`}
-          />
-          {submitting && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-cream-50/80">
-              <span className="flex items-center gap-2 text-sm font-medium text-tea-700">
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-matcha-600 border-t-transparent" />
-                Connexion…
-              </span>
-            </div>
-          )}
+          <div ref={buttonRef} className="flex w-full justify-center" />
         </div>
 
         <p className="mt-6 text-center text-xs text-tea-500">

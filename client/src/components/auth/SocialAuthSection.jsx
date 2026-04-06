@@ -1,5 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import { getOAuthStartUrl } from '../../utils/oauth';
+import {
+  ensureGoogleIdentityInitialized,
+  promptGoogleOneTap,
+  setGoogleCredentialCallback,
+} from '../../utils/googleIdentity';
+import useAuthStore from '../../store/authStore';
 import GoogleSignInModal from './GoogleSignInModal';
 
 function GoogleMark({ className = 'h-5 w-5' }) {
@@ -40,7 +47,7 @@ function startOAuth(provider) {
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 /**
- * Bloc « connexion sociale » : Google en premier (modale comptes + fallback redirect), Facebook en secondaire.
+ * Bloc « connexion sociale » : One Tap (haut droite) + modale au clic sur Google + Facebook.
  */
 export default function SocialAuthSection({
   googleLabel = 'Continuer avec Google',
@@ -49,6 +56,39 @@ export default function SocialAuthSection({
   onGoogleSuccess,
 }) {
   const [googleModalOpen, setGoogleModalOpen] = useState(false);
+  const loginWithGoogleCredential = useAuthStore((s) => s.loginWithGoogleCredential);
+
+  const handleGoogleCredential = useCallback(
+    async (response) => {
+      if (!response?.credential) return;
+      const result = await loginWithGoogleCredential(response.credential);
+      if (result.success) {
+        setGoogleModalOpen(false);
+        onGoogleSuccess?.();
+      } else {
+        toast.error(result.error || 'Connexion impossible');
+      }
+    },
+    [loginWithGoogleCredential, onGoogleSuccess]
+  );
+
+  useEffect(() => {
+    if (!googleClientId) return undefined;
+
+    setGoogleCredentialCallback(handleGoogleCredential);
+
+    let timeoutId;
+    ensureGoogleIdentityInitialized(googleClientId).then((ok) => {
+      if (ok) {
+        timeoutId = window.setTimeout(() => promptGoogleOneTap(), 800);
+      }
+    });
+
+    return () => {
+      setGoogleCredentialCallback(null);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [googleClientId, handleGoogleCredential]);
 
   const handleGoogleClick = () => {
     if (googleClientId) {
@@ -89,7 +129,6 @@ export default function SocialAuthSection({
         <GoogleSignInModal
           open={googleModalOpen}
           onClose={() => setGoogleModalOpen(false)}
-          onSuccess={onGoogleSuccess}
           title={modalTitle}
           description={modalDescription}
         />
