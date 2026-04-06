@@ -10,6 +10,7 @@ import {
   forgotPassword,
   resetPassword,
   oauthCallback,
+  googleCredentialLogin,
   logout,
   deleteMyAccount,
 } from '../controllers/authController.js';
@@ -63,6 +64,8 @@ router.post('/register', validate(registerValidation), register);
 router.post('/login', validate(loginValidation), login);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
+
+router.post('/google/credential', googleCredentialLogin);
 
 // OAuth Google
 router.get(

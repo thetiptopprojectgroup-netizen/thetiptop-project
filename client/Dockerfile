@@ -16,6 +16,10 @@ COPY . .
 ARG VITE_API_URL=https://localhost/api
 ENV VITE_API_URL=${VITE_API_URL}
 
+# Même valeur que GOOGLE_CLIENT_ID (OAuth web) — Google Identity Services (modale comptes)
+ARG VITE_GOOGLE_CLIENT_ID=
+ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+
 # URL publique du site (sitemap + robots + Vite VITE_SITE_URL pour canonical SEO dans le bundle)
 ARG SITE_URL=https://dsp5-archi-o22a-15m-g3.fr
 ENV SITE_URL=${SITE_URL}
