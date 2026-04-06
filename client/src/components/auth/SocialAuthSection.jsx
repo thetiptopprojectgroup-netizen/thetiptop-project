@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { getOAuthStartUrl } from '../../utils/oauth';
+import GoogleSignInModal from './GoogleSignInModal';
 
 function GoogleMark({ className = 'h-5 w-5' }) {
   return (
@@ -23,7 +25,7 @@ function GoogleMark({ className = 'h-5 w-5' }) {
   );
 }
 
-function FacebookMark({ className = 'h-5 w-5' }) {
+function FacebookMark({ className = 'h-4 w-4' }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="#1877F2" aria-hidden>
       <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
@@ -35,10 +37,27 @@ function startOAuth(provider) {
   window.location.href = getOAuthStartUrl(provider);
 }
 
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
 /**
- * Bloc « connexion sociale » : Google en premier (usage courant), Facebook en secondaire.
+ * Bloc « connexion sociale » : Google en premier (modale comptes + fallback redirect), Facebook en secondaire.
  */
-export default function SocialAuthSection({ googleLabel = 'Continuer avec Google' }) {
+export default function SocialAuthSection({
+  googleLabel = 'Continuer avec Google',
+  modalTitle = 'Connexion avec Google',
+  modalDescription = 'Choisissez un compte enregistré sur cet appareil (comme sur Canva ou Gmail).',
+  onGoogleSuccess,
+}) {
+  const [googleModalOpen, setGoogleModalOpen] = useState(false);
+
+  const handleGoogleClick = () => {
+    if (googleClientId) {
+      setGoogleModalOpen(true);
+    } else {
+      startOAuth('google');
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-cream-200 bg-white/80 p-1 shadow-sm">
@@ -47,7 +66,7 @@ export default function SocialAuthSection({ googleLabel = 'Continuer avec Google
         </p>
         <button
           type="button"
-          onClick={() => startOAuth('google')}
+          onClick={handleGoogleClick}
           className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-[15px] font-semibold text-gray-800 shadow-sm transition hover:border-gray-300 hover:bg-gray-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-matcha-500/30"
           aria-label={googleLabel}
         >
@@ -65,6 +84,16 @@ export default function SocialAuthSection({ googleLabel = 'Continuer avec Google
           </button>
         </div>
       </div>
+
+      {googleClientId && (
+        <GoogleSignInModal
+          open={googleModalOpen}
+          onClose={() => setGoogleModalOpen(false)}
+          onSuccess={onGoogleSuccess}
+          title={modalTitle}
+          description={modalDescription}
+        />
+      )}
     </div>
   );
 }

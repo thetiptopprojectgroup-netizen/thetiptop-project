@@ -104,7 +104,15 @@ export default function RegisterPage() {
           </p>
 
           <div className="mb-8">
-            <SocialAuthSection googleLabel="S'inscrire avec Google" />
+            <SocialAuthSection
+              googleLabel="S'inscrire avec Google"
+              modalTitle="Inscription avec Google"
+              modalDescription="Choisissez un compte Google enregistré sur cet appareil pour créer votre compte."
+              onGoogleSuccess={() => {
+                toast.success('Bienvenue ! 🎉');
+                navigate('/play');
+              }}
+            />
           </div>
 
           {/* Divider */}

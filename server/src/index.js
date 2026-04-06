@@ -64,6 +64,7 @@ const authLimiter = rateLimit({
 
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/google/credential', authLimiter);
 
 // Logging
 if (process.env.NODE_ENV === 'development') {

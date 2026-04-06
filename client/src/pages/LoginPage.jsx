@@ -85,7 +85,16 @@ export default function LoginPage() {
           </p>
 
           <div className="mb-8">
-            <SocialAuthSection googleLabel="Continuer avec Google" />
+            <SocialAuthSection
+              googleLabel="Continuer avec Google"
+              modalTitle="Connexion avec Google"
+              modalDescription="Une fenêtre Google s’affiche : choisissez un compte déjà enregistré sur cet appareil."
+              onGoogleSuccess={() => {
+                toast.success('Connexion réussie ! 🎉');
+                const dest = getAuthUser()?.role === 'admin' ? '/admin' : from;
+                navigate(dest, { replace: true });
+              }}
+            />
           </div>
 
           {/* Divider */}

@@ -1,3 +1,4 @@
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import { generateToken } from '../utils/jwt.js';
 import { AppError } from '../middlewares/errorHandler.js';
@@ -243,6 +244,77 @@ export const resetPassword = async (req, res, next) => {
       success: true,
       message: 'Mot de passe réinitialisé avec succès',
       data: { token: authToken },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Connexion Google (jeton JWT Google Identity Services — modal / bouton « Compte »)
+// @route   POST /api/auth/google/credential
+export const googleCredentialLogin = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.FB_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return next(new AppError('Connexion Google non configurée sur le serveur.', 503));
+    }
+    if (!credential || typeof credential !== 'string') {
+      return next(new AppError('Jeton Google manquant.', 400));
+    }
+
+    const oauth2Client = new OAuth2Client(clientId);
+    let ticket;
+    try {
+      ticket = await oauth2Client.verifyIdToken({
+        idToken: credential,
+        audience: clientId,
+      });
+    } catch {
+      return next(new AppError('Connexion Google invalide ou expirée. Réessayez.', 401));
+    }
+
+    const payload = ticket.getPayload();
+    const googleId = payload.sub;
+    const email = payload.email?.toLowerCase();
+    if (!email) {
+      return next(new AppError('Google n\'a pas fourni d\'email.', 400));
+    }
+
+    let user = await User.findOne({
+      $or: [{ googleId }, { email }],
+    });
+
+    if (user) {
+      if (!user.actif) {
+        return next(new AppError('Votre compte a été désactivé. Contactez l\'administrateur.', 401));
+      }
+      if (!user.googleId) {
+        user.googleId = googleId;
+        user.type_authentification = 'google';
+        await user.save();
+      }
+    } else {
+      user = await User.create({
+        googleId,
+        email,
+        prenom: payload.given_name || email.split('@')[0] || 'Utilisateur',
+        nom: payload.family_name || 'Google',
+        avatar: payload.picture,
+        isEmailVerified: true,
+        type_authentification: 'google',
+        date_consentement: new Date(),
+      });
+    }
+
+    const token = generateToken(user._id);
+    user.date_derniere_connexion = new Date();
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({
+      success: true,
+      message: 'Connexion réussie',
+      data: { user: user.toPublicJSON(), token },
     });
   } catch (error) {
     next(error);
