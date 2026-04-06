@@ -97,6 +97,7 @@ export const employeeService = {
     api.get(`/tickets/customer/${encodeURIComponent(email)}`),
   searchCustomers: (q) => api.get('/tickets/customers/search', { params: { q } }),
   getRemisesLots: (params) => api.get('/tickets/remises', { params }),
+  getPendingLotsForRemise: (params) => api.get('/tickets/pending-remises', { params }),
 };
 
 // Services admin

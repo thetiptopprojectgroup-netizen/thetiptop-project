@@ -12,6 +12,7 @@ import {
   RefreshCw,
   PackageCheck,
   Info,
+  ClipboardList,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -87,6 +88,18 @@ export default function EmployeePage() {
   const [remisePage, setRemisePage] = useState(1);
   const [remisePagination, setRemisePagination] = useState({ total: 0, pages: 1 });
   const [loadingRemises, setLoadingRemises] = useState(false);
+
+  /* --- Lots réclamés (en attente de remise physique) --- */
+  const [pendingFilters, setPendingFilters] = useState({
+    dateFrom: '',
+    dateTo: '',
+    search: '',
+    ticketCode: '',
+  });
+  const [pendingRows, setPendingRows] = useState([]);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [pendingPagination, setPendingPagination] = useState({ total: 0, pages: 1 });
+  const [loadingPending, setLoadingPending] = useState(false);
 
   const loadCustomerByEmail = useCallback(async (email) => {
     if (!email?.trim()) return;
@@ -196,6 +209,7 @@ export default function EmployeePage() {
       if (ticketDetails) await refreshTicketDetails();
       if (searchEmail) loadCustomerByEmail(searchEmail);
       if (activeTab === 'remises') fetchRemises(remisePage);
+      if (activeTab === 'lots-reclames') fetchPending(pendingPage);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Erreur lors de la remise');
     }
@@ -224,12 +238,40 @@ export default function EmployeePage() {
     [remisePage, remiseFilters]
   );
 
+  const fetchPending = useCallback(
+    async (pageOverride) => {
+      const page = pageOverride ?? pendingPage;
+      setLoadingPending(true);
+      try {
+        const { data } = await employeeService.getPendingLotsForRemise({
+          page,
+          limit: 15,
+          ...Object.fromEntries(
+            Object.entries(pendingFilters).filter(([, v]) => v != null && String(v).trim() !== '')
+          ),
+        });
+        setPendingRows(data.data.rows);
+        setPendingPagination(data.data.pagination);
+      } catch (e) {
+        toast.error(e.response?.data?.message || 'Impossible de charger les lots réclamés');
+      } finally {
+        setLoadingPending(false);
+      }
+    },
+    [pendingPage, pendingFilters]
+  );
+
   useEffect(() => {
     if (activeTab === 'remises') fetchRemises();
   }, [activeTab, fetchRemises]);
 
+  useEffect(() => {
+    if (activeTab === 'lots-reclames') fetchPending();
+  }, [activeTab, fetchPending]);
+
   const tabs = [
     { id: 'remise-lot', label: 'Remettre un lot', icon: PackageCheck },
+    { id: 'lots-reclames', label: 'Lots réclamés', icon: ClipboardList },
     { id: 'search-client', label: 'Recherche client', icon: User },
     { id: 'remises', label: 'Lots remis', icon: ListChecks },
   ];
@@ -385,6 +427,158 @@ export default function EmployeePage() {
                 )}
               </Card>
             )}
+          </motion.div>
+        )}
+
+        {activeTab === 'lots-reclames' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <Card>
+              <Card.Header>
+                <Card.Title>Lots réclamés — à remettre</Card.Title>
+                <Card.Description>
+                  Gains <strong>gagnés</strong> ou <strong>demande en ligne</strong> enregistrée, mais pas encore remis
+                  physiquement (ticket encore « utilisé » en boutique). Filtrez par code, client ou date de
+                  réclamation (demande en ligne ou date du gain si pas encore de demande).
+                </Card.Description>
+              </Card.Header>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                <Input
+                  type="date"
+                  label="Réclamation du"
+                  value={pendingFilters.dateFrom}
+                  onChange={(e) => setPendingFilters((f) => ({ ...f, dateFrom: e.target.value }))}
+                />
+                <Input
+                  type="date"
+                  label="au"
+                  value={pendingFilters.dateTo}
+                  onChange={(e) => setPendingFilters((f) => ({ ...f, dateTo: e.target.value }))}
+                />
+                <Input
+                  placeholder="Code ticket (10 car.)"
+                  value={pendingFilters.ticketCode}
+                  onChange={(e) =>
+                    setPendingFilters((f) => ({ ...f, ticketCode: e.target.value.toUpperCase() }))
+                  }
+                  className="font-mono"
+                />
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <Input
+                    placeholder="Nom, prénom ou e-mail du client"
+                    value={pendingFilters.search}
+                    onChange={(e) => setPendingFilters((f) => ({ ...f, search: e.target.value }))}
+                    leftIcon={<Search className="w-5 h-5" />}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-6">
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => {
+                    setPendingPage(1);
+                    fetchPending(1);
+                  }}
+                  leftIcon={<RefreshCw className="w-4 h-4" />}
+                >
+                  Appliquer les filtres
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-cream-200">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-cream-100 text-tea-700">
+                    <tr>
+                      <th className="px-3 py-3 font-medium whitespace-nowrap">Date réclamation</th>
+                      <th className="px-3 py-3 font-medium">Client</th>
+                      <th className="px-3 py-3 font-medium">Email</th>
+                      <th className="px-3 py-3 font-medium font-mono">Ticket</th>
+                      <th className="px-3 py-3 font-medium">Lot</th>
+                      <th className="px-3 py-3 font-medium">Statut</th>
+                      <th className="px-3 py-3 font-medium w-36">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-cream-200 bg-white">
+                    {loadingPending ? (
+                      <tr>
+                        <td colSpan={7} className="px-3 py-8 text-center text-tea-500">
+                          Chargement…
+                        </td>
+                      </tr>
+                    ) : pendingRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-3 py-8 text-center text-tea-500">
+                          Aucun lot en attente de remise avec ces critères.
+                        </td>
+                      </tr>
+                    ) : (
+                      pendingRows.map((row) => (
+                        <tr key={row.id} className="hover:bg-cream-50">
+                          <td className="px-3 py-2 whitespace-nowrap text-tea-800">
+                            {format(new Date(row.dateReclamation), "d MMM yyyy HH:mm", { locale: fr })}
+                          </td>
+                          <td className="px-3 py-2">
+                            {row.clientPrenom} {row.clientNom}
+                          </td>
+                          <td className="px-3 py-2 text-tea-600 break-all">{row.clientEmail}</td>
+                          <td className="px-3 py-2 font-mono text-xs">{row.ticketCode}</td>
+                          <td className="px-3 py-2">
+                            <div className="font-medium text-tea-900">{row.prizeName}</div>
+                            <div className="text-xs text-gold-700">{row.prizeValue}€</div>
+                          </td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${participationStatusInfo(row.status).className}`}
+                            >
+                              {participationStatusInfo(row.status).short}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Button
+                              size="sm"
+                              variant="gold"
+                              onClick={() => handleClaimPrize(row.ticketCode)}
+                            >
+                              Remettre
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {pendingPagination.pages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-cream-200">
+                  <p className="text-sm text-tea-600">
+                    Page {pendingPage} / {pendingPagination.pages} — {pendingPagination.total} ligne(s)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={pendingPage <= 1}
+                      onClick={() => setPendingPage((p) => Math.max(1, p - 1))}
+                      leftIcon={<ChevronLeft className="w-4 h-4" />}
+                    >
+                      Préc.
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={pendingPage >= pendingPagination.pages}
+                      onClick={() => setPendingPage((p) => p + 1)}
+                      rightIcon={<ChevronRight className="w-4 h-4" />}
+                    >
+                      Suiv.
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
           </motion.div>
         )}
 
