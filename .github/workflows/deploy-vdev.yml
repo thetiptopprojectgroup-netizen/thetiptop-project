@@ -1,18 +1,29 @@
 # -----------------------------------------------------------------------------
-# CD — Branche vdev : Harbor → images → VPS
-# Secrets : HARBOR_REGISTRY_BASE, HARBOR_ADMIN_PASSWORD, HARBOR_USERNAME/PASSWORD,
+# CD — Branche vdev (développement déployé)
+#
+# Pipeline (ordre des jobs) :
+#   1a/1b · Qualité — tests API + lint/build front (bloquent le déploiement si KO)
+#   2 · Harbor — projet registry « vdev »
+#   3 · Build & push images (api + client) vers Harbor
+#   4 · VPS — rsync + docker compose + seed
+#   5 · Vérification — smoke (API /api/health + page d’accueil)
+#   6 · PR brouillon vdev → vpreprod (promotion manuelle ensuite)
+#
+# Secrets : HARBOR_REGISTRY_BASE, HARBOR_ADMIN_*, HARBOR_USERNAME/PASSWORD,
 #           VPS_HOST, VPS_SSH_USER, VPS_SSH_KEY,
-#           VDEV_ENV_FILE (ou alias VDEV_ENV) — contenu multiligne de vdev.env ; optionnel : VDEV_ENV_FILE_B64
-#           HARBOR_USERNAME / HARBOR_PASSWORD — aussi utilisés sur le VPS pour docker login avant pull
+#           VDEV_ENV_FILE (ou VDEV_ENV / VDEV_ENV_FILE_B64)
+# Environnement GitHub : créer « vdev » (Deployments) — URL du site ci-dessous.
 # -----------------------------------------------------------------------------
 name: CD / vdev
 
 on:
   push:
     branches: [vdev]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  deployments: write
 
 concurrency:
   group: deploy-vdev
@@ -25,10 +36,67 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Stage 1 — Projet Harbor (API admin, idempotent)
+  # Stade 1 — Qualité (parallèle) : ne pas construire / déployer un code cassé
+  # ---------------------------------------------------------------------------
+  quality-server:
+    name: "1a · Qualité — API (tests Jest)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Unit tests (Jest)
+        run: npm test -- --coverage --passWithNoTests
+
+  quality-client:
+    name: "1b · Qualité — Front (lint + build Vite)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build (même variables que l’image Docker vdev)
+        env:
+          VITE_API_URL: ${{ env.VITE_API_URL }}
+          SITE_URL: ${{ env.SITE_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Stade 2 — Projet Harbor (API admin, idempotent)
   # ---------------------------------------------------------------------------
   harbor-project:
-    name: "1 · Harbor — projet vdev"
+    name: "2 · Harbor — projet vdev"
+    needs: [quality-server, quality-client]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -44,10 +112,10 @@ jobs:
         run: bash infra/scripts/ensure-harbor-project.sh
 
   # ---------------------------------------------------------------------------
-  # Stage 2 — Build & push vers le registre
+  # Stade 3 — Build & push vers le registre
   # ---------------------------------------------------------------------------
   build-and-push:
-    name: "2 · Registry — build & push images"
+    name: "3 · Registry — build & push images"
     needs: [harbor-project]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -86,13 +154,16 @@ jobs:
           docker push "${REGISTRY}/client:${{ github.sha }}"
 
   # ---------------------------------------------------------------------------
-  # Stage 3 — Déploiement sur le VPS
+  # Stade 4 — Déploiement sur le VPS
   # ---------------------------------------------------------------------------
   deploy-vps:
-    name: "3 · VPS — rsync & docker compose"
+    name: "4 · VPS — rsync & docker compose"
     needs: [build-and-push]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: vdev
+      url: https://vdev.dsp5-archi-o22a-15m-g3.fr
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -153,13 +224,48 @@ jobs:
              bash infra/deploy/seed-app-users.sh /opt/thetiptop/app infra/deploy/env/vdev.env"
 
   # ---------------------------------------------------------------------------
-  # Stage 4 — Ouvre une PR vdev → vpreprod (brouillon) après CD vert.
-  # Aucun merge automatique : vous validez sur GitHub (« Ready for review » puis Merge).
-  # Même principe que la PR vpreprod → vprod dans deploy-vpreprod.yml.
+  # Stade 5 — Smoke tests (vérifie que l’URL publique répond après déploiement)
+  # ---------------------------------------------------------------------------
+  verify-deployment:
+    name: "5 · Vérification — smoke (API + site)"
+    needs: [deploy-vps]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Attendre montée des services (Traefik / conteneurs)
+        run: sleep 20
+
+      - name: Health check API (/api/health)
+        run: |
+          set -euo pipefail
+          URL="${{ env.VITE_API_URL }}/health"
+          for i in $(seq 1 12); do
+            if curl -sfS --connect-timeout 15 --max-time 30 "$URL" > /dev/null; then
+              echo "OK — $URL"
+              exit 0
+            fi
+            echo "Tentative $i/12 — nouvel essai dans 15s..."
+            sleep 15
+          done
+          echo "::error::L’API vdev ne répond pas sur $URL après déploiement."
+          exit 1
+
+      - name: Page d’accueil (HTTP 200)
+        run: |
+          CODE=$(curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 15 "${{ env.SITE_URL }}/")
+          if [ "$CODE" != "200" ] && [ "$CODE" != "304" ]; then
+            echo "::error::Site vdev : HTTP $CODE (attendu 200 ou 304)"
+            exit 1
+          fi
+          echo "OK — ${{ env.SITE_URL }}/ → HTTP $CODE"
+
+  # ---------------------------------------------------------------------------
+  # Stade 6 — PR vdev → vpreprod (brouillon) après CD + smoke verts.
+  # Aucun merge automatique : valider sur GitHub (« Ready for review » puis Merge).
   # ---------------------------------------------------------------------------
   promotion-pr:
-    name: "4 · PR promotion → vpreprod"
-    needs: [deploy-vps]
+    name: "6 · PR promotion → vpreprod"
+    needs: [verify-deployment]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -228,7 +334,7 @@ jobs:
               '',
               '---',
               '',
-              '**Ouverture automatique de la PR** seulement (après déploiement vdev réussi) — **pas de fusion automatique**.',
+              '**Ouverture automatique de la PR** seulement (après déploiement + smoke tests vdev réussis) — **pas de fusion automatique**.',
               '',
               `- Run : [CD / vdev](${runUrl})`,
               `- Commit : \`${sha}\``,
