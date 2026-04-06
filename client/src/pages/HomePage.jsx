@@ -83,7 +83,7 @@ export default function HomePage() {
                 <img
                   src="/images/imagesite/heroanime.gif"
                   alt="Animation thé — accessoires et coffret"
-                  className="relative z-0 w-full max-h-[min(28rem,70vh)] h-auto object-contain drop-shadow-2xl select-none pointer-events-none"
+                  className="hero-heroanime relative z-0 w-full max-h-[min(28rem,70vh)] h-auto object-contain select-none pointer-events-none"
                   width={512}
                   height={512}
                   loading="eager"
