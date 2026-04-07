@@ -1,3 +1,8 @@
+{% set h_console = minio_traefik_hostname | default('') %}
+{% set h_s3 = minio_s3_hostname | default('') %}
+{% set use_traefik = (h_console | length > 0) or (h_s3 | length > 0) %}
+{% set server_host = (h_s3 if (h_s3 | length > 0) else h_console) %}
+{% set console_host = (h_console if (h_console | length > 0) else h_s3) %}
 services:
   minio:
     image: {{ minio_image }}
@@ -7,8 +12,29 @@ services:
     environment:
       MINIO_ROOT_USER: "{{ minio_root_user }}"
       MINIO_ROOT_PASSWORD: "{{ minio_root_password }}"
+{% if use_traefik %}
+      MINIO_SERVER_URL: "https://{{ server_host }}"
+      MINIO_BROWSER_REDIRECT_URL: "https://{{ console_host }}/"
+{% endif %}
     volumes:
       - "{{ minio_data_path }}:/data"
+{% if use_traefik %}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+{% else %}
     ports:
       - "9000:9000"
       - "9001:9001"
+{% endif %}
+{% if use_traefik %}
+    networks:
+      - default
+      - {{ minio_traefik_network }}
+{% endif %}
+
+{% if use_traefik %}
+networks:
+  {{ minio_traefik_network }}:
+    external: true
+{% endif %}

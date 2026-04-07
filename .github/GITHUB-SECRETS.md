@@ -62,6 +62,21 @@ Pas de **kubeconfig**. Les secrets typiques sont décrits dans les workflows `de
 
 ---
 
+### MinIO et Restic — **pas de secrets GitHub obligatoires** pour le CD actuel
+
+Les workflows **`deploy-vdev` / `deploy-vpreprod` / `deploy-vprod`** ne lisent **aucun** secret nommé `MINIO_*` ou `RESTIC_*`.
+
+| Sujet | Où sont les « secrets » ? |
+|--------|----------------------------|
+| **Routes Traefik** vers `minio.dsp5…` et `restic.dsp5…` | Fichier versionné **`infra/vps/traefik/dynamic/minio.yml`** + script **`infra/deploy/apply-traefik-minio-from-app.sh`** (exécuté sur le VPS **via SSH déjà configuré** avec `VPS_SSH_KEY`, etc.). |
+| **Identifiants MinIO** (console, API S3) | Définis **sur le VPS** lors du premier déploiement (ex. Ansible `group_vars`, variables d’environnement du conteneur `thetiptop-minio`) — **pas** dans GitHub Actions pour cette chaîne. |
+| **Restic** (mot de passe du dépôt, backups Mongo) | En pratique : **cron / systemd sur le VPS** ou variables locales ; l’ancienne doc `.github/BACKUP-MINIO-RESTIC.md` évoquait des secrets pour d’**anciens** workflows Kubernetes, pas pour les `deploy-v*` actuels. |
+
+**Quand ajouter des secrets GitHub pour MinIO/Restic ?**  
+Seulement si tu crées **un nouveau workflow** Actions qui, depuis les runners GitHub, appelle MinIO ou lance Restic (backup distant). Ce n’est **pas** le cas du déploiement décrit ci‑dessus.
+
+---
+
 ### Base de données et JWT (référence historique / variables serveur)
 
 | Nom du secret          | Utilisé pour |
