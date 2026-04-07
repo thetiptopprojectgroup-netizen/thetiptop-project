@@ -1,0 +1,53 @@
+# Déployé automatiquement sur le VPS par GitHub Actions (voir infra/deploy/apply-traefik-minio-from-app.sh).
+#
+# Console MinIO : tout le host minio.dsp5… → port 9001 (racine /), SANS chemin /console.
+# (Sous /console + StripPrefix, le SPA charge mal les JS/CSS → page blanche.)
+# API S3 : host restic.dsp5… → port 9000.
+
+http:
+  middlewares:
+    minio-legacy-console-redirect:
+      redirectRegex:
+        regex: "^https://minio\\.dsp5-archi-o22a-15m-g3\\.fr/console.*"
+        replacement: "https://minio.dsp5-archi-o22a-15m-g3.fr/"
+        permanent: false
+  routers:
+    # Anciens liens …/console/ → racine (même console)
+    minio-console-legacy-path:
+      rule: "Host(`minio.dsp5-archi-o22a-15m-g3.fr`) && PathPrefix(`/console`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - minio-legacy-console-redirect
+      service: noop@internal
+      tls:
+        certResolver: le
+      priority: 200
+    # Console : tout le trafic sur ce host vers le port console MinIO
+    minio-console-file:
+      rule: "Host(`minio.dsp5-archi-o22a-15m-g3.fr`)"
+      entryPoints:
+        - websecure
+      service: minio-console-file-svc
+      tls:
+        certResolver: le
+      priority: 10
+    minio-s3-file:
+      rule: "Host(`restic.dsp5-archi-o22a-15m-g3.fr`)"
+      entryPoints:
+        - websecure
+      service: minio-s3-file-svc
+      tls:
+        certResolver: le
+      priority: 10
+  services:
+    minio-console-file-svc:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://thetiptop-minio:9001"
+    minio-s3-file-svc:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://thetiptop-minio:9000"

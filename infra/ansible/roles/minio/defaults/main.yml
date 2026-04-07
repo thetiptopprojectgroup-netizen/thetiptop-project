@@ -1,0 +1,7 @@
+---
+# Surchargé par group_vars (ex. group_vars/all/vars.yml)
+minio_traefik_hostname: ""
+# Si renseigné : host dédié API S3 (Restic, mc, SDK). Sinon l’API reste sur minio_traefik_hostname.
+minio_s3_hostname: ""
+# Réseau Docker partagé avec Traefik (créé par le rôle traefik_network)
+minio_traefik_network: traefik

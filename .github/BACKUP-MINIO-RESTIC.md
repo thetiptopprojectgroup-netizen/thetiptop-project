@@ -2,6 +2,21 @@
 
 > **Mise à jour** : les **CronJobs Kubernetes** et le workflow **`run-backup.yml`** ont été supprimés avec le dossier **`k8s/`**. Les backups doivent être planifiés sur le **VPS** (cron, systemd timer, ou conteneur) en s’appuyant sur la même logique **mongodump + restic**. Le texte ci-dessous décrit encore l’ancienne automatisation au push pour référence.
 
+### VPS — MinIO : console vs API S3 (Restic)
+
+Une **même** instance MinIO sert les trois logiques **vdev / vpreprod / vprod** via des **buckets** distincts (`vdev`, `vpreprod`, `vprod`, `*-restic`, etc.).
+
+| DNS | Rôle |
+|-----|------|
+| **`https://minio.dsp5-archi-o22a-15m-g3.fr/console/`** | Console web MinIO (variable Ansible `minio_traefik_hostname`) |
+| **`https://restic.dsp5-archi-o22a-15m-g3.fr`** | **API S3** publique pour Restic / clients (`minio_s3_hostname`) — `MINIO_SERVER_URL` pointe vers ce host |
+
+**DNS :** deux enregistrements **A** (ou CNAME) vers la **même** IP du VPS.
+
+**404 Traefik** (`404 page not found` en HTTPS) : aucune route pour ces hôtes — le routage MinIO est fourni par le **fichier dynamique** Traefik (`dynamic/minio.yml`), généré par le rôle Ansible **traefik**, ou copie manuelle depuis `infra/vps/traefik/dynamic/minio.yml.example`. Le conteneur **`thetiptop-minio`** doit être sur le réseau Docker **`traefik`**.
+
+Restic **sur le VPS** : `s3:http://127.0.0.1:9000/<bucket>` (ports MinIO en `127.0.0.1` uniquement). **Depuis l’extérieur ou en HTTPS** : `s3:https://restic.dsp5-archi-o22a-15m-g3.fr/<bucket>` (ex. `…/vdev-restic`). Configuration : `infra/ansible/group_vars/all/vars.yml` (`minio_traefik_hostname`, `minio_s3_hostname`, `minio_buckets`) et rôle `minio`.
+
 **Sur l’ancien pipeline**, tout était déployé par un push sur la branche concernée (dev, preprod ou prod).
 
 ## Ce qui est en place (automatique au push)
