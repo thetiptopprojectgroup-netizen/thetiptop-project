@@ -1,179 +1,129 @@
-# 📋 Documentation des Workflows CI/CD
+# Documentation des workflows CI/CD
 
-## 🎯 Architecture globale
+## Architecture globale
 
 Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manuels** :
 
-1. **`ci.yml` — CI — Monorepo (server + client)** : **seul** workflow CI déclenché automatiquement sur push/PR pour **`vdev`**, **`vpreprod`**, **`vprod`** (namespaces alignés CD) ainsi que **`dev`**, **`preprod`**, **`prod`**. Ordre des jobs : **1** qualité backend · **1** qualité frontend (parallèle) → **2** image `api` · **2** image `client` + Harbor/Trivy (parallèle) → **3** commentaire PR / PR de promotion.
-2. **`ci-server.yml` / `ci-client.yml`** : conservés en **`workflow_dispatch` uniquement** (relance manuelle ou debug), plus de doublon sur push.
-3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — se déclenchent **après** une exécution **réussie** de `CI — Monorepo` sur un **push** vers `vdev` / `vpreprod` / `vprod` (événement `workflow_run`), ou via **`workflow_dispatch`**. Plus de déploiement sur un simple push sans CI verte. **Important** : la version des fichiers workflow utilisée pour le `workflow_run` est celle de la **branche par défaut** du dépôt — gardez-y les mêmes définitions à jour.
-4. **Create promotion PR (manual)** : secours si la PR automatique n’a pas été créée.
+1. **`ci.yml` — CI — Monorepo (server + client)** : seul workflow CI déclenché automatiquement sur push/PR pour **`vdev`**, **`vpreprod`**, **`vprod`**. Ordre des jobs : **1** qualité backend · **1** qualité frontend (parallèle) → **2** image `api` · **2** image `client` + Harbor/Trivy (parallèle) → **3** commentaire PR / PR de promotion.
+2. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push sur la branche correspondante (ou `workflow_run` / manuel selon le fichier).
+3. **Create promotion PR (manual)** : secours si la PR automatique n’a pas été créée (`vdev` → `vpreprod`, `vpreprod` → `vprod`).
 
-**Harbor (CI)** : même convention que les `deploy-v*.yml` — secret **`HARBOR_REGISTRY_BASE`** (hôte seul), projets **`vdev` / `vpreprod` / `vprod`** (ou équivalent pour `dev`/`preprod`/`prod`), images **`api`** et **`client`** taguées par le SHA du commit.
+**Harbor (CI)** : secret **`HARBOR_REGISTRY_BASE`**, projets **`vdev` / `vpreprod` / `vprod`**, images **`api`** et **`client`** taguées par le SHA du commit.
 
-**Scan Trivy dans Harbor** : si l’API renvoie `no available scanner` / `PRECONDITION`, c’est que **aucun scanner n’est branché** sur le projet Harbor — la CI **reste verte** ; configure un scanner sous **Harbor → Administration → Scanners** (ou ignore l’étape).
+**Scan Trivy dans Harbor** : si l’API renvoie `no available scanner` / `PRECONDITION`, configure un scanner sous **Harbor → Administration → Scanners** (ou ignore l’étape) — la CI reste verte.
 
 ### Conventions Git
 
-- **Messages de commit** : en **français**, forme claire (ex. « corrige la sonde Harbor », « ajoute le verrouillage CD après CI »).
+- **Messages de commit** : en **français**, forme claire.
 
 ---
 
-## 🌳 Flux par branche
+## Flux par branche (`vdev` / `vpreprod` / `vprod`)
 
-### 🔵 Branches `vdev` ou `dev` (développement)
+### Branche `vdev` (développement)
 
-**Déclenchement** : `git push origin vdev` (ou `dev`)
+**Déclenchement** : `git push origin vdev`
 
-**Pipeline** : **`CI — Monorepo`** — sur `vdev`/`dev` : lint/tests complets (si scripts présents), build client, puis images Docker `api` + `client`.
+**Pipeline** : **`CI — Monorepo`** — lint/tests complets (si scripts présents), build client, puis images Docker `api` + `client`.
 
-**Résultat** :
-- Si tout est vert → **PR automatique** `vdev` → `vpreprod` ou `dev` → `preprod` (selon la branche).
-
----
-
-### 🟡 Branches `vpreprod` ou `preprod`
-
-**Déclenchement** : push ou merge sur `vpreprod` / `preprod`
-
-**Pipeline** : suite qualité **allégée** (pas de lint/tests complets sauf sur `vdev`/`dev`), build + images Docker.
-
-**Résultat** :
-- Si tout est vert → **PR automatique** `vpreprod` → `vprod` ou `preprod` → `prod` (**brouillon** sauf promotion depuis `vdev`/`dev`).
+**Résultat** : si tout est vert → **PR automatique** `vdev` → `vpreprod` (non brouillon).
 
 ---
 
-### 🔴 Branches `vprod` ou `prod`
+### Branche `vpreprod`
 
-**Déclenchement** : push sur `vprod` / `prod`
+**Déclenchement** : push ou merge sur `vpreprod`
 
-**Pipeline** : même logique « allégée » + images ; **aucune** PR de promotion automatique (fin du flux).
+**Pipeline** : suite qualité **allégée** (lint/tests complets surtout sur `vdev`), build + images Docker.
+
+**Résultat** : si tout est vert → **PR automatique** `vpreprod` → `vprod` (**brouillon**).
 
 ---
 
-## 🔍 Détail des jobs CI (`ci.yml`)
+### Branche `vprod`
+
+**Déclenchement** : push sur `vprod`
+
+**Pipeline** : même logique allégée + images ; **aucune** PR de promotion automatique (fin du flux).
+
+---
+
+## Détail des jobs CI (`ci.yml`)
 
 | Job | Rôle |
 |-----|------|
-| `server-quality` | `npm ci`, lint (`--if-present`), Jest + couverture sur `vdev`/`dev` (et PR vers ces bases) |
-| `client-quality` | `npm ci`, lint/tests/E2E si présents dans `package.json`, build Vite |
+| `server-quality` | `npm ci`, lint (`--if-present`), Jest + couverture sur `vdev` (et PR vers `vdev`) |
+| `client-quality` | `npm ci`, lint/tests/E2E si présents, build Vite |
 | `server-docker` | Build/push **`{HARBOR_REGISTRY_BASE}/{projet}/api:SHA`**, scan Harbor |
 | `client-docker` | Build/push **`…/client:SHA`** avec URLs Vite alignées CD |
 | `notify-pr` | Commentaire de synthèse sur les PR |
-| `create-promotion-pr` | PR `vdev→vpreprod`, `vpreprod→vprod`, `dev→preprod`, `preprod→prod` |
-
-## 🔄 Promotion automatique
-
-Un seul job **`create-promotion-pr`** dans **`ci.yml`**, après succès des jobs qualité + Docker. Plus de double workflow Server/Client.
+| `create-promotion-pr` | PR `vdev→vpreprod`, `vpreprod→vprod` |
 
 ---
 
-## ⚙️ Configuration requise
+## Promotion automatique
+
+Un seul job **`create-promotion-pr`** dans **`ci.yml`**, après succès des jobs qualité + Docker.
+
+---
+
+## Configuration requise
 
 ### Secrets GitHub
 
 ```yaml
-HARBOR_REGISTRY_BASE: harbor.example.com   # hôte seul, comme pour deploy-v*.yml
+HARBOR_REGISTRY_BASE: harbor.example.com
 HARBOR_USERNAME: robot$thetiptop
 HARBOR_PASSWORD: ***
-# Optionnel (anciens dépôts) : HARBOR_REGISTRY si BASE absent
 ```
 
 ### Permissions GitHub Actions
 
 Dans **Settings → Actions → General → Workflow permissions** :
-- ✅ Read and write permissions
-- ✅ Allow GitHub Actions to create and approve pull requests
+
+- Read and write permissions
+- Allow GitHub Actions to create and approve pull requests
 
 ---
 
-## 🚀 Utilisation quotidienne
+## Utilisation quotidienne
 
-### Développement normal (branche `vdev`)
+### Développement (`vdev`)
 
 ```bash
 git checkout vdev
 git pull
 git commit -am "feat: …"
 git push origin vdev
-
-# → Workflow « CI — Monorepo (server + client) »
-# → Si tout est vert : PR vdev → vpreprod (brouillon : non)
+# → CI Monorepo ; si vert : PR vdev → vpreprod
 ```
 
-Même principe avec la branche **`dev`** (PR vers **`preprod`**).
+### Promotion vers `vpreprod` puis `vprod`
 
-### Promotion vers preprod
-
-```bash
-# Merger la PR dev→preprod sur GitHub
-# → CI Server + CI Client se lancent (version allégée)
-# → Si tout est vert, PR preprod→prod créée automatiquement (draft)
-```
-
-### Mise en production
-
-```bash
-# 1. Convertir la PR preprod→prod de draft à ready
-# 2. Merger la PR preprod→prod sur GitHub
-# → CI Server + CI Client se lancent (version allégée)
-# → Images Docker taguées "prod"
-```
+Merger les PR sur GitHub dans l’ordre : **vdev → vpreprod**, puis **vpreprod → vprod** (valider le draft).
 
 ---
 
-## 🐛 Dépannage
+## Dépannage
 
 ### Les CD ne créent pas de PR
 
-**Symptôme** : CI vertes mais pas de PR créée
-
-**Solutions** :
-1. Vérifier que les 2 CI (Server + Client) sont bien vertes
-2. Vérifier les logs des workflows CD - Server et CD - Client
-3. Vérifier les permissions GitHub Actions (voir Configuration)
-
-### Les tests E2E prennent trop de temps
-
-**Optimisations appliquées** :
-- ✅ Cache des navigateurs Playwright
-- ✅ Exécution Chromium uniquement en CI (au lieu de 3 navigateurs)
-- ✅ Retries réduits à 1 en CI (au lieu de 2)
+1. Vérifier que les jobs CI sont verts
+2. Permissions GitHub Actions (création de PR)
+3. Workflow manuel **Create promotion PR** si besoin
 
 ### Harbor non configuré
 
-Si les secrets Harbor ne sont pas définis :
-- Les jobs Docker sont skippés automatiquement
-- Les CI restent vertes
-- Aucun impact sur les promotions
+Les jobs Docker sont ignorés ; le reste de la CI peut rester vert.
 
 ---
 
-## 📊 Temps d'exécution moyens
+## Bonnes pratiques
 
-| Pipeline | dev | preprod/prod |
-|----------|-----|--------------|
-| CI - Server | ~3-5 min | ~2-3 min |
-| CI - Client | ~5-8 min | ~2-3 min |
-| CD - Server | ~30 sec | ~30 sec |
-| CD - Client | ~30 sec | ~30 sec |
+1. Éviter les pushes directs sur `vpreprod` / `vprod` si votre équipe impose les PR.
+2. Attendre la CI verte avant de merger les PR de promotion.
+3. Revue de code pour `vpreprod` → `vprod`.
 
 ---
 
-## 🎯 Bonnes pratiques
-
-1. **Ne jamais push directement sur `preprod` ou `prod`**
-   - Toujours passer par les PR automatiques
-
-2. **Attendre que les 2 CI soient vertes avant de merger**
-   - Les PR sont créées automatiquement quand c'est le cas
-
-3. **Revue de code obligatoire pour preprod→prod**
-   - La PR est en draft pour forcer une validation manuelle
-
-4. **Tester en preprod avant prod**
-   - Environnement identique à la production
-
----
-
-_Dernière mise à jour : 2026-02-25_
+_Dernière mise à jour : 2026-04_

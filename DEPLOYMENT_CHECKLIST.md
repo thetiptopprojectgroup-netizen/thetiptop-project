@@ -114,7 +114,7 @@ Secrets utilisés par **`deploy-vdev.yml`** (noms exacts) :
 2. **build-and-push** — `docker build` API + client (build-args `VITE_*`, `SITE_URL`, …) ; push vers `${HARBOR_REGISTRY_BASE}/vdev/...:${{ github.sha }}`
 3. **deploy-vps** — SSH : écrit `vdev.env`, `rsync` vers `/opt/thetiptop/app`, `docker login`, `docker compose -f infra/deploy/docker-compose.stack.yml … up -d`, scripts seed utilisateurs si prévus
 
-> Les workflows **`ci-client.yml`** / **`ci-server.yml`** gèrent lint/tests sur push/PR ; ils ne sont pas listés comme étapes du job CD ci-dessus.
+> Le workflow **`ci.yml`** (CI Monorepo) gère lint/tests et images sur push/PR vers `vdev` / `vpreprod` / `vprod` ; il n’est pas détaillé comme étapes du job CD ci-dessus.
 
 ---
 

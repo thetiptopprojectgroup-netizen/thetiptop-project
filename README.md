@@ -250,56 +250,15 @@ L'application est optimisée pour :
 
 ## 🧪 CI/CD & Plan de travail
 
-### PHASE 2 – Intégration continue (GitHub Actions)
+### Intégration continue (GitHub Actions)
 
-**CI Client (frontend) – `.github/workflows/ci-client.yml`**
+- **` .github/workflows/ci.yml`** — **CI Monorepo** : à chaque push / PR sur **`vdev`**, **`vpreprod`**, **`vprod`**, qualité backend + frontend (lint, tests sur `vdev`), build, images Docker **`api`** et **`client`** vers Harbor, PR de promotion automatiques (`vdev`→`vpreprod`, `vpreprod`→`vprod`).
+- **` .github/workflows/deploy-vdev.yml`** (et **`deploy-vpreprod.yml`**, **`deploy-vprod.yml`**) — déploiement VPS après CI / push sur la branche cible.
+- **` .github/workflows/create-promotion-pr.yml`** — création manuelle d’une PR de promotion si besoin.
 
-- [x] **Pipeline CI client déclenché à chaque push ou Pull Request** sur `dev`, `preprod`, `prod`.
-- [x] **Installation des dépendances** client avec **cache npm intelligent** (Node 22, cache npm sur `client/package-lock.json`).
-- [x] **Lint du code frontend** via `npm run lint`.
-- [x] **Tests unitaires & composants (Jest + React Testing Library) côté client** avec exemple de test sur `Button`.
-- [x] **Tests E2E multi-navigateurs (Playwright : Chromium, Firefox, WebKit)** configurés avec un scénario de base sur la home.
-- [x] **Vérification stricte de la couverture > 80% côté client** via `coverageThreshold` Jest + job dédié dans la CI.
-- [x] **Build applicatif frontend** via `npm run build`.
-- [x] **Build Docker multi-stage frontend + push Harbor** (`client/Dockerfile`, image `.../thetiptop/frontend:${GITHUB_SHA}`). 
-- [x] **Préparation scan sécurité Harbor** (job dédié, intégration API Harbor à finaliser).
-- [x] **Notifications CI client** via commentaire automatique sur les Pull Requests (status global lint/tests/E2E/build/Docker/scan).
+Détails : **` .github/workflows/README.md`**.
 
-**CI Server (backend) – `.github/workflows/ci-server.yml`**
-
-- [x] **Pipeline CI server déclenché à chaque push ou Pull Request** sur `dev`, `preprod`, `prod`.
-- [x] **Installation des dépendances** backend avec **cache npm intelligent** (Node 20, cache npm sur `server/package-lock.json`).
-- [x] **Lint du code backend** via ESLint (`npm run lint`) avec configuration StandardJS.
-- [x] **Tests unitaires backend (Jest)** via `npm test -- --coverage`.
-- [x] **Vérification stricte de la couverture > 80% côté backend** via job dédié dans la CI (coverageThreshold).
-- [x] **Build Docker multi-stage backend + push Harbor** (`server/Dockerfile`, image `.../thetiptop/backend:${GITHUB_SHA}`). 
-- [x] **Préparation scan sécurité Harbor** (job dédié, intégration API Harbor à finaliser).
-- [x] **Notifications CI server** via commentaire automatique sur les Pull Requests (status global lint/tests/Docker/scan).
-
-### Stratégie de branches & CD
-
-**CD Server – `.github/workflows/cd-server.yml`**
-
-- [x] **Workflow CD backend séparé** déclenché à chaque push sur la branche `dev`.
-- [x] **Création automatique de PR backend** de `dev` vers `preprod` (non brouillon) et de `dev` vers `prod` (PR brouillon) pour contrôler la promotion.
-
-**CD Client – `.github/workflows/cd-client.yml`**
-
-- [x] **Job de préparation des artefacts frontend** (installation + `npm run build` sur `dev`).
-- [ ] **Déploiement réel du frontend** vers l’hébergement cible (VPS/DigitalOcean/CDN) – sera mis en place lors de la phase hébergement.
-
-- [ ] **Configuration environnementale hébergement (DigitalOcean / VPS / Harbor réel / monitoring Grafana-Kibana-ELK)** – à réaliser avec ton intervention pour les accès et secrets.
-
-> Remarque : la qualité des jobs CI/CD dépendra aussi de la présence des scripts `npm` correspondants (`lint`, `test`, `test:e2e`, `build`) dans `client` et `server`. Le pipeline est prêt à les consommer.
-│   │   ├── middlewares/   # Middlewares (auth, validation)
-│   │   ├── models/        # Modèles Mongoose
-│   │   ├── routes/        # Routes API
-│   │   ├── scripts/       # Scripts utilitaires
-│   │   └── utils/         # Utilitaires
-│   └── ...
-├── docker-compose.yml      # Configuration Docker
-└── README.md
-```
+> Les scripts `npm` (`lint`, `test`, `test:e2e`, `build`) dans `client` et `server` sont consommés par `ci.yml` lorsqu’ils sont présents.
 
 ## 🚀 Installation
 
