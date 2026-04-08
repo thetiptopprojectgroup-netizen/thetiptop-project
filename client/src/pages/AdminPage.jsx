@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   BarChart3, Users, Ticket, Gift, Trophy, Download, Store,
-  Search, RefreshCw, AlertCircle, CheckCircle, Clock, Plus,
+  Search, RefreshCw, AlertCircle, Clock, Plus,
   Edit3, Trash2, ChevronLeft, ChevronRight,
   Settings, CalendarDays, Percent, UserPlus, MapPin,   ListOrdered,
   PackageCheck,

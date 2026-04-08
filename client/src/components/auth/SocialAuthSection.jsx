@@ -88,7 +88,7 @@ export default function SocialAuthSection({
       setGoogleCredentialCallback(null);
       if (timeoutId) window.clearTimeout(timeoutId);
     };
-  }, [googleClientId, handleGoogleCredential]);
+  }, [handleGoogleCredential]);
 
   const handleGoogleClick = () => {
     if (googleClientId) {

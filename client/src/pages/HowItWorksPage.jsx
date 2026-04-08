@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Gift, Star, Trophy, ShoppingCart, Ticket, PartyPopper, ArrowRight, CheckCircle, Clock, Store } from 'lucide-react';
+import { Star, Trophy, ShoppingCart, Ticket, PartyPopper, ArrowRight, CheckCircle, Store } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 

@@ -9,13 +9,15 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branche source (preprod = PR preprod→prod, dev = PR dev→preprod)'
+        description: 'Branche source (promotion vers la branche suivante dans le flux)'
         required: true
         type: choice
         options:
-          - preprod
+          - vdev
+          - vpreprod
           - dev
-        default: 'preprod'
+          - preprod
+        default: 'vpreprod'
 
 permissions:
   contents: read
@@ -32,7 +34,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const branch = '${{ github.event.inputs.branch }}';
-            const base = branch === 'dev' ? 'preprod' : 'prod';
+            let base;
+            if (branch === 'vdev') base = 'vpreprod';
+            else if (branch === 'vpreprod') base = 'vprod';
+            else if (branch === 'dev') base = 'preprod';
+            else if (branch === 'preprod') base = 'prod';
+            else { core.setFailed('Branche non gérée'); return; }
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
@@ -46,15 +53,14 @@ jobs:
               return;
             }
 
-            const title = branch === 'dev' ? '🚀 Promotion dev → preprod' : '🎯 Promotion preprod → prod';
-            const body = branch === 'dev'
-              ? 'Promotion automatique (création manuelle). CI Server et Client à vérifier sur `dev`.'
-              : 'Mise en production (création manuelle). CI Server et Client à vérifier sur `preprod`.';
+            const titles = { vdev: '🚀 Promotion vdev → vpreprod', vpreprod: '🎯 Promotion vpreprod → vprod', dev: '🚀 Promotion dev → preprod', preprod: '🎯 Promotion preprod → prod' };
+            const title = titles[branch] || 'Promotion';
+            const body = `PR créée manuellement (Actions). Vérifier la CI Monorepo sur \`${branch}\`.`;
 
             try {
               const { data: pr } = await github.rest.pulls.create({
                 owner, repo, head: branch, base, title, body,
-                draft: branch !== 'dev'
+                draft: !(branch === 'vdev' || branch === 'dev')
               });
               core.info('PR créée : #' + pr.number + ' ' + pr.html_url);
             } catch (err) {
