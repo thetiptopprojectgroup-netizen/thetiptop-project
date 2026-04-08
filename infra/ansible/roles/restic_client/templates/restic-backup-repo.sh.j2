@@ -42,16 +42,20 @@ if [[ -z "$MONGO_IP" ]]; then
   exit 1
 fi
 
-log "mongodump vers $DUMP_FILE"
-mongodump \
-  --host "$MONGO_IP" \
-  --port 27017 \
-  --username "$MONGO_USER" \
-  --password "$MONGO_PASSWORD" \
-  --authenticationDatabase "$MONGO_AUTH_DB" \
-  --db "$MONGO_DB" \
-  --archive="$DUMP_FILE" \
-  --gzip
+log "mongodump via conteneur mongo:7.0 vers $DUMP_FILE"
+docker run --rm \
+  --network "${COMPOSE_PROJECT_NAME}_internal" \
+  -v "$BACKUP_ROOT:/backup" \
+  mongo:7.0 \
+  bash -lc "mongodump \
+    --host '$MONGO_IP' \
+    --port 27017 \
+    --username '$MONGO_USER' \
+    --password '$MONGO_PASSWORD' \
+    --authenticationDatabase '$MONGO_AUTH_DB' \
+    --db '$MONGO_DB' \
+    --archive='/backup/mongodump-$TS.archive.gz' \
+    --gzip"
 
 # Conserver les 30 derniers dumps par environnement pour éviter la croissance infinie.
 ls -1t "$BACKUP_ROOT"/mongodump-*.archive.gz 2>/dev/null | tail -n +31 | xargs -r rm -f

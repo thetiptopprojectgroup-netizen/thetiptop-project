@@ -3,7 +3,6 @@
   ansible.builtin.apt:
     name:
       - bzip2
-      - mongodb-database-tools
     state: present
   when: restic_install | default(true)
 
