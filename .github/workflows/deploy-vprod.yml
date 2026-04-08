@@ -170,7 +170,7 @@ jobs:
     name: "3 · VPS — rsync & docker compose (prod)"
     needs: [build-and-push]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     environment:
       name: ${{ vars.PRODUCTION_ENVIRONMENT }}
       url: https://dsp5-archi-o22a-15m-g3.fr
