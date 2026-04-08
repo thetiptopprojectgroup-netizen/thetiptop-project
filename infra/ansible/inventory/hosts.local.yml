@@ -1,0 +1,13 @@
+---
+# Inventaire quand ansible-playbook tourne **sur le VPS** (évite SSH root@212… vers soi-même).
+# Ex. : cd /opt/thetiptop/app/infra/ansible && ansible-playbook site.yml -i inventory/hosts.local.yml --tags restic
+#
+# Depuis ton PC (WSL) : utiliser inventory/hosts.yml + clé SSH.
+all:
+  children:
+    vps:
+      hosts:
+        thetiptop-vps:
+          ansible_host: localhost
+          ansible_connection: local
+          ansible_python_interpreter: /usr/bin/python3

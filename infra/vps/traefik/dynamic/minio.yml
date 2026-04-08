@@ -8,7 +8,8 @@ http:
   middlewares:
     minio-legacy-console-redirect:
       redirectRegex:
-        regex: "^https://minio\\.dsp5-archi-o22a-15m-g3\\.fr/console.*"
+        # Guillemets simples : sinon YAML interprète \. comme échappement invalide → fichier ignoré par Traefik (404).
+        regex: '^https://minio\.dsp5-archi-o22a-15m-g3\.fr/console.*'
         replacement: "https://minio.dsp5-archi-o22a-15m-g3.fr/"
         permanent: false
   routers:

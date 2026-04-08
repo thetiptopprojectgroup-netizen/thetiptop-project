@@ -42,6 +42,15 @@
     state: absent
   when: restic_install | default(true)
 
+- name: Retirer anciens crons Restic avec heure dans le nom (remplacés par noms stables)
+  ansible.builtin.cron:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - thetiptop restic backup mercredi 13h30
+    - thetiptop restic backup vendredi 12h00
+  when: restic_install | default(true)
+
 - name: Cron sauvegardes Restic (planning hebdomadaire)
   ansible.builtin.cron:
     name: "{{ item.name }}"
