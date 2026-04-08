@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import Button from '../common/Button';
 import useGameStore from '../../store/gameStore';
 import Confetti from './Confetti';
+import { telemetryService } from '../../services/api';
 
 export default function TicketValidator() {
   const [code, setCode] = useState('');
@@ -31,8 +32,22 @@ export default function TicketValidator() {
     e.preventDefault();
     if (code.length !== 10) return;
 
+    const startedAtMs = performance.now();
+    telemetryService
+      .trackPlayButton({ event: 'click', page: 'play' })
+      .catch(() => {});
+
     setStep('validating');
     const result = await validateTicket(code);
+    const durationSeconds = (performance.now() - startedAtMs) / 1000;
+    telemetryService
+      .trackPlayButton({
+        event: 'result',
+        page: 'play',
+        outcome: result.success ? 'success' : 'failure',
+        durationSeconds,
+      })
+      .catch(() => {});
 
     if (result.success) {
       setStep('won');

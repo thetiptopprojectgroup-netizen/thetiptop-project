@@ -75,6 +75,28 @@ const grandPrizeDrawTotal = new client.Counter({
   registers: [register],
 });
 
+const playButtonClicksTotal = new client.Counter({
+  name: 'thetiptop_play_button_clicks_total',
+  help: 'Play button clicks from the play page',
+  labelNames: ['page'],
+  registers: [register],
+});
+
+const playButtonOutcomesTotal = new client.Counter({
+  name: 'thetiptop_play_button_outcomes_total',
+  help: 'Outcome after clicking the play button',
+  labelNames: ['page', 'outcome'],
+  registers: [register],
+});
+
+const playButtonToResultSeconds = new client.Histogram({
+  name: 'thetiptop_play_button_to_result_seconds',
+  help: 'Time from play button click to validation result',
+  labelNames: ['page', 'outcome'],
+  buckets: [0.1, 0.25, 0.5, 1, 2, 3, 5, 8, 13],
+  registers: [register],
+});
+
 const normalizePath = (pathValue) => {
   if (!pathValue) return '/unknown';
   return pathValue
@@ -151,6 +173,24 @@ export const recordNewsletterAction = (action, outcome) => {
 
 export const recordGrandPrizeDraw = (outcome) => {
   grandPrizeDrawTotal.inc({ outcome });
+};
+
+export const recordPlayButtonClick = (page = 'play') => {
+  playButtonClicksTotal.inc({ page });
+};
+
+export const recordPlayButtonOutcome = (page = 'play', outcome = 'unknown') => {
+  playButtonOutcomesTotal.inc({ page, outcome });
+};
+
+export const observePlayButtonToResult = (
+  page = 'play',
+  outcome = 'unknown',
+  durationSeconds = 0
+) => {
+  if (Number.isFinite(durationSeconds) && durationSeconds >= 0) {
+    playButtonToResultSeconds.observe({ page, outcome }, durationSeconds);
+  }
 };
 
 export { register };

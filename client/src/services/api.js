@@ -144,6 +144,10 @@ export const contestService = {
   getHealth: () => api.get('/health'),
 };
 
+export const telemetryService = {
+  trackPlayButton: (payload) => api.post('/telemetry/play-button', payload),
+};
+
 /** Newsletter (EmailJS côté serveur) — routes publiques */
 export const newsletterService = {
   subscribe: (email, consent, source) =>

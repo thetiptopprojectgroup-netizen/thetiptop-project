@@ -3,6 +3,7 @@ import authRoutes from './authRoutes.js';
 import ticketRoutes from './ticketRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import newsletterRoutes from './newsletterRoutes.js';
+import telemetryRoutes from './telemetryRoutes.js';
 import { getContestDates } from '../utils/contestConfig.js';
 
 const router = express.Router();
@@ -12,6 +13,7 @@ router.use('/auth', authRoutes);
 router.use('/tickets', ticketRoutes);
 router.use('/admin', adminRoutes);
 router.use('/newsletter', newsletterRoutes);
+router.use('/telemetry', telemetryRoutes);
 
 // Route de santé
 router.get('/health', (req, res) => {
