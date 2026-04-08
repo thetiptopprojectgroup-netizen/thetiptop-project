@@ -2,9 +2,15 @@ import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, Facebook, Instagram, Twitter } from 'lucide-react';
 import { BrandLogoMark } from '../common/BrandLogo';
 import NewsletterSignup from '../common/NewsletterSignup';
+import { telemetryService } from '../../services/api';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const trackHowToPlayClick = () => {
+    telemetryService
+      .trackEvent({ event: 'how_to_play_click', source: 'footer' })
+      .catch(() => {});
+  };
 
   const footerLinks = {
     concours: [
@@ -76,6 +82,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     to={link.href}
+                    onClick={link.href === '/how-it-works' ? trackHowToPlayClick : undefined}
                     className="text-cream-300 hover:text-white transition-colors"
                   >
                     {link.label}

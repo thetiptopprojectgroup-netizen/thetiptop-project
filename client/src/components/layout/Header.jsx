@@ -6,6 +6,7 @@ import { clsx } from 'clsx';
 import useAuthStore from '../../store/authStore';
 import Button from '../common/Button';
 import { BrandLogoMark } from '../common/BrandLogo';
+import { telemetryService } from '../../services/api';
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -30,6 +31,12 @@ export default function Header() {
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const trackHowToPlayClick = (source) => {
+    telemetryService
+      .trackEvent({ event: 'how_to_play_click', source })
+      .catch(() => {});
   };
 
   const navLinks = [
@@ -74,6 +81,7 @@ export default function Header() {
               <Link
                 key={link.href}
                 to={link.href}
+                onClick={link.href === '/how-it-works' ? () => trackHowToPlayClick('header_desktop') : undefined}
                 className={clsx(
                   'relative font-medium transition-colors',
                   isScrolled
@@ -222,6 +230,7 @@ export default function Header() {
                 <Link
                   key={link.href}
                   to={link.href}
+                  onClick={link.href === '/how-it-works' ? () => trackHowToPlayClick('header_mobile') : undefined}
                   className={clsx(
                     'block px-4 py-3 rounded-xl transition-colors',
                     isActive(link.href)

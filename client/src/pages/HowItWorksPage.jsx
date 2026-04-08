@@ -1,8 +1,10 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Star, Trophy, ShoppingCart, Ticket, PartyPopper, ArrowRight, CheckCircle, Store } from 'lucide-react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
+import { telemetryService } from '../services/api';
 
 const steps = [
   { icon: <ShoppingCart className="w-8 h-8" />, title: 'Faites un achat de 49€ minimum', description: 'Rendez-vous dans l\'une de nos boutiques Thé Tip Top ou sur notre site internet et effectuez un achat d\'un montant minimum de 49€.', detail: 'Valable dans les 10 boutiques Thé Tip Top en France et sur notre e-shop.' },
@@ -13,6 +15,12 @@ const steps = [
 ];
 
 export default function HowItWorksPage() {
+  useEffect(() => {
+    telemetryService
+      .trackEvent({ event: 'how_to_play_view', source: 'how_it_works_page' })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="min-h-screen pt-24 pb-16">
       <section className="bg-gradient-to-br from-tea-900 to-tea-950 py-20 relative overflow-hidden">

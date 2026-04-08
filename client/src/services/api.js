@@ -146,6 +146,7 @@ export const contestService = {
 
 export const telemetryService = {
   trackPlayButton: (payload) => api.post('/telemetry/play-button', payload),
+  trackEvent: (payload) => api.post('/telemetry/event', payload),
 };
 
 /** Newsletter (EmailJS côté serveur) — routes publiques */
