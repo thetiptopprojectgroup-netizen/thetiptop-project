@@ -2,99 +2,63 @@
 
 ## 🎯 Architecture globale
 
-Le projet utilise **CI** + **déploiement VPS** + **1 workflow manuel** :
+Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manuels** :
 
-1. **CI - Server (Backend)** : Tests, lint, build Docker backend + création PR de promotion en fin de run
-2. **CI - Client (Frontend)** : Tests, lint, E2E, build Docker frontend + création PR de promotion en fin de run
-3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — build images, push Harbor, SSH + Docker Compose sur le VPS (Ansible / `infra/deploy`). **Pas de Kubernetes / kubectl.**
-4. **Create promotion PR (manual)** : Création manuelle de la PR dev→preprod ou preprod→prod
+1. **`ci.yml` — CI — Monorepo (server + client)** : **seul** workflow CI déclenché automatiquement sur push/PR pour **`vdev`**, **`vpreprod`**, **`vprod`** (namespaces alignés CD) ainsi que **`dev`**, **`preprod`**, **`prod`**. Ordre des jobs : **1** qualité backend · **1** qualité frontend (parallèle) → **2** image `api` · **2** image `client` + Harbor/Trivy (parallèle) → **3** commentaire PR / PR de promotion.
+2. **`ci-server.yml` / `ci-client.yml`** : conservés en **`workflow_dispatch` uniquement** (relance manuelle ou debug), plus de doublon sur push.
+3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — build images, push Harbor, SSH + Docker Compose sur le VPS. **Pas de Kubernetes / kubectl.**
+4. **Create promotion PR (manual)** : secours si la PR automatique n’a pas été créée.
+
+**Harbor (CI)** : même convention que les `deploy-v*.yml` — secret **`HARBOR_REGISTRY_BASE`** (hôte seul), projets **`vdev` / `vpreprod` / `vprod`** (ou équivalent pour `dev`/`preprod`/`prod`), images **`api`** et **`client`** taguées par le SHA du commit.
 
 ---
 
 ## 🌳 Flux par branche
 
-### 🔵 Branche `dev` (Développement)
+### 🔵 Branches `vdev` ou `dev` (développement)
 
-**Déclenchement** : `git push origin dev`
+**Déclenchement** : `git push origin vdev` (ou `dev`)
 
-**Pipelines exécutés** :
-- ✅ **CI - Server** : Pipeline complet (lint, tests unitaires, build, Docker, scan) puis job « Créer PR promotion » si les 2 CI sont vertes
-- ✅ **CI - Client** : Pipeline complet (lint, tests unitaires, E2E Playwright, build, Docker, scan) puis job « Créer PR promotion » si les 2 CI sont vertes
+**Pipeline** : **`CI — Monorepo`** — sur `vdev`/`dev` : lint/tests complets (si scripts présents), build client, puis images Docker `api` + `client`.
 
 **Résultat** :
-- Si les 2 CI passent → **PR automatique `dev` → `preprod`** (draft: false)
-- La PR est créée par le job `create-promotion-pr` du premier pipeline CI qui termine (Server ou Client) une fois les 2 CI vertes
+- Si tout est vert → **PR automatique** `vdev` → `vpreprod` ou `dev` → `preprod` (selon la branche).
 
 ---
 
-### 🟡 Branche `preprod` (Pré-production)
+### 🟡 Branches `vpreprod` ou `preprod`
 
-**Déclenchement** : Merge de la PR `dev` → `preprod`
+**Déclenchement** : push ou merge sur `vpreprod` / `preprod`
 
-**Pipelines exécutés** :
-- ✅ **CI - Server** : Pipeline allégé (build, Docker, scan uniquement - **pas de lint/tests**) puis job « Créer PR promotion » si les 2 CI sont vertes
-- ✅ **CI - Client** : Pipeline allégé (build, Docker, scan uniquement - **pas de lint/E2E**) puis job « Créer PR promotion » si les 2 CI sont vertes
+**Pipeline** : suite qualité **allégée** (pas de lint/tests complets sauf sur `vdev`/`dev`), build + images Docker.
 
 **Résultat** :
-- Si les **2 CI** passent sur `preprod` → **PR automatique `preprod` → `prod`** (draft: true)
-- La PR est créée par le job `create-promotion-pr` du pipeline CI qui termine en dernier (il voit alors les 2 CI vertes)
-- Si la PR n’apparaît pas : **Actions** → **Create promotion PR (manual)** → Run workflow → branche **preprod**
+- Si tout est vert → **PR automatique** `vpreprod` → `vprod` ou `preprod` → `prod` (**brouillon** sauf promotion depuis `vdev`/`dev`).
 
 ---
 
-### 🔴 Branche `prod` (Production)
+### 🔴 Branches `vprod` ou `prod`
 
-**Déclenchement** : Merge de la PR `preprod` → `prod`
+**Déclenchement** : push sur `vprod` / `prod`
 
-**Pipelines exécutés** :
-- ✅ **CI - Server** : Pipeline allégé (build, Docker, scan uniquement)
-- ✅ **CI - Client** : Pipeline allégé (build, Docker, scan uniquement)
-- Le job « Créer PR promotion » dans chaque CI ne fait rien sur `prod` (rien à promouvoir)
-
-**Résultat** :
-- Images Docker taguées avec le SHA du commit et `prod`
-- Déploiement manuel ou automatique selon votre configuration
+**Pipeline** : même logique « allégée » + images ; **aucune** PR de promotion automatique (fin du flux).
 
 ---
 
-## 🔍 Détail des jobs CI
+## 🔍 Détail des jobs CI (`ci.yml`)
 
-### CI - Server (Backend)
+| Job | Rôle |
+|-----|------|
+| `server-quality` | `npm ci`, lint (`--if-present`), Jest + couverture sur `vdev`/`dev` (et PR vers ces bases) |
+| `client-quality` | `npm ci`, lint/tests/E2E si présents dans `package.json`, build Vite |
+| `server-docker` | Build/push **`{HARBOR_REGISTRY_BASE}/{projet}/api:SHA`**, scan Harbor |
+| `client-docker` | Build/push **`…/client:SHA`** avec URLs Vite alignées CD |
+| `notify-pr` | Commentaire de synthèse sur les PR |
+| `create-promotion-pr` | PR `vdev→vpreprod`, `vpreprod→vprod`, `dev→preprod`, `preprod→prod` |
 
-| Job | Branches | Description |
-|-----|----------|-------------|
-| `server-ci` | Toutes | Tests Jest, lint ESLint (dev uniquement) |
-| `server-docker-build-and-scan` | Toutes | Build image, push Harbor, scan Trivy |
-| `notify-server` | Toutes | Notification du statut global |
-| `create-promotion-pr` | dev, preprod | Crée PR si les 2 CI sont vertes |
+## 🔄 Promotion automatique
 
-### CI - Client (Frontend)
-
-| Job | Branches | Description |
-|-----|----------|-------------|
-| `client-ci` | Toutes | Lint, tests Jest/RTL, E2E Playwright (dev uniquement) |
-| `client-docker-build-and-scan` | Toutes | Build image, push Harbor, scan Trivy |
-| `notify-client` | Toutes | Notification du statut global |
-| `create-promotion-pr` | dev, preprod | Crée PR si les 2 CI sont vertes |
-
----
-
-## 🔄 Logique de promotion automatique
-
-Le job **create-promotion-pr** (dans **CI - Server** et **CI - Client**) :
-
-1. S’exécute en fin de chaque pipeline CI (Server et Client), uniquement sur les branches `dev` et `preprod`
-2. **Vérifie** que les 2 CI (Server + Client) sont vertes pour le même commit
-3. **Vérifie** qu’aucune PR ouverte n’existe déjà pour cette promotion
-4. **Crée** la PR si tout est OK :
-   - `dev` → `preprod` : PR normale (draft: false)
-   - `preprod` → `prod` : PR en brouillon (draft: true)
-
-### Gestion de la concurrence
-
-- Les 2 pipelines CI s’exécutent en parallèle ; chacun a un job `create-promotion-pr` en fin de run
-- Celui qui termine **après** que les 2 CI soient vertes crée la PR ; l’autre voit que les 2 CI ne sont pas encore vertes ou que la PR existe déjà
-- Si la PR preprod→prod n’apparaît pas : **Actions** → **Create promotion PR (manual)** → Run workflow → branche **preprod**. Si le workflow indique « Aucun commit à promouvoir », faire un nouveau merge dev→preprod pour avoir des commits à promouvoir
+Un seul job **`create-promotion-pr`** dans **`ci.yml`**, après succès des jobs qualité + Docker. Plus de double workflow Server/Client.
 
 ---
 
@@ -103,9 +67,10 @@ Le job **create-promotion-pr** (dans **CI - Server** et **CI - Client**) :
 ### Secrets GitHub
 
 ```yaml
-HARBOR_REGISTRY: registry.example.com
+HARBOR_REGISTRY_BASE: harbor.example.com   # hôte seul, comme pour deploy-v*.yml
 HARBOR_USERNAME: robot$thetiptop
 HARBOR_PASSWORD: ***
+# Optionnel (anciens dépôts) : HARBOR_REGISTRY si BASE absent
 ```
 
 ### Permissions GitHub Actions
@@ -118,20 +83,19 @@ Dans **Settings → Actions → General → Workflow permissions** :
 
 ## 🚀 Utilisation quotidienne
 
-### Développement normal
+### Développement normal (branche `vdev`)
 
 ```bash
-# Travailler sur dev
-git checkout dev
+git checkout vdev
 git pull
-# ... faire vos modifications ...
-git add .
-git commit -m "feat: nouvelle fonctionnalité"
-git push origin dev
+git commit -am "feat: …"
+git push origin vdev
 
-# → CI Server + CI Client se lancent automatiquement
-# → Si tout est vert, PR dev→preprod créée automatiquement
+# → Workflow « CI — Monorepo (server + client) »
+# → Si tout est vert : PR vdev → vpreprod (brouillon : non)
 ```
+
+Même principe avec la branche **`dev`** (PR vers **`preprod`**).
 
 ### Promotion vers preprod
 

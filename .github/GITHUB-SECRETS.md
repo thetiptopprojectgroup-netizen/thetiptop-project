@@ -46,13 +46,14 @@ Chaque secret a un **nom** (ex. `GOOGLE_CLIENT_ID`) et une **valeur** (que tu co
 
 ### Registry Docker (Harbor)
 
-| Nom du secret      | Description              |
-|--------------------|--------------------------|
-| `HARBOR_REGISTRY`  | URL du registry (ex. `harbor.example.com`) |
-| `HARBOR_USERNAME`  | Utilisateur Harbor       |
-| `HARBOR_PASSWORD`  | Mot de passe Harbor      |
+| Nom du secret           | Description |
+|-------------------------|-------------|
+| `HARBOR_REGISTRY_BASE`  | **Recommandé** : hôte du registry **sans** `https://` (ex. `harbor.example.com`), comme pour `deploy-vdev.yml` / `deploy-vpreprod.yml` / `deploy-vprod.yml`. Utilisé par **`ci.yml`** (CI Monorepo). |
+| `HARBOR_REGISTRY`       | Ancien nom / secours : même idée (hôte seul). Lu par **`ci.yml`** si `HARBOR_REGISTRY_BASE` est vide. |
+| `HARBOR_USERNAME`       | Utilisateur ou robot Harbor |
+| `HARBOR_PASSWORD`       | Mot de passe / token |
 
-Utilisés par les CI (build + push des images) et par les workflows de déploiement VPS (pull d’images depuis Harbor).
+Utilisés par la CI (build + push des images) et par les workflows de déploiement VPS (pull d’images depuis Harbor).
 
 ---
 

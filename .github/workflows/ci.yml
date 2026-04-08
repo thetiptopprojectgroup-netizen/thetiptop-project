@@ -1,0 +1,446 @@
+# -----------------------------------------------------------------------------
+# CI — ordre dans Actions : 1) qualité server · 1) qualité client (parallèle)
+#   → 2) image api · 2) image client (parallèle) → 3) commentaire PR / PR promo
+# Branches : vdev, vpreprod, vprod (alignées CD) + dev, preprod, prod (héritage).
+# Harbor : même schéma que deploy-v*.yml (HARBOR_REGISTRY_BASE, projets vdev|vpreprod|vprod, images api + client).
+# -----------------------------------------------------------------------------
+name: CI — Monorepo (server + client)
+
+on:
+  push:
+    branches:
+      - vdev
+      - vpreprod
+      - vprod
+      - dev
+      - preprod
+      - prod
+  pull_request:
+    branches:
+      - vdev
+      - vpreprod
+      - vprod
+      - dev
+      - preprod
+      - prod
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Étape 1 — Qualité (deux jobs parallèles)
+  # ---------------------------------------------------------------------------
+  server-quality:
+    name: "1 · Backend — deps, lint (si défini), tests"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    env:
+      RUN_FULL_QUALITY: ${{ github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/vdev' || (github.event_name == 'pull_request' && (github.base_ref == 'dev' || github.base_ref == 'vdev')) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (ESLint)
+        if: env.RUN_FULL_QUALITY == 'true'
+        run: npm run lint --if-present
+
+      - name: Unit tests (Jest)
+        if: env.RUN_FULL_QUALITY == 'true'
+        run: npm test -- --coverage --passWithNoTests
+
+  client-quality:
+    name: "1 · Frontend — deps, lint, tests (si présents), build"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    env:
+      RUN_FULL_QUALITY: ${{ github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/vdev' || (github.event_name == 'pull_request' && (github.base_ref == 'dev' || github.base_ref == 'vdev')) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        if: env.RUN_FULL_QUALITY == 'true'
+        run: npm run lint --if-present
+
+      - name: Unit / component tests + coverage
+        if: env.RUN_FULL_QUALITY == 'true'
+        run: npm run test:coverage --if-present
+
+      - name: E2E Playwright (uniquement si script test:e2e)
+        if: env.RUN_FULL_QUALITY == 'true'
+        env:
+          CI: true
+          E2E_BROWSER: chromium
+        run: |
+          if grep -q '"test:e2e"' package.json; then
+            npx playwright install chromium --with-deps
+            npm run test:e2e
+          else
+            echo "Pas de script test:e2e — E2E ignoré."
+          fi
+
+      - name: Build (Vite)
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Étape 2 — Images Docker + Harbor (même convention que CD)
+  # ---------------------------------------------------------------------------
+  server-docker:
+    name: "2 · Backend — image api → Harbor + scan"
+    runs-on: ubuntu-latest
+    needs: [server-quality]
+    env:
+      HARBOR_REGISTRY_BASE: ${{ secrets.HARBOR_REGISTRY_BASE }}
+      HARBOR_REGISTRY: ${{ secrets.HARBOR_REGISTRY }}
+
+    steps:
+      - name: Harbor — configuration
+        id: harbor
+        run: |
+          BASE="${HARBOR_REGISTRY_BASE:-}"
+          LEGACY="${HARBOR_REGISTRY:-}"
+          if [ -n "$BASE" ] || [ -n "$LEGACY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            HOST="${BASE:-$LEGACY}"
+            echo "host=$HOST" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Ni HARBOR_REGISTRY_BASE ni HARBOR_REGISTRY — build Docker ignoré"
+          fi
+
+      - name: Harbor — projet + image (api)
+        if: steps.harbor.outputs.configured == 'true'
+        id: harbor-project
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          case "$BRANCH" in
+            vprod|prod)     PROJECT="vprod" ;;
+            vpreprod|preprod) PROJECT="vpreprod" ;;
+            vdev|dev)       PROJECT="vdev" ;;
+            *)              PROJECT="vdev" ;;
+          esac
+          HOST="${{ steps.harbor.outputs.host }}"
+          REGISTRY="${HOST}/${PROJECT}"
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
+          echo "image=${REGISTRY}/api:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "login_host=${REGISTRY%%/*}" >> "$GITHUB_OUTPUT"
+          echo "Branche $BRANCH → Harbor /$PROJECT → image api"
+
+      - name: Checkout
+        if: steps.harbor.outputs.configured == 'true'
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        if: steps.harbor.outputs.configured == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Registry reachable
+        if: steps.harbor.outputs.configured == 'true'
+        run: |
+          LH="${{ steps.harbor-project.outputs.login_host }}"
+          if curl -sf --connect-timeout 15 "https://${LH}/v2/" -o /dev/null; then
+            echo "OK https://${LH}/v2/"
+          else
+            echo "::error::Harbor injoignable depuis GitHub Actions. Vérifie HARBOR_REGISTRY_BASE (hôte seul, sans https://)."
+            exit 1
+          fi
+
+      - name: Login Harbor
+        if: steps.harbor.outputs.configured == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.harbor-project.outputs.login_host }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build & push api
+        if: steps.harbor.outputs.configured == 'true'
+        run: |
+          IMAGE="${{ steps.harbor-project.outputs.image }}"
+          for attempt in 1 2 3; do
+            echo "Docker build $attempt/3"
+            if docker build -f server/Dockerfile -t "$IMAGE" server; then
+              docker push "$IMAGE"
+              exit 0
+            fi
+            [ "$attempt" -lt 3 ] && sleep 45
+          done
+          exit 1
+
+      - name: Scan Trivy (Harbor)
+        if: steps.harbor.outputs.configured == 'true'
+        run: |
+          PROJECT="${{ steps.harbor-project.outputs.project }}"
+          LH="${{ steps.harbor-project.outputs.login_host }}"
+          SHA="${{ github.sha }}"
+          SCAN_URL="https://${LH}/api/v2.0/projects/${PROJECT}/repositories/api/artifacts/${SHA}/scan"
+          curl -s -X POST "$SCAN_URL" \
+            -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
+            -H "Content-Type: application/json" || true
+          sleep 25
+          REPORT_URL="https://${LH}/api/v2.0/projects/${PROJECT}/repositories/api/artifacts/${SHA}?with_scan_overview=true"
+          RESULT=$(curl -s "$REPORT_URL" \
+            -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
+            -H "Content-Type: application/json")
+          echo "$RESULT" | python3 -c "
+          import sys, json
+          try:
+            data = json.load(sys.stdin)
+            overview = data.get('scan_overview', {})
+            for k, v in overview.items():
+              print('Scan:', v.get('scan_status'), v.get('summary', {}))
+          except Exception as e:
+            print('Scan overview:', e)
+          " || true
+
+  client-docker:
+    name: "2 · Frontend — image client → Harbor + scan"
+    runs-on: ubuntu-latest
+    needs: [client-quality]
+    env:
+      HARBOR_REGISTRY_BASE: ${{ secrets.HARBOR_REGISTRY_BASE }}
+      HARBOR_REGISTRY: ${{ secrets.HARBOR_REGISTRY }}
+
+    steps:
+      - name: Harbor — configuration
+        id: harbor
+        run: |
+          BASE="${HARBOR_REGISTRY_BASE:-}"
+          LEGACY="${HARBOR_REGISTRY:-}"
+          if [ -n "$BASE" ] || [ -n "$LEGACY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "host=${BASE:-$LEGACY}" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Harbor — projet + build-args Vite
+        if: steps.harbor.outputs.configured == 'true'
+        id: harbor-project
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          case "$BRANCH" in
+            vprod|prod)
+              PROJECT="vprod"
+              VITE_API_URL="https://dsp5-archi-o22a-15m-g3.fr/api"
+              SITE_URL="https://dsp5-archi-o22a-15m-g3.fr"
+              ;;
+            vpreprod|preprod)
+              PROJECT="vpreprod"
+              VITE_API_URL="https://vpreprod.dsp5-archi-o22a-15m-g3.fr/api"
+              SITE_URL="https://vpreprod.dsp5-archi-o22a-15m-g3.fr"
+              ;;
+            vdev|dev|*)
+              PROJECT="vdev"
+              VITE_API_URL="https://vdev.dsp5-archi-o22a-15m-g3.fr/api"
+              SITE_URL="https://vdev.dsp5-archi-o22a-15m-g3.fr"
+              ;;
+          esac
+          HOST="${{ steps.harbor.outputs.host }}"
+          REGISTRY="${HOST}/${PROJECT}"
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
+          echo "image=${REGISTRY}/client:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "login_host=${REGISTRY%%/*}" >> "$GITHUB_OUTPUT"
+          echo "vite_api_url=$VITE_API_URL" >> "$GITHUB_OUTPUT"
+          echo "site_url=$SITE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.harbor.outputs.configured == 'true'
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        if: steps.harbor.outputs.configured == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Registry reachable
+        if: steps.harbor.outputs.configured == 'true'
+        run: |
+          LH="${{ steps.harbor-project.outputs.login_host }}"
+          curl -sf --connect-timeout 15 "https://${LH}/v2/" -o /dev/null
+
+      - name: Login Harbor
+        if: steps.harbor.outputs.configured == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.harbor-project.outputs.login_host }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build & push client
+        if: steps.harbor.outputs.configured == 'true'
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          IMAGE="${{ steps.harbor-project.outputs.image }}"
+          LASTMOD_DATE="$(git log -1 --format=%cs)"
+          for attempt in 1 2 3; do
+            if docker build -f client/Dockerfile --target production \
+              --build-arg VITE_API_URL="${{ steps.harbor-project.outputs.vite_api_url }}" \
+              --build-arg SITE_URL="${{ steps.harbor-project.outputs.site_url }}" \
+              --build-arg LASTMOD_DATE="$LASTMOD_DATE" \
+              --build-arg VITE_GOOGLE_CLIENT_ID="${VITE_GOOGLE_CLIENT_ID}" \
+              -t "$IMAGE" client; then
+              docker push "$IMAGE"
+              exit 0
+            fi
+            [ "$attempt" -lt 3 ] && sleep 45
+          done
+          exit 1
+
+      - name: Scan Trivy (Harbor)
+        if: steps.harbor.outputs.configured == 'true'
+        run: |
+          PROJECT="${{ steps.harbor-project.outputs.project }}"
+          LH="${{ steps.harbor-project.outputs.login_host }}"
+          SHA="${{ github.sha }}"
+          SCAN_URL="https://${LH}/api/v2.0/projects/${PROJECT}/repositories/client/artifacts/${SHA}/scan"
+          curl -s -X POST "$SCAN_URL" \
+            -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
+            -H "Content-Type: application/json" || true
+          sleep 25
+          REPORT_URL="https://${LH}/api/v2.0/projects/${PROJECT}/repositories/client/artifacts/${SHA}?with_scan_overview=true"
+          RESULT=$(curl -s "$REPORT_URL" \
+            -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
+            -H "Content-Type: application/json")
+          echo "$RESULT" | python3 -c "
+          import sys, json
+          try:
+            data = json.load(sys.stdin)
+            overview = data.get('scan_overview', {})
+            for k, v in overview.items():
+              print('Scan:', v.get('scan_status'), v.get('summary', {}))
+          except Exception as e:
+            print('Scan overview:', e)
+          " || true
+
+  # ---------------------------------------------------------------------------
+  # Étape 3 — PR : commentaire unique
+  # ---------------------------------------------------------------------------
+  notify-pr:
+    name: "3 · Commentaire PR (synthèse CI)"
+    runs-on: ubuntu-latest
+    needs: [server-quality, client-quality, server-docker, client-docker]
+    if: always() && github.event_name == 'pull_request'
+
+    steps:
+      - name: Synthèse
+        id: s
+        run: |
+          ok_server="${{ needs.server-quality.result }}"
+          ok_client="${{ needs.client-quality.result }}"
+          ok_ds="${{ needs.server-docker.result }}"
+          ok_dc="${{ needs.client-docker.result }}"
+          if [ "$ok_server" = success ] && [ "$ok_client" = success ] && \
+             { [ "$ok_ds" = success ] || [ "$ok_ds" = skipped ]; } && \
+             { [ "$ok_dc" = success ] || [ "$ok_dc" = skipped ]; }; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commenter
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const ok = '${{ steps.s.outputs.ok }}' === 'true';
+            const body = ok
+              ? '✅ **CI Monorepo** : backend (qualité + image api), frontend (qualité + image client) — succès.'
+              : '❌ **CI Monorepo** : un job a échoué. Voir le workflow **CI — Monorepo (server + client)**.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+  # ---------------------------------------------------------------------------
+  # Étape 3 — Promotion automatique (une seule PR, une seule fois)
+  # ---------------------------------------------------------------------------
+  create-promotion-pr:
+    name: "3 · PR promotion (vdev→vpreprod / vpreprod→vprod ou dev→preprod / …)"
+    runs-on: ubuntu-latest
+    needs: [server-quality, client-quality, server-docker, client-docker]
+    if: |
+      needs.server-quality.result == 'success' &&
+      needs.client-quality.result == 'success' &&
+      (needs.server-docker.result == 'success' || needs.server-docker.result == 'skipped') &&
+      (needs.client-docker.result == 'success' || needs.client-docker.result == 'skipped') &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/vdev' || github.ref == 'refs/heads/vpreprod' ||
+       github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/preprod')
+
+    steps:
+      - name: Créer PR si les deux pipelines qualité+docker sont verts
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            let base;
+            let title;
+            let body;
+            if (branch === 'vdev') { base = 'vpreprod'; title = '🚀 Promotion vdev → vpreprod'; body = 'CI Monorepo verte sur `vdev`.'; }
+            else if (branch === 'vpreprod') { base = 'vprod'; title = '🎯 Promotion vpreprod → vprod'; body = 'CI Monorepo verte sur `vpreprod`.'; }
+            else if (branch === 'dev') { base = 'preprod'; title = '🚀 Promotion dev → preprod'; body = 'CI Monorepo verte sur `dev`.'; }
+            else if (branch === 'preprod') { base = 'prod'; title = '🎯 Promotion preprod → prod'; body = 'CI Monorepo verte sur `preprod`.'; }
+            else { core.info('Branche non gérée'); return; }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner, repo, state: 'open', base, head: `${owner}:${branch}`
+            });
+            if (pulls.length > 0) {
+              core.info(`PR ${branch} → ${base} déjà ouverte: #${pulls[0].number}`);
+              return;
+            }
+
+            const draft = !(branch === 'vdev' || branch === 'dev');
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner, repo, head: branch, base, title, body, draft
+              });
+              core.info(`PR créée #${pr.number}`);
+            } catch (err) {
+              if (err.status === 422 && String(err.message || '').toLowerCase().includes('no commits between')) {
+                core.info('Aucun commit à promouvoir.');
+              } else {
+                throw err;
+              }
+            }
