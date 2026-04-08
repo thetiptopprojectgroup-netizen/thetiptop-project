@@ -6,7 +6,7 @@ Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manue
 
 1. **`ci.yml` — CI — Monorepo (server + client)** : **seul** workflow CI déclenché automatiquement sur push/PR pour **`vdev`**, **`vpreprod`**, **`vprod`** (namespaces alignés CD) ainsi que **`dev`**, **`preprod`**, **`prod`**. Ordre des jobs : **1** qualité backend · **1** qualité frontend (parallèle) → **2** image `api` · **2** image `client` + Harbor/Trivy (parallèle) → **3** commentaire PR / PR de promotion.
 2. **`ci-server.yml` / `ci-client.yml`** : conservés en **`workflow_dispatch` uniquement** (relance manuelle ou debug), plus de doublon sur push.
-3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — build images, push Harbor, SSH + Docker Compose sur le VPS. **Pas de Kubernetes / kubectl.**
+3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — se déclenchent **après** une exécution **réussie** de `CI — Monorepo` sur un **push** vers `vdev` / `vpreprod` / `vprod` (événement `workflow_run`), ou via **`workflow_dispatch`**. Plus de déploiement sur un simple push sans CI verte. **Important** : la version des fichiers workflow utilisée pour le `workflow_run` est celle de la **branche par défaut** du dépôt — gardez-y les mêmes définitions à jour.
 4. **Create promotion PR (manual)** : secours si la PR automatique n’a pas été créée.
 
 **Harbor (CI)** : même convention que les `deploy-v*.yml` — secret **`HARBOR_REGISTRY_BASE`** (hôte seul), projets **`vdev` / `vpreprod` / `vprod`** (ou équivalent pour `dev`/`preprod`/`prod`), images **`api`** et **`client`** taguées par le SHA du commit.

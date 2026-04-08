@@ -1,5 +1,7 @@
 # -----------------------------------------------------------------------------
 # CD — Branche vdev : Harbor → images → VPS
+# Déclenchement : **après** succès du workflow « CI — Monorepo (server + client) » sur un push `vdev`,
+# ou **workflow_dispatch** (déploiement manuel). Plus de CD direct sur push seul.
 # Secrets : HARBOR_REGISTRY_BASE, HARBOR_ADMIN_PASSWORD, HARBOR_USERNAME/PASSWORD,
 #           VPS_HOST, VPS_SSH_USER, VPS_SSH_KEY,
 #           VDEV_ENV_FILE (ou alias VDEV_ENV) — contenu multiligne de vdev.env ; optionnel : VDEV_ENV_FILE_B64
@@ -8,8 +10,11 @@
 name: CD / vdev
 
 on:
-  push:
-    branches: [vdev]
+  workflow_run:
+    workflows: ["CI — Monorepo (server + client)"]
+    types:
+      - completed
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,16 +29,49 @@ env:
   SITE_URL: https://vdev.dsp5-archi-o22a-15m-g3.fr
 
 jobs:
+  gate:
+    name: "0 · CI verte requise (ou manuel)"
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      ok: ${{ steps.pick.outputs.ok }}
+    steps:
+      - id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          C="${{ github.event.workflow_run.conclusion }}"
+          B="${{ github.event.workflow_run.head_branch }}"
+          E="${{ github.event.workflow_run.event }}"
+          S="${{ github.event.workflow_run.head_sha }}"
+          echo "Déclenché par CI : conclusion=$C branch=$B event=$E"
+          if [ "$C" != "success" ] || [ "$B" != "vdev" ] || [ "$E" != "push" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "sha=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "sha=$S" >> "$GITHUB_OUTPUT"
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+
   # ---------------------------------------------------------------------------
   # Stage 1 — Projet Harbor (API admin, idempotent)
   # ---------------------------------------------------------------------------
   harbor-project:
     name: "1 · Harbor — projet vdev"
+    needs: [gate]
+    if: needs.gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      sha: ${{ needs.gate.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
 
       - name: Créer le projet s'il n'existe pas
         env:
@@ -51,9 +89,13 @@ jobs:
     needs: [harbor-project]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      sha: ${{ needs.harbor-project.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.harbor-project.outputs.sha }}
 
       - name: Docker login (robot)
         run: |
@@ -65,13 +107,14 @@ jobs:
       - name: Build & push API
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
-          docker build -t "${REGISTRY}/api:${{ github.sha }}" -f server/Dockerfile server
-          docker push "${REGISTRY}/api:${{ github.sha }}"
+          SHA="${{ needs.harbor-project.outputs.sha }}"
+          docker build -t "${REGISTRY}/api:${SHA}" -f server/Dockerfile server
+          docker push "${REGISTRY}/api:${SHA}"
 
       - name: Build & push client (Vite)
         env:
-          # Variable dépôt (Settings → Variables) ou secret (Settings → Secrets) — même nom
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
+          SHA: ${{ needs.harbor-project.outputs.sha }}
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
           LASTMOD_DATE="$(git log -1 --format=%cs)"
@@ -81,9 +124,9 @@ jobs:
             --build-arg SITE_URL="${{ env.SITE_URL }}" \
             --build-arg LASTMOD_DATE="${LASTMOD_DATE}" \
             --build-arg VITE_GOOGLE_CLIENT_ID="${VITE_GOOGLE_CLIENT_ID}" \
-            -t "${REGISTRY}/client:${{ github.sha }}" \
+            -t "${REGISTRY}/client:${SHA}" \
             -f client/Dockerfile client
-          docker push "${REGISTRY}/client:${{ github.sha }}"
+          docker push "${REGISTRY}/client:${SHA}"
 
   # ---------------------------------------------------------------------------
   # Stage 3 — Déploiement sur le VPS
@@ -93,9 +136,13 @@ jobs:
     needs: [build-and-push]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      sha: ${{ needs.build-and-push.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.build-and-push.outputs.sha }}
 
       - name: Écrire vdev.env sur le VPS + sync + compose
         env:
@@ -146,7 +193,7 @@ jobs:
             "set -euo pipefail
              cd /opt/thetiptop/app
              export REGISTRY='${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}'
-             export IMAGE_TAG='${{ github.sha }}'
+             export IMAGE_TAG='${{ needs.build-and-push.outputs.sha }}'
              docker compose -f infra/deploy/docker-compose.stack.yml \
                --env-file infra/deploy/env/vdev.env \
                up -d --remove-orphans
@@ -171,7 +218,7 @@ jobs:
         uses: actions/github-script@v8
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          COMMIT_SHORT: ${{ github.sha }}
+          COMMIT_SHORT: ${{ needs.deploy-vps.outputs.sha }}
         with:
           script: |
             const { owner, repo } = context.repo;

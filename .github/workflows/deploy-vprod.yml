@@ -1,12 +1,16 @@
 # -----------------------------------------------------------------------------
-# CD — Branche vprod (prod). L'environnement GitHub protège uniquement le job de déploiement.
+# CD — Branche vprod (prod) — après CI Monorepo verte sur push `vprod`, ou manuel.
+# L'environnement GitHub protège le job de déploiement.
 # Secret multiligne : VPROD_ENV_FILE (contenu de infra/deploy/env/vprod.env)
 # -----------------------------------------------------------------------------
 name: CD / vprod
 
 on:
-  push:
-    branches: [vprod]
+  workflow_run:
+    workflows: ["CI — Monorepo (server + client)"]
+    types:
+      - completed
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,13 +26,46 @@ env:
   SITE_URL: https://dsp5-archi-o22a-15m-g3.fr
 
 jobs:
+  gate:
+    name: "0 · CI verte requise (ou manuel)"
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      ok: ${{ steps.pick.outputs.ok }}
+    steps:
+      - id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          C="${{ github.event.workflow_run.conclusion }}"
+          B="${{ github.event.workflow_run.head_branch }}"
+          E="${{ github.event.workflow_run.event }}"
+          S="${{ github.event.workflow_run.head_sha }}"
+          echo "Déclenché par CI : conclusion=$C branch=$B event=$E"
+          if [ "$C" != "success" ] || [ "$B" != "vprod" ] || [ "$E" != "push" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "sha=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "sha=$S" >> "$GITHUB_OUTPUT"
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+
   harbor-project:
     name: "1 · Harbor — projet vprod"
+    needs: [gate]
+    if: needs.gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      sha: ${{ needs.gate.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
 
       - name: Créer le projet s'il n'existe pas
         env:
@@ -43,9 +80,13 @@ jobs:
     needs: [harbor-project]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      sha: ${{ needs.harbor-project.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.harbor-project.outputs.sha }}
 
       - name: Docker login (robot)
         run: |
@@ -57,12 +98,14 @@ jobs:
       - name: Build & push API
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
-          docker build -t "${REGISTRY}/api:${{ github.sha }}" -f server/Dockerfile server
-          docker push "${REGISTRY}/api:${{ github.sha }}"
+          SHA="${{ needs.harbor-project.outputs.sha }}"
+          docker build -t "${REGISTRY}/api:${SHA}" -f server/Dockerfile server
+          docker push "${REGISTRY}/api:${SHA}"
 
       - name: Build & push client
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
+          SHA: ${{ needs.harbor-project.outputs.sha }}
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
           LASTMOD_DATE="$(git log -1 --format=%cs)"
@@ -72,9 +115,9 @@ jobs:
             --build-arg SITE_URL="${{ env.SITE_URL }}" \
             --build-arg LASTMOD_DATE="${LASTMOD_DATE}" \
             --build-arg VITE_GOOGLE_CLIENT_ID="${VITE_GOOGLE_CLIENT_ID}" \
-            -t "${REGISTRY}/client:${{ github.sha }}" \
+            -t "${REGISTRY}/client:${SHA}" \
             -f client/Dockerfile client
-          docker push "${REGISTRY}/client:${{ github.sha }}"
+          docker push "${REGISTRY}/client:${SHA}"
 
   deploy-vps:
     name: "3 · VPS — rsync & docker compose (prod)"
@@ -87,6 +130,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.build-and-push.outputs.sha }}
 
       - name: Écrire vprod.env sur le VPS + sync + compose
         env:
@@ -135,7 +180,7 @@ jobs:
             "set -euo pipefail
              cd /opt/thetiptop/app
              export REGISTRY='${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}'
-             export IMAGE_TAG='${{ github.sha }}'
+             export IMAGE_TAG='${{ needs.build-and-push.outputs.sha }}'
              docker compose -f infra/deploy/docker-compose.stack.yml \
                --env-file infra/deploy/env/vprod.env \
                up -d --remove-orphans
