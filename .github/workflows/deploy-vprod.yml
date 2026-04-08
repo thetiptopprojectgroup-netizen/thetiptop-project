@@ -233,3 +233,10 @@ jobs:
                up -d --remove-orphans
              bash infra/deploy/seed-app-users.sh /opt/thetiptop/app infra/deploy/env/vprod.env
              bash infra/deploy/apply-traefik-minio-from-app.sh /opt/thetiptop/app"
+
+      - name: Restic — crons (Ansible depuis le runner)
+        run: bash infra/deploy/run-ansible-restic.sh
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}

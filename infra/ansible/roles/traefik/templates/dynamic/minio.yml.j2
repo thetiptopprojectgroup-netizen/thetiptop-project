@@ -7,7 +7,8 @@ http:
 {% if h_console | length > 0 %}
     minio-legacy-console-redirect:
       redirectRegex:
-        regex: "^https://{{ h_console | replace('.', '\\.') }}/console.*"
+        # Guillemets simples YAML : évite « unknown escape character » avec \. dans les doubles quotes.
+        regex: '^https://{{ h_console | replace(".", "\\.") }}/console.*'
         replacement: "https://{{ h_console }}/"
         permanent: false
 {% endif %}
