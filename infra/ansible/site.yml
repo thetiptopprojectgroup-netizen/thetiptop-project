@@ -1,7 +1,13 @@
 ---
 # Provision complète : Docker, UFW, Traefik, MinIO, Harbor, Restic
-# Lancer depuis ce répertoire : ansible-playbook site.yml -i inventory/hosts.yml
-# (Les playbooks sont à la racine d'ansible/ pour que le dossier roles/ soit trouvé.)
+# Répertoire de travail obligatoire : infra/ansible (sinon « site.yml could not be found »).
+#
+# Depuis ton PC (WSL), avec clé SSH :
+#   cd infra/ansible && ansible-playbook site.yml -i inventory/hosts.yml --tags restic
+#
+# Sur le VPS (déjà en SSH), sans boucle SSH : inventory/hosts.local.yml (voir fichier).
+# En production : le CD GitHub exécute infra/deploy/run-ansible-restic.sh après rsync (aucune commande manuelle).
+# Ne pas utiliser --tags never : aucun rôle n’a ce tag → seul le gather_facts tente le SSH, puis rien ne s’applique.
 
 - name: Provision VPS TheTipTop (infra)
   hosts: vps
@@ -14,6 +20,7 @@
     - role: minio
     - role: harbor
     - role: restic_client
+      tags: [restic]
 
 
 

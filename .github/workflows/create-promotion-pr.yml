@@ -1,7 +1,7 @@
-# Création manuelle de la PR de promotion (dev→preprod ou preprod→prod).
-# Utile quand la création automatique n'a pas eu lieu (ex. une CI en échec, ou délai).
+# Création manuelle d’une PR de promotion (vdev→vpreprod ou vpreprod→vprod).
+# Utile quand la création automatique (ci.yml) n’a pas eu lieu.
 #
-# Actions → Create promotion PR → Run workflow → Choisir la branche (preprod ou dev) → Run workflow
+# Actions → Create promotion PR → Run workflow → Choisir la branche → Run workflow
 
 name: Create promotion PR (manual)
 
@@ -15,8 +15,6 @@ on:
         options:
           - vdev
           - vpreprod
-          - dev
-          - preprod
         default: 'vpreprod'
 
 permissions:
@@ -37,8 +35,6 @@ jobs:
             let base;
             if (branch === 'vdev') base = 'vpreprod';
             else if (branch === 'vpreprod') base = 'vprod';
-            else if (branch === 'dev') base = 'preprod';
-            else if (branch === 'preprod') base = 'prod';
             else { core.setFailed('Branche non gérée'); return; }
             const owner = context.repo.owner;
             const repo = context.repo.repo;
@@ -53,14 +49,14 @@ jobs:
               return;
             }
 
-            const titles = { vdev: '🚀 Promotion vdev → vpreprod', vpreprod: '🎯 Promotion vpreprod → vprod', dev: '🚀 Promotion dev → preprod', preprod: '🎯 Promotion preprod → prod' };
+            const titles = { vdev: '🚀 Promotion vdev → vpreprod', vpreprod: '🎯 Promotion vpreprod → vprod' };
             const title = titles[branch] || 'Promotion';
             const body = `PR créée manuellement (Actions). Vérifier la CI Monorepo sur \`${branch}\`.`;
 
             try {
               const { data: pr } = await github.rest.pulls.create({
                 owner, repo, head: branch, base, title, body,
-                draft: !(branch === 'vdev' || branch === 'dev')
+                draft: branch !== 'vdev'
               });
               core.info('PR créée : #' + pr.number + ' ' + pr.html_url);
             } catch (err) {
@@ -70,8 +66,8 @@ jobs:
                   core.info('Une PR ouverte existe déjà (ou fermée récemment).');
                 } else if (msg.includes('no commits between')) {
                   core.info('Aucun commit à promouvoir entre ' + branch + ' et ' + base + '.');
-                  core.info('Pour preprod→prod : fusionnez d’abord dev→preprod pour avoir de nouveaux commits sur preprod.');
-                  core.info('Pour dev→preprod : faites des commits sur dev puis relancez.');
+                  core.info('Pour vpreprod→vprod : fusionnez d’abord vdev→vpreprod pour avoir de nouveaux commits sur vpreprod.');
+                  core.info('Pour vdev→vpreprod : faites des commits sur vdev puis relancez.');
                 } else {
                   throw err;
                 }
