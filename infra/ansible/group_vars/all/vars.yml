@@ -63,6 +63,8 @@ harbor_enable_https: false
 harbor_external_url: ""
 
 # --- Restic (bucket MinIO + préfixe S3) ---
+# Planning des sauvegardes : rôle restic_client (mercredi 13h30, vendredi 12h00 par défaut).
+# Les heures suivent le fuseau du VPS (voir timedatectl) ; surcharger restic_cron_schedule dans ce fichier si besoin.
 restic_install: true
 restic_version: "0.16.4"
 restic_password: "thetiptop"

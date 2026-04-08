@@ -2,6 +2,10 @@
 # Provision complète : Docker, UFW, Traefik, MinIO, Harbor, Restic
 # Lancer depuis ce répertoire : ansible-playbook site.yml -i inventory/hosts.yml
 # (Les playbooks sont à la racine d'ansible/ pour que le dossier roles/ soit trouvé.)
+#
+# Restic + crons uniquement (après SSH OK) :
+#   ansible-playbook site.yml -i inventory/hosts.yml --tags restic
+# Ne pas utiliser --tags never : aucun rôle n’a ce tag → seul le gather_facts tente le SSH, puis rien ne s’applique.
 
 - name: Provision VPS TheTipTop (infra)
   hosts: vps
@@ -14,6 +18,7 @@
     - role: minio
     - role: harbor
     - role: restic_client
+      tags: [restic]
 
 
 

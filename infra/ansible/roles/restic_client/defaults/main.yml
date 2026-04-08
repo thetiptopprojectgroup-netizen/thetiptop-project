@@ -1,0 +1,12 @@
+---
+# Horaires au fuseau du serveur (crontab système). Pour l’heure de Paris, réglez le VPS sur
+# Europe/Paris (timedatectl) ou adaptez les heures ci‑dessous en UTC.
+restic_cron_schedule:
+  - name: thetiptop restic backup mercredi 13h30
+    minute: "30"
+    hour: "13"
+    weekday: wed
+  - name: thetiptop restic backup vendredi 12h00
+    minute: "0"
+    hour: "12"
+    weekday: fri
