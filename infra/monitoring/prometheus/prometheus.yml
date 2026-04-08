@@ -26,8 +26,18 @@ scrape_configs:
           stack: docker
 
   - job_name: thetiptop-api
-    metrics_path: /metrics
+    scheme: https
+    metrics_path: /api/metrics
     static_configs:
-      - targets: [api:5000]
+      - targets: [vdev.dsp5-archi-o22a-15m-g3.fr]
         labels:
           service: thetiptop-api
+          env: vdev
+      - targets: [vpreprod.dsp5-archi-o22a-15m-g3.fr]
+        labels:
+          service: thetiptop-api
+          env: vpreprod
+      - targets: [dsp5-archi-o22a-15m-g3.fr]
+        labels:
+          service: thetiptop-api
+          env: vprod
