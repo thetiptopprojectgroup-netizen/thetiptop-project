@@ -36,7 +36,7 @@ mkdir -p "$BACKUP_ROOT"
 TS="$(date +%Y%m%d-%H%M%S)"
 DUMP_FILE="$BACKUP_ROOT/mongodump-$TS.archive.gz"
 
-MONGO_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$MONGO_CONTAINER" 2>/dev/null || true)"
+MONGO_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' "$MONGO_CONTAINER" 2>/dev/null || true)"
 if [[ -z "$MONGO_IP" ]]; then
   log "ERREUR: impossible de trouver l'IP du conteneur Mongo: $MONGO_CONTAINER"
   exit 1
