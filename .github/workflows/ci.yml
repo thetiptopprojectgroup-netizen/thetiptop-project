@@ -202,21 +202,30 @@ jobs:
           done
           exit 1
 
-      - name: Scan Trivy (Harbor)
+      - name: Scan vulnérabilités Harbor (optionnel — Trivy)
         if: steps.harbor.outputs.configured == 'true'
         run: |
           PROJECT="${{ steps.harbor-project.outputs.project }}"
           LH="${{ steps.harbor-project.outputs.login_host }}"
           SHA="${{ github.sha }}"
           SCAN_URL="https://${LH}/api/v2.0/projects/${PROJECT}/repositories/api/artifacts/${SHA}/scan"
-          curl -s -X POST "$SCAN_URL" \
+          HTTP_CODE=$(curl -sS -o /tmp/harbor_scan_resp.txt -w "%{http_code}" -X POST "$SCAN_URL" \
             -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
-            -H "Content-Type: application/json" || true
-          sleep 25
+            -H "Content-Type: application/json" || echo "000")
+          RESP=$(cat /tmp/harbor_scan_resp.txt 2>/dev/null || true)
+          if echo "$RESP" | grep -q 'no available scanner\|PRECONDITION'; then
+            echo "::notice::Harbor : aucun scanner Trivy configuré pour ce projet (message API normal). La CI reste verte — voir Harbor → Administration → Scanners pour activer l’analyse."
+          else
+            HC="${HTTP_CODE:-0}"
+            if [ "$HC" -ge 400 ] 2>/dev/null || [ "$HC" = "000" ]; then
+              echo "::notice::Harbor scan API : HTTP ${HC} (non bloquant)."
+            fi
+          fi
+          sleep 15
           REPORT_URL="https://${LH}/api/v2.0/projects/${PROJECT}/repositories/api/artifacts/${SHA}?with_scan_overview=true"
-          RESULT=$(curl -s "$REPORT_URL" \
+          RESULT=$(curl -sS "$REPORT_URL" \
             -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
-            -H "Content-Type: application/json")
+            -H "Content-Type: application/json" || true)
           echo "$RESULT" | python3 -c "
           import sys, json
           try:
@@ -224,8 +233,8 @@ jobs:
             overview = data.get('scan_overview', {})
             for k, v in overview.items():
               print('Scan:', v.get('scan_status'), v.get('summary', {}))
-          except Exception as e:
-            print('Scan overview:', e)
+          except Exception:
+            pass
           " || true
 
   client-docker:
@@ -328,21 +337,30 @@ jobs:
           done
           exit 1
 
-      - name: Scan Trivy (Harbor)
+      - name: Scan vulnérabilités Harbor (optionnel — Trivy)
         if: steps.harbor.outputs.configured == 'true'
         run: |
           PROJECT="${{ steps.harbor-project.outputs.project }}"
           LH="${{ steps.harbor-project.outputs.login_host }}"
           SHA="${{ github.sha }}"
           SCAN_URL="https://${LH}/api/v2.0/projects/${PROJECT}/repositories/client/artifacts/${SHA}/scan"
-          curl -s -X POST "$SCAN_URL" \
+          HTTP_CODE=$(curl -sS -o /tmp/harbor_scan_resp_c.txt -w "%{http_code}" -X POST "$SCAN_URL" \
             -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
-            -H "Content-Type: application/json" || true
-          sleep 25
+            -H "Content-Type: application/json" || echo "000")
+          RESP=$(cat /tmp/harbor_scan_resp_c.txt 2>/dev/null || true)
+          if echo "$RESP" | grep -q 'no available scanner\|PRECONDITION'; then
+            echo "::notice::Harbor : aucun scanner Trivy pour ce projet (non bloquant)."
+          else
+            HC="${HTTP_CODE:-0}"
+            if [ "$HC" -ge 400 ] 2>/dev/null || [ "$HC" = "000" ]; then
+              echo "::notice::Harbor scan API : HTTP ${HC} (non bloquant)."
+            fi
+          fi
+          sleep 15
           REPORT_URL="https://${LH}/api/v2.0/projects/${PROJECT}/repositories/client/artifacts/${SHA}?with_scan_overview=true"
-          RESULT=$(curl -s "$REPORT_URL" \
+          RESULT=$(curl -sS "$REPORT_URL" \
             -u "${{ secrets.HARBOR_USERNAME }}:${{ secrets.HARBOR_PASSWORD }}" \
-            -H "Content-Type: application/json")
+            -H "Content-Type: application/json" || true)
           echo "$RESULT" | python3 -c "
           import sys, json
           try:
@@ -350,8 +368,8 @@ jobs:
             overview = data.get('scan_overview', {})
             for k, v in overview.items():
               print('Scan:', v.get('scan_status'), v.get('summary', {}))
-          except Exception as e:
-            print('Scan overview:', e)
+          except Exception:
+            pass
           " || true
 
   # ---------------------------------------------------------------------------

@@ -11,6 +11,12 @@ Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manue
 
 **Harbor (CI)** : même convention que les `deploy-v*.yml` — secret **`HARBOR_REGISTRY_BASE`** (hôte seul), projets **`vdev` / `vpreprod` / `vprod`** (ou équivalent pour `dev`/`preprod`/`prod`), images **`api`** et **`client`** taguées par le SHA du commit.
 
+**Scan Trivy dans Harbor** : si l’API renvoie `no available scanner` / `PRECONDITION`, c’est que **aucun scanner n’est branché** sur le projet Harbor — la CI **reste verte** ; configure un scanner sous **Harbor → Administration → Scanners** (ou ignore l’étape).
+
+### Conventions Git
+
+- **Messages de commit** : en **français**, forme claire (ex. « corrige la sonde Harbor », « ajoute le verrouillage CD après CI »).
+
 ---
 
 ## 🌳 Flux par branche
