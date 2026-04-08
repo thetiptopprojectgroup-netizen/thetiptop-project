@@ -168,7 +168,7 @@ jobs:
     name: "3 · VPS — rsync & docker compose"
     needs: [build-and-push]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     outputs:
       sha: ${{ needs.build-and-push.outputs.sha }}
     steps:
