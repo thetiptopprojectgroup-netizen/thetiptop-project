@@ -24,3 +24,10 @@ scrape_configs:
       - targets: [cadvisor:8080]
         labels:
           stack: docker
+
+  - job_name: thetiptop-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: [api:5000]
+        labels:
+          service: thetiptop-api

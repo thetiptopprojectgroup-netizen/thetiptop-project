@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import { generateToken } from '../utils/jwt.js';
 import { AppError } from '../middlewares/errorHandler.js';
 import crypto from 'crypto';
+import { recordAuthRequest } from '../monitoring/metrics.js';
 
 // @desc    Inscription
 // @route   POST /api/auth/register
@@ -15,6 +16,7 @@ export const register = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
+      recordAuthRequest('register', 'failure');
       return next(new AppError('Un compte existe déjà avec cet email. Connectez-vous ou utilisez « Mot de passe oublié » si vous ne vous en souvenez plus.', 400));
     }
 
@@ -42,7 +44,9 @@ export const register = async (req, res, next) => {
       message: 'Inscription réussie',
       data: { user: user.toPublicJSON(), token },
     });
+    recordAuthRequest('register', 'success');
   } catch (error) {
+    recordAuthRequest('register', 'error');
     next(error);
   }
 };
@@ -54,16 +58,19 @@ export const login = async (req, res, next) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
+      recordAuthRequest('login', 'failure');
       return next(new AppError('Veuillez fournir un email et un mot de passe', 400));
     }
 
     const user = await User.findOne({ email: email.toLowerCase() }).select('+mot_de_passe_hash');
 
     if (!user) {
+      recordAuthRequest('login', 'failure');
       return next(new AppError('Aucun compte n\'est associé à cet email.', 401));
     }
 
     if (!user.mot_de_passe_hash) {
+      recordAuthRequest('login', 'failure');
       return next(new AppError(
         'Ce compte a été créé via Google ou Facebook. Veuillez utiliser la connexion correspondante.',
         400
@@ -72,10 +79,12 @@ export const login = async (req, res, next) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      recordAuthRequest('login', 'failure');
       return next(new AppError('Mot de passe incorrect.', 401));
     }
 
     if (!user.actif) {
+      recordAuthRequest('login', 'failure');
       return next(new AppError('Votre compte a été désactivé. Contactez l\'administrateur.', 401));
     }
 
@@ -89,7 +98,9 @@ export const login = async (req, res, next) => {
       message: 'Connexion réussie',
       data: { user: user.toPublicJSON(), token },
     });
+    recordAuthRequest('login', 'success');
   } catch (error) {
+    recordAuthRequest('login', 'error');
     next(error);
   }
 };
@@ -257,9 +268,11 @@ export const googleCredentialLogin = async (req, res, next) => {
     const { credential } = req.body;
     const clientId = process.env.GOOGLE_CLIENT_ID || process.env.FB_GOOGLE_CLIENT_ID;
     if (!clientId) {
+      recordAuthRequest('google_credential', 'failure');
       return next(new AppError('Connexion Google non configurée sur le serveur.', 503));
     }
     if (!credential || typeof credential !== 'string') {
+      recordAuthRequest('google_credential', 'failure');
       return next(new AppError('Jeton Google manquant.', 400));
     }
 
@@ -271,6 +284,7 @@ export const googleCredentialLogin = async (req, res, next) => {
         audience: clientId,
       });
     } catch {
+      recordAuthRequest('google_credential', 'failure');
       return next(new AppError('Connexion Google invalide ou expirée. Réessayez.', 401));
     }
 
@@ -278,6 +292,7 @@ export const googleCredentialLogin = async (req, res, next) => {
     const googleId = payload.sub;
     const email = payload.email?.toLowerCase();
     if (!email) {
+      recordAuthRequest('google_credential', 'failure');
       return next(new AppError('Google n\'a pas fourni d\'email.', 400));
     }
 
@@ -287,6 +302,7 @@ export const googleCredentialLogin = async (req, res, next) => {
 
     if (user) {
       if (!user.actif) {
+        recordAuthRequest('google_credential', 'failure');
         return next(new AppError('Votre compte a été désactivé. Contactez l\'administrateur.', 401));
       }
       if (!user.googleId) {
@@ -316,7 +332,9 @@ export const googleCredentialLogin = async (req, res, next) => {
       message: 'Connexion réussie',
       data: { user: user.toPublicJSON(), token },
     });
+    recordAuthRequest('google_credential', 'success');
   } catch (error) {
+    recordAuthRequest('google_credential', 'error');
     next(error);
   }
 };
