@@ -17,6 +17,10 @@ fi
 cd "${MON}"
 docker compose --env-file "${ENV_FILE}" up -d
 
+# Prometheus ne recharge pas automatiquement prometheus.yml.
+# On force la recréation des services UI/collecte pour appliquer config + env à chaque CD.
+docker compose --env-file "${ENV_FILE}" up -d --force-recreate prometheus grafana
+
 MON_YML="${ROOT}/infra/vps/traefik/dynamic/monitoring.yml"
 if [[ -f "${MON_YML}" ]]; then
   mkdir -p /opt/thetiptop/traefik/dynamic
