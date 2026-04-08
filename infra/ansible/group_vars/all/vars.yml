@@ -35,6 +35,9 @@ minio_data_path: "/opt/thetiptop/minio/data"
 #   - restic.dsp5… → API S3 (Restic, clients distants) — voir minio_s3_hostname
 minio_traefik_hostname: "minio.dsp5-archi-o22a-15m-g3.fr"
 minio_s3_hostname: "restic.dsp5-archi-o22a-15m-g3.fr"
+# Buckets sans « -restic » : stockage objet **application** (uploads S3 côté app). Ils restent vides tant que
+# l’API n’est pas configurée pour écrire dedans (MINIO_*, nom du bucket, etc.).
+# Buckets « *-restic » : **uniquement** les dépôts Restic (sauvegardes) — c’est là que tu dois voir config/data/keys/…
 minio_buckets:
   - vdev
   - vpreprod
@@ -63,17 +66,20 @@ harbor_enable_https: false
 harbor_external_url: ""
 
 # --- Restic (bucket MinIO + préfixe S3) ---
-# Planning des sauvegardes : rôle restic_client (mercredi 14h40, vendredi 12h00 par défaut).
+# Planning : voir roles/restic_client/defaults — mercredis vdev 15h20, vpreprod 15h40, vprod 16h00 (fuseau VPS).
 # Les heures suivent le fuseau du VPS (voir timedatectl) ; surcharger restic_cron_schedule dans ce fichier si besoin.
 restic_install: true
 restic_version: "0.16.4"
 restic_password: "thetiptop"
-# Restic : un dépôt par environnement (bucket dédié). Le bucket doit exister dans MinIO.
-# minio_root_user / minio_root_password : doivent être les MÊMES que sur le MinIO du VPS (sinon init/backup échouent).
-# restic_password : ne pas le changer après un init réussi sans migration (sinon dépôt illisible).
-# Sur le VPS (cron) : loopback OK. Depuis l’extérieur : s3:https://restic.dsp5…/vdev-restic
-restic_repository: "s3:http://127.0.0.1:9000/vdev-restic"
-# restic_aws_default_region: us-east-1   # optionnel (défaut dans roles/restic_client/defaults) — requis pour S3/MinIO
+# Restic : même sauvegarde du disque vers plusieurs buckets (isolation vdev / vpreprod / vprod).
+# Chaque bucket doit exister dans MinIO. Même restic_password pour tous les dépôts sur ce VPS (dépôts distincts).
+# minio_root_user / minio_root_password : identiques au MinIO du VPS.
+# Repli mono-dépôt : ne pas définir restic_repositories et utiliser restic_repository (une seule URL).
+restic_repositories:
+  - "s3:http://127.0.0.1:9000/vdev-restic"
+  - "s3:http://127.0.0.1:9000/vpreprod-restic"
+  - "s3:http://127.0.0.1:9000/vprod-restic"
+# restic_aws_default_region: us-east-1   # optionnel (défaut dans roles/restic_client/defaults)
 
 
 
