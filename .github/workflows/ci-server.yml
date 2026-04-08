@@ -1,16 +1,9 @@
+# Déclenché uniquement à la main. La CI automatique sur vdev / vpreprod / vprod (et dev / preprod / prod)
+# est dans **ci.yml** (« CI — Monorepo ») pour un ordre clair et éviter les doublons.
 name: CI - Server (Backend)
 
 on:
-  push:
-    branches:
-      - dev
-      - preprod
-      - prod
-  pull_request:
-    branches:
-      - dev
-      - preprod
-      - prod
+  workflow_dispatch:
 
 permissions:
   contents: read

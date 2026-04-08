@@ -1,5 +1,9 @@
 # -----------------------------------------------------------------------------
 # CD — Branche vdev : Harbor → images → VPS
+# Déclenchement : **push** sur `vdev` puis attente dans le job `gate` que la CI Monorepo
+# soit **terminée avec succès** sur le même commit (évite de déployer si les tests échouent).
+# `workflow_dispatch` : déploiement manuel. (On n’utilise pas `workflow_run` seul : il exige
+# que ce fichier soit sur la **branche par défaut** GitHub, sinon le CD ne part jamais.)
 # Secrets : HARBOR_REGISTRY_BASE, HARBOR_ADMIN_PASSWORD, HARBOR_USERNAME/PASSWORD,
 #           VPS_HOST, VPS_SSH_USER, VPS_SSH_KEY,
 #           VDEV_ENV_FILE (ou alias VDEV_ENV) — contenu multiligne de vdev.env ; optionnel : VDEV_ENV_FILE_B64
@@ -10,13 +14,16 @@ name: CD / vdev
 on:
   push:
     branches: [vdev]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: deploy-vdev
-  cancel-in-progress: true
+  # false : deux déclenchements rapides (même commit) ne s’annulent pas au moment du checkout.
+  cancel-in-progress: false
 
 env:
   HARBOR_PROJECT: vdev
@@ -24,16 +31,97 @@ env:
   SITE_URL: https://vdev.dsp5-archi-o22a-15m-g3.fr
 
 jobs:
+  gate:
+    name: "0 · CI Monorepo verte sur ce commit (ou manuel)"
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.gate.outputs.sha }}
+      ok: ${{ steps.gate.outputs.ok }}
+    steps:
+      - name: Vérifier / attendre la CI
+        id: gate
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const ciName = 'CI — Monorepo (server + client)';
+            const target = 'vdev';
+            if (context.eventName === 'workflow_dispatch') {
+              core.setOutput('sha', context.sha);
+              core.setOutput('ok', 'true');
+              core.info('Déploiement manuel : pas d’attente CI.');
+              return;
+            }
+            const sha = context.sha;
+            const branch = context.ref.replace(/^refs\/heads\//, '');
+            if (branch !== target) {
+              core.setOutput('sha', '');
+              core.setOutput('ok', 'false');
+              return;
+            }
+            core.info(`Attente CI « ${ciName} » verte pour ${sha.slice(0, 7)}…`);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const maxAttempts = 90;
+            const delayMs = 10000;
+            for (let i = 0; i < maxAttempts; i++) {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                head_sha: sha,
+                per_page: 30,
+              });
+              const relevant = (data.workflow_runs || []).filter(
+                (w) =>
+                  w.name === ciName &&
+                  w.head_branch === target &&
+                  (w.event === 'push' || w.event === 'pull_request')
+              );
+              if (relevant.length === 0) {
+                core.info(`Run CI pas encore visible (tentative ${i + 1}/${maxAttempts})`);
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
+              }
+              const pending = relevant.filter((w) => w.status !== 'completed');
+              if (pending.length > 0) {
+                core.info(
+                  `CI en cours : ${pending.map((p) => `${p.event}:${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`
+                );
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
+              }
+              const okRun = relevant.find((w) => w.conclusion === 'success');
+              if (okRun) {
+                core.setOutput('sha', sha);
+                core.setOutput('ok', 'true');
+                return;
+              }
+              const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
+              core.setOutput('sha', sha);
+              core.setOutput('ok', 'false');
+              core.setFailed(`CI Monorepo en échec (${worst.conclusion}) — déploiement annulé.`);
+              return;
+            }
+            core.setOutput('sha', '');
+            core.setOutput('ok', 'false');
+            core.setFailed('Timeout : la CI Monorepo n’a pas fini à temps — déploiement annulé.');
+
   # ---------------------------------------------------------------------------
   # Stage 1 — Projet Harbor (API admin, idempotent)
   # ---------------------------------------------------------------------------
   harbor-project:
     name: "1 · Harbor — projet vdev"
+    needs: [gate]
+    if: needs.gate.outputs.ok == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      sha: ${{ needs.gate.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
 
       - name: Créer le projet s'il n'existe pas
         env:
@@ -51,9 +139,13 @@ jobs:
     needs: [harbor-project]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      sha: ${{ needs.harbor-project.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.harbor-project.outputs.sha }}
 
       - name: Docker login (robot)
         run: |
@@ -65,13 +157,14 @@ jobs:
       - name: Build & push API
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
-          docker build -t "${REGISTRY}/api:${{ github.sha }}" -f server/Dockerfile server
-          docker push "${REGISTRY}/api:${{ github.sha }}"
+          SHA="${{ needs.harbor-project.outputs.sha }}"
+          docker build -t "${REGISTRY}/api:${SHA}" -f server/Dockerfile server
+          docker push "${REGISTRY}/api:${SHA}"
 
       - name: Build & push client (Vite)
         env:
-          # Variable dépôt (Settings → Variables) ou secret (Settings → Secrets) — même nom
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
+          SHA: ${{ needs.harbor-project.outputs.sha }}
         run: |
           REGISTRY="${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}"
           LASTMOD_DATE="$(git log -1 --format=%cs)"
@@ -81,9 +174,9 @@ jobs:
             --build-arg SITE_URL="${{ env.SITE_URL }}" \
             --build-arg LASTMOD_DATE="${LASTMOD_DATE}" \
             --build-arg VITE_GOOGLE_CLIENT_ID="${VITE_GOOGLE_CLIENT_ID}" \
-            -t "${REGISTRY}/client:${{ github.sha }}" \
+            -t "${REGISTRY}/client:${SHA}" \
             -f client/Dockerfile client
-          docker push "${REGISTRY}/client:${{ github.sha }}"
+          docker push "${REGISTRY}/client:${SHA}"
 
   # ---------------------------------------------------------------------------
   # Stage 3 — Déploiement sur le VPS
@@ -93,9 +186,13 @@ jobs:
     needs: [build-and-push]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      sha: ${{ needs.build-and-push.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.build-and-push.outputs.sha }}
 
       - name: Écrire vdev.env sur le VPS + sync + compose
         env:
@@ -146,7 +243,7 @@ jobs:
             "set -euo pipefail
              cd /opt/thetiptop/app
              export REGISTRY='${{ secrets.HARBOR_REGISTRY_BASE }}/${{ env.HARBOR_PROJECT }}'
-             export IMAGE_TAG='${{ github.sha }}'
+             export IMAGE_TAG='${{ needs.build-and-push.outputs.sha }}'
              docker compose -f infra/deploy/docker-compose.stack.yml \
                --env-file infra/deploy/env/vdev.env \
                up -d --remove-orphans
@@ -171,7 +268,7 @@ jobs:
         uses: actions/github-script@v8
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          COMMIT_SHORT: ${{ github.sha }}
+          COMMIT_SHORT: ${{ needs.deploy-vps.outputs.sha }}
         with:
           script: |
             const { owner, repo } = context.repo;

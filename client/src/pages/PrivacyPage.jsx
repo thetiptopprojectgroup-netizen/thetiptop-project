@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Shield, Database, Lock, Eye, Trash2, Download } from 'lucide-react';
+import { Shield, Database, Lock, Eye } from 'lucide-react';
 import Card from '../components/common/Card';
 
 export default function PrivacyPage() {
