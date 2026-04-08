@@ -2,14 +2,25 @@
 # Région factice exigée par la signature AWS S3 vers MinIO (sinon restic peut échouer).
 restic_aws_default_region: us-east-1
 
-# Horaires au fuseau du serveur (crontab système). Pour l’heure de Paris, réglez le VPS sur
-# Europe/Paris (timedatectl) ou adaptez les heures ci‑dessous en UTC.
-restic_cron_schedule:
-  - name: thetiptop restic backup mercredi
-    minute: "40"
-    hour: "14"
+# Liste d’URLs s3:… (prioritaire). Si vide, utiliser restic_repository (une URL) dans group_vars.
+restic_repositories: []
+restic_repository: ""
+
+# Crons : un dépôt par créneau. repo_index = position dans restic_repositories (0=vdev-restic, 1=vpreprod, 2=vprod).
+# Fuseau = horloge du VPS (timedatectl).
+restic_cron_jobs:
+  - name: thetiptop restic vdev mercredi
+    repo_index: 0
+    minute: "20"
+    hour: "15"
     weekday: wed
-  - name: thetiptop restic backup vendredi
+  - name: thetiptop restic vpreprod mercredi
+    repo_index: 1
+    minute: "40"
+    hour: "15"
+    weekday: wed
+  - name: thetiptop restic vprod mercredi
+    repo_index: 2
     minute: "0"
-    hour: "12"
-    weekday: fri
+    hour: "16"
+    weekday: wed

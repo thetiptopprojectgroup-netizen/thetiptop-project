@@ -29,40 +29,66 @@
     mode: "0755"
   when: restic_install | default(true)
 
-- name: Script de sauvegarde (cron)
+- name: Liste des dépôts Restic (plusieurs buckets MinIO sur le même VPS)
+  ansible.builtin.set_fact:
+    restic_repo_list: >-
+      {{
+        (
+          (restic_repositories | default([]))
+          if (restic_repositories | default([]) | length > 0)
+          else ([restic_repository | default('')])
+        ) | reject('equalto', '') | list
+      }}
+  when: restic_install | default(true)
+
+- name: Au moins un dépôt Restic requis
+  ansible.builtin.assert:
+    that:
+      - restic_repo_list | length > 0
+    fail_msg: "Définir restic_repositories (liste d’URLs s3:…) ou restic_repository dans group_vars."
+  when: restic_install | default(true)
+
+- name: Assez de dépôts pour les indices cron (repo_index)
+  ansible.builtin.assert:
+    that:
+      - restic_repo_list | length > (restic_cron_jobs | map(attribute='repo_index') | max | default(-1))
+    fail_msg: "restic_repositories est trop court pour restic_cron_jobs (vérifier l’ordre vdev, vpreprod, vprod)."
+  when: restic_install | default(true)
+
+- name: Script de sauvegarde (cron) — tous les dépôts
   ansible.builtin.template:
     src: restic-backup.sh.j2
     dest: /opt/thetiptop/restic/backup.sh
     mode: "0750"
   when: restic_install | default(true)
 
-- name: Variables d’environnement Restic / S3 (pour init et checks)
+- name: Script sauvegarde un seul dépôt (argument = URL, appelé par cron)
+  ansible.builtin.template:
+    src: restic-backup-repo.sh.j2
+    dest: /opt/thetiptop/restic/backup-repo.sh
+    mode: "0750"
+  when: restic_install | default(true)
+
+- name: Script d’initialisation multi-dépôts
+  ansible.builtin.template:
+    src: restic-init-all.sh.j2
+    dest: /opt/thetiptop/restic/init-all.sh
+    mode: "0750"
+  when: restic_install | default(true)
+
+- name: Initialiser chaque bucket Restic si vide
+  ansible.builtin.command: /opt/thetiptop/restic/init-all.sh
+  when: restic_install | default(true)
+  changed_when: false
+
+- name: Variables d’environnement communes Restic / S3 (sans RESTIC_REPOSITORY)
   ansible.builtin.set_fact:
-    restic_env:
-      RESTIC_REPOSITORY: "{{ restic_repository }}"
+    restic_env_base:
       RESTIC_PASSWORD: "{{ restic_password }}"
       AWS_ACCESS_KEY_ID: "{{ minio_root_user }}"
       AWS_SECRET_ACCESS_KEY: "{{ minio_root_password }}"
       AWS_DEFAULT_REGION: "{{ restic_aws_default_region | default('us-east-1') }}"
   when: restic_install | default(true)
-
-- name: Tester l’accès au dépôt Restic (snapshots)
-  ansible.builtin.command: /usr/local/bin/restic snapshots
-  environment: "{{ restic_env }}"
-  register: restic_snapshots_check
-  failed_when: false
-  changed_when: false
-  when: restic_install | default(true)
-
-- name: Initialiser le dépôt Restic dans MinIO (obligatoire avant le 1er backup)
-  ansible.builtin.command: /usr/local/bin/restic init
-  environment: "{{ restic_env }}"
-  register: restic_init
-  changed_when: restic_init.rc == 0
-  failed_when: >-
-    restic_init.rc != 0 and
-    ('already initialized' not in ((restic_init.stderr | default('') + restic_init.stdout | default('')) | lower))
-  when: restic_install | default(true) and restic_snapshots_check.rc != 0
 
 - name: Retirer l’ancien cron Restic quotidien (remplacé par le planning hebdomadaire)
   ansible.builtin.cron:
@@ -70,33 +96,37 @@
     state: absent
   when: restic_install | default(true)
 
-- name: Retirer anciens crons Restic avec heure dans le nom (remplacés par noms stables)
+- name: Retirer anciens crons Restic (noms / planning obsolètes)
   ansible.builtin.cron:
     name: "{{ item }}"
     state: absent
   loop:
     - thetiptop restic backup mercredi 13h30
     - thetiptop restic backup vendredi 12h00
+    - thetiptop restic backup mercredi
+    - thetiptop restic backup vendredi
   when: restic_install | default(true)
 
-- name: Cron sauvegardes Restic (planning hebdomadaire)
+- name: Cron sauvegardes Restic (mercredi — un créneau par environnement)
   ansible.builtin.cron:
     name: "{{ item.name }}"
     minute: "{{ item.minute }}"
     hour: "{{ item.hour }}"
     weekday: "{{ item.weekday }}"
-    job: /opt/thetiptop/restic/backup.sh >> /var/log/thetiptop-restic.log 2>&1
+    job: "/opt/thetiptop/restic/backup-repo.sh {{ restic_repo_list[item.repo_index] }} >> /var/log/thetiptop-restic.log 2>&1"
     user: root
-  loop: "{{ restic_cron_schedule }}"
+  loop: "{{ restic_cron_jobs }}"
   when: restic_install | default(true)
 
-- name: Contrôle final — dépôt Restic joignable (échoue le CD si MinIO / mots de passe / bucket sont incorrects)
+- name: Contrôle — chaque dépôt répond (snapshots)
   ansible.builtin.command: /usr/local/bin/restic snapshots
-  environment: "{{ restic_env }}"
+  environment: "{{ restic_env_base | combine({'RESTIC_REPOSITORY': item}) }}"
+  loop: "{{ restic_repo_list }}"
   changed_when: false
   when: restic_install | default(true)
 
-- name: Snapshot de contrôle (léger) — confirme l’écriture réelle dans le bucket MinIO
+- name: Snapshot de contrôle (léger) par dépôt — écriture MinIO
   ansible.builtin.command: /usr/local/bin/restic backup /opt/thetiptop/restic --tag ansible-ci-smoke
-  environment: "{{ restic_env }}"
+  environment: "{{ restic_env_base | combine({'RESTIC_REPOSITORY': item}) }}"
+  loop: "{{ restic_repo_list }}"
   when: restic_install | default(true)
