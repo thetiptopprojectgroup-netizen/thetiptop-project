@@ -1,0 +1,31 @@
+# Grafana + Prometheus (stack infra/monitoring/docker-compose.yml).
+# Conteneurs sur le réseau Docker « traefik » : thetiptop-grafana, thetiptop-prometheus.
+http:
+  routers:
+    grafana-monitoring:
+      rule: "Host(`grafana.dsp5-archi-o22a-15m-g3.fr`)"
+      entryPoints:
+        - websecure
+      service: grafana-monitoring-svc
+      tls:
+        certResolver: le
+      priority: 30
+    prometheus-monitoring:
+      rule: "Host(`prometheus.dsp5-archi-o22a-15m-g3.fr`)"
+      entryPoints:
+        - websecure
+      service: prometheus-monitoring-svc
+      tls:
+        certResolver: le
+      priority: 30
+  services:
+    grafana-monitoring-svc:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://thetiptop-grafana:3000"
+    prometheus-monitoring-svc:
+      loadBalancer:
+        passHostHeader: true
+        servers:
+          - url: "http://thetiptop-prometheus:9090"
