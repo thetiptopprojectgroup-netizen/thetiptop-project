@@ -30,9 +30,9 @@ permissions:
   issues: write
   actions: read
 
-# Même commit peut déclencher push + pull_request (ex. branche head d’une PR ouverte) : un seul groupe évite deux runs parallèles.
+# Même SHA avec push + pull_request : un seul groupe les faisait s’annuler (checkout « canceled »). Un groupe par événement garde cancel-in-progress utile sans casser l’autre run.
 concurrency:
-  group: ci-${{ github.repository }}-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+  group: ci-${{ github.repository }}-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:

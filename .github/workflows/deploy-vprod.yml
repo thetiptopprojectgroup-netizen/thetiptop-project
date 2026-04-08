@@ -63,23 +63,38 @@ jobs:
                 owner,
                 repo,
                 head_sha: sha,
-                event: 'push',
-                per_page: 20,
+                per_page: 30,
               });
-              const run = (data.workflow_runs || []).find((w) => w.name === ciName);
-              if (run) {
-                if (run.status === 'completed') {
-                  const ok = run.conclusion === 'success';
-                  core.setOutput('sha', sha);
-                  core.setOutput('ok', ok ? 'true' : 'false');
-                  if (!ok) core.setFailed(`CI Monorepo en échec (${run.conclusion}) — déploiement annulé.`);
-                  return;
-                }
-                core.info(`CI en cours : ${run.status} (tentative ${i + 1}/${maxAttempts})`);
-              } else {
+              const relevant = (data.workflow_runs || []).filter(
+                (w) =>
+                  w.name === ciName &&
+                  w.head_branch === target &&
+                  (w.event === 'push' || w.event === 'pull_request')
+              );
+              if (relevant.length === 0) {
                 core.info(`Run CI pas encore visible (tentative ${i + 1}/${maxAttempts})`);
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
               }
-              await new Promise((r) => setTimeout(r, delayMs));
+              const pending = relevant.filter((w) => w.status !== 'completed');
+              if (pending.length > 0) {
+                core.info(
+                  `CI en cours : ${pending.map((p) => `${p.event}:${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`
+                );
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
+              }
+              const okRun = relevant.find((w) => w.conclusion === 'success');
+              if (okRun) {
+                core.setOutput('sha', sha);
+                core.setOutput('ok', 'true');
+                return;
+              }
+              const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
+              core.setOutput('sha', sha);
+              core.setOutput('ok', 'false');
+              core.setFailed(`CI Monorepo en échec (${worst.conclusion}) — déploiement annulé.`);
+              return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
