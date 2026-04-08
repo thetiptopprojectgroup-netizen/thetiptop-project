@@ -30,8 +30,9 @@ permissions:
   issues: write
   actions: read
 
+# Même commit peut déclencher push + pull_request (ex. branche head d’une PR ouverte) : un seul groupe évite deux runs parallèles.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.repository }}-${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:

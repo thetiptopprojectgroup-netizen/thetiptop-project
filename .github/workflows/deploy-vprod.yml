@@ -1,19 +1,18 @@
 # -----------------------------------------------------------------------------
-# CD — Branche vprod (prod) — après CI Monorepo verte sur push `vprod`, ou manuel.
+# CD — Branche vprod (prod) — push `vprod` + attente CI Monorepo verte, ou manuel.
 # L'environnement GitHub protège le job de déploiement.
 # Secret multiligne : VPROD_ENV_FILE (contenu de infra/deploy/env/vprod.env)
 # -----------------------------------------------------------------------------
 name: CD / vprod
 
 on:
-  workflow_run:
-    workflows: ["CI — Monorepo (server + client)"]
-    types:
-      - completed
+  push:
+    branches: [vprod]
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
   deployments: write
 
 concurrency:
@@ -27,31 +26,64 @@ env:
 
 jobs:
   gate:
-    name: "0 · CI verte requise (ou manuel)"
+    name: "0 · CI Monorepo verte sur ce commit (ou manuel)"
     runs-on: ubuntu-latest
     outputs:
-      sha: ${{ steps.pick.outputs.sha }}
-      ok: ${{ steps.pick.outputs.ok }}
+      sha: ${{ steps.gate.outputs.sha }}
+      ok: ${{ steps.gate.outputs.ok }}
     steps:
-      - id: pick
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-            echo "ok=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          C="${{ github.event.workflow_run.conclusion }}"
-          B="${{ github.event.workflow_run.head_branch }}"
-          E="${{ github.event.workflow_run.event }}"
-          S="${{ github.event.workflow_run.head_sha }}"
-          echo "Déclenché par CI : conclusion=$C branch=$B event=$E"
-          if [ "$C" != "success" ] || [ "$B" != "vprod" ] || [ "$E" != "push" ]; then
-            echo "ok=false" >> "$GITHUB_OUTPUT"
-            echo "sha=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "sha=$S" >> "$GITHUB_OUTPUT"
-          echo "ok=true" >> "$GITHUB_OUTPUT"
+      - name: Vérifier / attendre la CI
+        id: gate
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const ciName = 'CI — Monorepo (server + client)';
+            const target = 'vprod';
+            if (context.eventName === 'workflow_dispatch') {
+              core.setOutput('sha', context.sha);
+              core.setOutput('ok', 'true');
+              core.info('Déploiement manuel : pas d’attente CI.');
+              return;
+            }
+            const sha = context.sha;
+            const branch = context.ref.replace(/^refs\/heads\//, '');
+            if (branch !== target) {
+              core.setOutput('sha', '');
+              core.setOutput('ok', 'false');
+              return;
+            }
+            core.info(`Attente CI « ${ciName} » verte pour ${sha.slice(0, 7)}…`);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const maxAttempts = 90;
+            const delayMs = 10000;
+            for (let i = 0; i < maxAttempts; i++) {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                head_sha: sha,
+                event: 'push',
+                per_page: 20,
+              });
+              const run = (data.workflow_runs || []).find((w) => w.name === ciName);
+              if (run) {
+                if (run.status === 'completed') {
+                  const ok = run.conclusion === 'success';
+                  core.setOutput('sha', sha);
+                  core.setOutput('ok', ok ? 'true' : 'false');
+                  if (!ok) core.setFailed(`CI Monorepo en échec (${run.conclusion}) — déploiement annulé.`);
+                  return;
+                }
+                core.info(`CI en cours : ${run.status} (tentative ${i + 1}/${maxAttempts})`);
+              } else {
+                core.info(`Run CI pas encore visible (tentative ${i + 1}/${maxAttempts})`);
+              }
+              await new Promise((r) => setTimeout(r, delayMs));
+            }
+            core.setOutput('sha', '');
+            core.setOutput('ok', 'false');
+            core.setFailed('Timeout : la CI Monorepo n’a pas fini à temps — déploiement annulé.');
 
   harbor-project:
     name: "1 · Harbor — projet vprod"
