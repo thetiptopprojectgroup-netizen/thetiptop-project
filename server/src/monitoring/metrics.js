@@ -97,6 +97,27 @@ const playButtonToResultSeconds = new client.Histogram({
   registers: [register],
 });
 
+const howToPlayClicksTotal = new client.Counter({
+  name: 'thetiptop_how_to_play_clicks_total',
+  help: 'Clicks on "Comment jouer" navigation links',
+  labelNames: ['source'],
+  registers: [register],
+});
+
+const rulesPageViewsTotal = new client.Counter({
+  name: 'thetiptop_rules_page_views_total',
+  help: 'Views of game rules page',
+  labelNames: ['source'],
+  registers: [register],
+});
+
+const howToPlayPageViewsTotal = new client.Counter({
+  name: 'thetiptop_how_to_play_page_views_total',
+  help: 'Views of "Comment jouer" page',
+  labelNames: ['source'],
+  registers: [register],
+});
+
 const normalizePath = (pathValue) => {
   if (!pathValue) return '/unknown';
   return pathValue
@@ -191,6 +212,18 @@ export const observePlayButtonToResult = (
   if (Number.isFinite(durationSeconds) && durationSeconds >= 0) {
     playButtonToResultSeconds.observe({ page, outcome }, durationSeconds);
   }
+};
+
+export const recordHowToPlayClick = (source = 'unknown') => {
+  howToPlayClicksTotal.inc({ source });
+};
+
+export const recordRulesPageView = (source = 'unknown') => {
+  rulesPageViewsTotal.inc({ source });
+};
+
+export const recordHowToPlayPageView = (source = 'unknown') => {
+  howToPlayPageViewsTotal.inc({ source });
 };
 
 export { register };

@@ -1,8 +1,16 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, Calendar, Gift, Users, Scale, Mail } from 'lucide-react';
 import Card from '../components/common/Card';
+import { telemetryService } from '../services/api';
 
 export default function RulesPage() {
+  useEffect(() => {
+    telemetryService
+      .trackEvent({ event: 'rules_view', source: 'rules_page' })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="min-h-screen pt-24 pb-16">
       <section className="bg-gradient-to-br from-tea-900 to-tea-950 py-16 relative">
