@@ -63,15 +63,17 @@ harbor_enable_https: false
 harbor_external_url: ""
 
 # --- Restic (bucket MinIO + préfixe S3) ---
-# Planning des sauvegardes : rôle restic_client (mercredi 14h15, vendredi 12h00 par défaut).
+# Planning des sauvegardes : rôle restic_client (mercredi 14h40, vendredi 12h00 par défaut).
 # Les heures suivent le fuseau du VPS (voir timedatectl) ; surcharger restic_cron_schedule dans ce fichier si besoin.
 restic_install: true
 restic_version: "0.16.4"
 restic_password: "thetiptop"
-# Restic : un dépôt par environnement (bucket dédié).
-# Sur le VPS (cron) : loopback OK. Depuis l’extérieur ou HTTPS public :
-#   s3:https://restic.dsp5-archi-o22a-15m-g3.fr/vdev-restic
+# Restic : un dépôt par environnement (bucket dédié). Le bucket doit exister dans MinIO.
+# minio_root_user / minio_root_password : doivent être les MÊMES que sur le MinIO du VPS (sinon init/backup échouent).
+# restic_password : ne pas le changer après un init réussi sans migration (sinon dépôt illisible).
+# Sur le VPS (cron) : loopback OK. Depuis l’extérieur : s3:https://restic.dsp5…/vdev-restic
 restic_repository: "s3:http://127.0.0.1:9000/vdev-restic"
+# restic_aws_default_region: us-east-1   # optionnel (défaut dans roles/restic_client/defaults) — requis pour S3/MinIO
 
 
 

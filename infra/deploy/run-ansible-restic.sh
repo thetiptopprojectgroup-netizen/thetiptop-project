@@ -27,4 +27,7 @@ KEY_PATH="${HOME}/.ssh/id_ansible_vps"
 } > "$INV"
 
 cd infra/ansible
-ansible-playbook site.yml -i "$INV" --tags restic
+if ! ansible-playbook site.yml -i "$INV" --tags restic; then
+  echo "::error::Ansible (rôle restic) a échoué. Vérifier sur le VPS : MinIO actif sur 127.0.0.1:9000, bucket du restic_repository, alignement minio_root_user/minio_root_password avec la console MinIO, et /var/log/thetiptop-restic.log après un cron."
+  exit 1
+fi

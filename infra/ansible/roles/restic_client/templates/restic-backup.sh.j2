@@ -1,11 +1,25 @@
 #!/usr/bin/env bash
+# Ne pas masquer les échecs : sinon le bucket MinIO reste vide sans erreur visible (cron exit 0).
 set -euo pipefail
 export RESTIC_REPOSITORY="{{ restic_repository }}"
 export RESTIC_PASSWORD="{{ restic_password }}"
 export AWS_ACCESS_KEY_ID="{{ minio_root_user }}"
 export AWS_SECRET_ACCESS_KEY="{{ minio_root_password }}"
+export AWS_DEFAULT_REGION="{{ restic_aws_default_region | default('us-east-1') }}"
+export RESTIC_PROGRESS_FPS=0
+
+log() { echo "$(date -Is) $*"; }
+
+if ! /usr/local/bin/restic snapshots >/dev/null 2>&1; then
+  log "Première utilisation : restic init sur le bucket (une fois)."
+  /usr/local/bin/restic init
+fi
+
+log "restic backup…"
 /usr/local/bin/restic backup /opt/thetiptop --tag ansible \
   --exclude "{{ minio_data_path }}" \
-  --exclude "{{ harbor_data_volume }}" \
-  || true
-/usr/local/bin/restic forget --keep-daily 7 --keep-weekly 4 --prune || true
+  --exclude "{{ harbor_data_volume }}"
+
+log "restic forget / prune…"
+/usr/local/bin/restic forget --keep-daily 7 --keep-weekly 4 --prune || log "ATTENTION : forget/prune a échoué (dépôt inchangé côté backup)."
+log "Terminé OK."
