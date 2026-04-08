@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Initialise chaque dépôt listé (un bucket MinIO par URL) si besoin.
+set -euo pipefail
+export RESTIC_PASSWORD="{{ restic_password }}"
+export AWS_ACCESS_KEY_ID="{{ minio_root_user }}"
+export AWS_SECRET_ACCESS_KEY="{{ minio_root_password }}"
+export AWS_DEFAULT_REGION="{{ restic_aws_default_region | default('us-east-1') }}"
+export RESTIC_PROGRESS_FPS=0
+{% for repo in restic_repo_list %}
+export RESTIC_REPOSITORY="{{ repo }}"
+if /usr/local/bin/restic snapshots >/dev/null 2>&1; then
+  echo "$(date -Is) Déjà prêt : {{ repo }}"
+else
+  echo "$(date -Is) restic init : {{ repo }}"
+  /usr/local/bin/restic init
+fi
+{% endfor %}
