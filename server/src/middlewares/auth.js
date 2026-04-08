@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { recordJwtFailure } from '../monitoring/metrics.js';
 
 // Middleware pour vérifier le token JWT
 export const protect = async (req, res, next) => {
@@ -16,6 +17,7 @@ export const protect = async (req, res, next) => {
     }
 
     if (!token) {
+      recordJwtFailure('missing');
       return res.status(401).json({
         success: false,
         message: 'Accès non autorisé. Veuillez vous connecter.',
@@ -29,6 +31,7 @@ export const protect = async (req, res, next) => {
     const user = await User.findById(decoded.id);
 
     if (!user) {
+      recordJwtFailure('user_not_found');
       return res.status(401).json({
         success: false,
         message: 'Utilisateur non trouvé.',
@@ -36,6 +39,7 @@ export const protect = async (req, res, next) => {
     }
 
     if (!user.actif) {
+      recordJwtFailure('user_disabled');
       return res.status(401).json({
         success: false,
         message: 'Votre compte a été désactivé.',
@@ -46,12 +50,14 @@ export const protect = async (req, res, next) => {
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
+      recordJwtFailure('invalid');
       return res.status(401).json({
         success: false,
         message: 'Token invalide.',
       });
     }
     if (error.name === 'TokenExpiredError') {
+      recordJwtFailure('expired');
       return res.status(401).json({
         success: false,
         message: 'Token expiré. Veuillez vous reconnecter.',

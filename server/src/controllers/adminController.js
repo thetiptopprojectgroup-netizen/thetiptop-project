@@ -9,6 +9,7 @@ import EmployeBoutique from '../models/EmployeBoutique.js';
 import RemiseLot from '../models/RemiseLot.js';
 import ContestConfig from '../models/ContestConfig.js';
 import { AppError } from '../middlewares/errorHandler.js';
+import { recordGrandPrizeDraw } from '../monitoring/metrics.js';
 
 // @desc    Récupérer la configuration du concours
 // @route   GET /api/admin/contest-config
@@ -244,17 +245,20 @@ export const drawGrandPrize = async (req, res, next) => {
   try {
     const existingDraw = await TirageAuSort.findOne({ statut: 'termine' });
     if (existingDraw) {
+      recordGrandPrizeDraw('failure');
       return next(new AppError('Le tirage au sort a déjà été effectué', 400));
     }
 
     const contestEnd = new Date(process.env.CONTEST_END_DATE || '2026-03-30');
     const now = new Date();
     if (now < contestEnd) {
+      recordGrandPrizeDraw('failure');
       return next(new AppError("Le jeu-concours n'est pas encore terminé", 400));
     }
 
     const eligibleParticipants = await Participation.find({ eligible_tirage_final: true }).distinct('user');
     if (eligibleParticipants.length === 0) {
+      recordGrandPrizeDraw('failure');
       return next(new AppError('Aucun participant éligible', 400));
     }
 
@@ -305,7 +309,9 @@ export const drawGrandPrize = async (req, res, next) => {
         },
       },
     });
+    recordGrandPrizeDraw('success');
   } catch (error) {
+    recordGrandPrizeDraw('error');
     next(error);
   }
 };

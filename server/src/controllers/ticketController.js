@@ -8,6 +8,7 @@ import {
   sendPrizeDeliveredEmail,
   isPrizeDeliveredEmailConfigured,
 } from '../services/emailjsService.js';
+import { recordTicketClaim, recordTicketValidation } from '../monitoring/metrics.js';
 
 // @desc    Valider un ticket et participer au jeu
 // @route   POST /api/tickets/validate
@@ -20,25 +21,30 @@ export const validateTicket = async (req, res, next) => {
     const { contest_start_date, claim_end_date } = await getContestDates();
 
     if (now < contest_start_date) {
+      recordTicketValidation('failure');
       return next(new AppError("Le jeu-concours n'a pas encore commencé", 400));
     }
     if (now > claim_end_date) {
+      recordTicketValidation('failure');
       return next(new AppError('La période de participation est terminée', 400));
     }
 
     const formattedCode = code.toUpperCase().replace(/\s/g, '');
 
     if (!/^[A-Z0-9]{10}$/.test(formattedCode)) {
+      recordTicketValidation('failure');
       return next(new AppError('Format de code invalide. Le code doit contenir 10 caractères alphanumériques.', 400));
     }
 
     const codeDoc = await Code.findOne({ code: formattedCode });
 
     if (!codeDoc) {
+      recordTicketValidation('failure');
       return next(new AppError('Code invalide. Vérifiez votre ticket.', 404));
     }
 
     if (codeDoc.etat !== 'disponible') {
+      recordTicketValidation('failure');
       return next(new AppError('Ce code a déjà été utilisé', 400));
     }
 
@@ -75,7 +81,9 @@ export const validateTicket = async (req, res, next) => {
         },
       },
     });
+    recordTicketValidation('success');
   } catch (error) {
+    recordTicketValidation('error');
     next(error);
   }
 };
@@ -188,6 +196,7 @@ export const claimMyPrizeOnline = async (req, res, next) => {
     const now = new Date();
     const { claim_end_date } = await getContestDates();
     if (now > claim_end_date) {
+      recordTicketClaim('online', 'failure');
       return next(new AppError('La période de réclamation en ligne est terminée', 400));
     }
 
@@ -204,16 +213,20 @@ export const claimMyPrizeOnline = async (req, res, next) => {
     if (!participation) {
       const existing = await Participation.findOne({ _id: id, user: userId });
       if (!existing) {
+        recordTicketClaim('online', 'failure');
         return next(new AppError('Participation introuvable', 404));
       }
       if (existing.status === 'reclaim_requested') {
+        recordTicketClaim('online', 'failure');
         return next(
           new AppError('Vous avez déjà enregistré une demande de réclamation pour ce lot', 400)
         );
       }
       if (existing.status === 'remis') {
+        recordTicketClaim('online', 'failure');
         return next(new AppError('Ce lot a déjà été remis', 400));
       }
+      recordTicketClaim('online', 'failure');
       return next(new AppError('Ce lot ne peut pas être réclamé en ligne dans son état actuel', 400));
     }
 
@@ -235,7 +248,9 @@ export const claimMyPrizeOnline = async (req, res, next) => {
         },
       },
     });
+    recordTicketClaim('online', 'success');
   } catch (error) {
+    recordTicketClaim('online', 'error');
     next(error);
   }
 };
@@ -252,23 +267,29 @@ export const claimPrize = async (req, res, next) => {
     const codeDoc = await Code.findOne({ code: formattedCode });
 
     if (!codeDoc) {
+      recordTicketClaim('store', 'failure');
       return next(new AppError('Ticket non trouvé', 404));
     }
     if (codeDoc.etat === 'disponible') {
+      recordTicketClaim('store', 'failure');
       return next(new AppError("Ce ticket n'a pas encore été validé par un client", 400));
     }
     if (codeDoc.etat === 'reclame') {
+      recordTicketClaim('store', 'failure');
       return next(new AppError('Ce lot a déjà été remis', 400));
     }
 
     const participation = await Participation.findOne({ ticket: codeDoc._id });
     if (!participation) {
+      recordTicketClaim('store', 'failure');
       return next(new AppError('Participation introuvable pour ce ticket', 404));
     }
     if (participation.status === 'remis') {
+      recordTicketClaim('store', 'failure');
       return next(new AppError('Ce lot a déjà été remis', 400));
     }
     if (!['won', 'reclaim_requested'].includes(participation.status)) {
+      recordTicketClaim('store', 'failure');
       return next(new AppError('La remise de ce lot n’est pas possible dans l’état actuel', 400));
     }
 
@@ -317,7 +338,9 @@ export const claimPrize = async (req, res, next) => {
       message: 'Lot remis avec succès',
       data: { ticket: codeDoc, participation },
     });
+    recordTicketClaim('store', 'success');
   } catch (error) {
+    recordTicketClaim('store', 'error');
     next(error);
   }
 };
