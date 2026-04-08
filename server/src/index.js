@@ -42,6 +42,7 @@ app.use(cors({
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // 100 requêtes par fenêtre
+  skip: (req) => req.path === '/metrics',
   message: {
     success: false,
     message: 'Trop de requêtes, veuillez réessayer plus tard.',
@@ -99,6 +100,7 @@ app.use('/api/newsletter', newsletterLimiter);
 
 // Prometheus metrics endpoint
 app.get('/metrics', metricsHandler);
+app.get('/api/metrics', metricsHandler);
 
 // Routes API
 app.use('/api', routes);
