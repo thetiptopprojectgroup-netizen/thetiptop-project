@@ -11,6 +11,7 @@ import configurePassport from './config/passport.js';
 import routes from './routes/index.js';
 import authRoutes from './routes/authRoutes.js';
 import errorHandler, { notFound } from './middlewares/errorHandler.js';
+import { metricsHandler, metricsMiddleware } from './monitoring/metrics.js';
 
 // Configuration des variables d'environnement
 dotenv.config();
@@ -73,6 +74,9 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
+// Metrics middleware should wrap API/auth traffic.
+app.use(metricsMiddleware);
+
 // Parsing du body
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -92,6 +96,9 @@ const newsletterLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api/newsletter', newsletterLimiter);
+
+// Prometheus metrics endpoint
+app.get('/metrics', metricsHandler);
 
 // Routes API
 app.use('/api', routes);
