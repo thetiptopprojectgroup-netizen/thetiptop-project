@@ -13,7 +13,6 @@ export default function TicketValidator() {
   const {
     validateTicket,
     currentWin,
-    isValidating,
     isClaiming,
     error,
     clearError,
