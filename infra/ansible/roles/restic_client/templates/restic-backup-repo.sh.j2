@@ -27,7 +27,8 @@ read_env() {
   local default_value="$2"
   local value
 
-  value="$(rg -n "^${key}=" "${ENV_FILE}" -m 1 | sed -E "s/^[0-9]+:${key}=//" || true)"
+  value="$(awk -F= -v k="$key" '$1==k {print substr($0, index($0, "=")+1)}' "${ENV_FILE}" | tail -n 1)"
+  value="${value%$'\r'}"
   value="${value%\"}"
   value="${value#\"}"
   if [[ -n "${value}" ]]; then
@@ -39,7 +40,7 @@ read_env() {
 
 COMPOSE_PROJECT_NAME="$(read_env COMPOSE_PROJECT_NAME "thetiptop-${ENV_NAME}")"
 MONGO_USER="$(read_env MONGO_USER "thetiptop")"
-MONGO_PASSWORD="$(read_env MONGO_PASSWORD "thetiptop")"
+MONGO_PASSWORD="$(read_env MONGO_PASSWORD "thetiptop123")"
 MONGO_DB="$(read_env MONGO_DB "thetiptop")"
 MONGO_AUTH_DB="$(read_env MONGO_AUTH_DB "thetiptop")"
 MONGO_HOST="${COMPOSE_PROJECT_NAME}-mongodb-1"
