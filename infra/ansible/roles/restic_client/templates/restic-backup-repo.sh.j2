@@ -22,17 +22,27 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
-# shellcheck disable=SC1090
-set -a
-source "${ENV_FILE}"
-set +a
+read_env() {
+  local key="$1"
+  local default_value="$2"
+  local value
 
-COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-thetiptop-${ENV_NAME}}"
-MONGO_USER="${MONGO_USER:-thetiptop}"
-MONGO_PASSWORD="${MONGO_PASSWORD:-thetiptop}"
-MONGO_DB="${MONGO_DB:-thetiptop}"
-MONGO_AUTH_DB="${MONGO_AUTH_DB:-thetiptop}"
-MONGO_HOST="${MONGO_HOST:-${COMPOSE_PROJECT_NAME}-mongodb-1}"
+  value="$(rg -n "^${key}=" "${ENV_FILE}" -m 1 | sed -E "s/^[0-9]+:${key}=//" || true)"
+  value="${value%\"}"
+  value="${value#\"}"
+  if [[ -n "${value}" ]]; then
+    printf "%s\n" "${value}"
+  else
+    printf "%s\n" "${default_value}"
+  fi
+}
+
+COMPOSE_PROJECT_NAME="$(read_env COMPOSE_PROJECT_NAME "thetiptop-${ENV_NAME}")"
+MONGO_USER="$(read_env MONGO_USER "thetiptop")"
+MONGO_PASSWORD="$(read_env MONGO_PASSWORD "thetiptop")"
+MONGO_DB="$(read_env MONGO_DB "thetiptop")"
+MONGO_AUTH_DB="$(read_env MONGO_AUTH_DB "thetiptop")"
+MONGO_HOST="${COMPOSE_PROJECT_NAME}-mongodb-1"
 
 BACKUP_ROOT="/opt/thetiptop/backup/mongodb/${ENV_NAME}"
 SIG_FILE="${BACKUP_ROOT}/.last-db-signature"
@@ -65,6 +75,7 @@ fi
 
 log "Create mongodump: ${BACKUP_ROOT}/${DUMP_BASENAME}"
 docker run --rm \
+  --user 0:0 \
   --network "${COMPOSE_PROJECT_NAME}_internal" \
   -v "${BACKUP_ROOT}:/backup" \
   mongo:7.0 mongodump \
