@@ -7,20 +7,27 @@ restic_repositories: []
 restic_repository: ""
 
 # Crons : un dépôt par créneau. repo_index = position dans restic_repositories (0=vdev-restic, 1=vpreprod, 2=vprod).
+# env_file sert à charger COMPOSE_PROJECT_NAME / MONGO_USER / MONGO_PASSWORD pour générer un mongodump avant restic.
 # Fuseau = horloge du VPS (timedatectl).
 restic_cron_jobs:
   - name: thetiptop restic vdev mercredi
     repo_index: 0
+    env_name: vdev
+    env_file: /opt/thetiptop/app/infra/deploy/env/vdev.env
     minute: "20"
     hour: "15"
     weekday: wed
   - name: thetiptop restic vpreprod mercredi
     repo_index: 1
+    env_name: vpreprod
+    env_file: /opt/thetiptop/app/infra/deploy/env/vpreprod.env
     minute: "40"
     hour: "15"
     weekday: wed
   - name: thetiptop restic vprod mercredi
     repo_index: 2
+    env_name: vprod
+    env_file: /opt/thetiptop/app/infra/deploy/env/vprod.env
     minute: "0"
     hour: "16"
     weekday: wed

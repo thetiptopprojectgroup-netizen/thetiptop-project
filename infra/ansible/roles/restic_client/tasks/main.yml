@@ -52,6 +52,8 @@
   ansible.builtin.assert:
     that:
       - restic_repo_list | length > (restic_cron_jobs | map(attribute='repo_index') | max | default(-1))
+      - restic_cron_jobs | map(attribute='env_file') | list | length == restic_cron_jobs | length
+      - restic_cron_jobs | map(attribute='env_name') | list | length == restic_cron_jobs | length
     fail_msg: "restic_repositories est trop court pour restic_cron_jobs (vérifier l’ordre vdev, vpreprod, vprod)."
   when: restic_install | default(true)
 
@@ -113,7 +115,7 @@
     minute: "{{ item.minute }}"
     hour: "{{ item.hour }}"
     weekday: "{{ item.weekday }}"
-    job: "/opt/thetiptop/restic/backup-repo.sh {{ restic_repo_list[item.repo_index] }} >> /var/log/thetiptop-restic.log 2>&1"
+    job: "/opt/thetiptop/restic/backup-repo.sh {{ restic_repo_list[item.repo_index] }} {{ item.env_file }} {{ item.env_name }} >> /var/log/thetiptop-restic.log 2>&1"
     user: root
   loop: "{{ restic_cron_jobs }}"
   when: restic_install | default(true)
