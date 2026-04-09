@@ -1,5 +1,5 @@
-# Kibana (stack infra/logging/docker-compose.yml).
-# DNS : kibana.dsp5-archi-o22a-15m-g3.fr → IP du VPS (même principe que monitoring.yml).
+# Kibana routing via Traefik file provider.
+# Same pattern as monitoring.yml: container name on the shared 'traefik' Docker network.
 http:
   routers:
     kibana-logging:
