@@ -10,8 +10,12 @@ cd "$ROOT"
 : "${VPS_SSH_KEY:?VPS_SSH_KEY requis}"
 
 export DEBIAN_FRONTEND=noninteractive
-sudo apt-get update -qq
-sudo apt-get install -y ansible-core
+if command -v ansible-playbook >/dev/null 2>&1; then
+  echo "Ansible déjà présent: $(ansible-playbook --version | head -n 1)"
+else
+  sudo apt-get update -qq
+  sudo apt-get install -y --no-install-recommends ansible-core
+fi
 
 mkdir -p ~/.ssh
 printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ansible_vps
