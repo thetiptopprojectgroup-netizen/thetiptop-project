@@ -44,7 +44,7 @@ SIG_FILE="$BACKUP_ROOT/.last-db-signature"
 
 MONGO_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' "${MONGO_CONTAINER:-${COMPOSE_PROJECT_NAME}-mongodb-1}" 2>/dev/null || true)"
 if [[ -z "$MONGO_IP" ]]; then
-  AUTO_MONGO_CONTAINER="$(docker ps --format '{{.Names}}' | rg "^${COMPOSE_PROJECT_NAME}-mongodb-[0-9]+$" -m 1 || true)"
+  AUTO_MONGO_CONTAINER="$(docker ps --format '{% raw %}{{.Names}}{% endraw %}' | rg "^${COMPOSE_PROJECT_NAME}-mongodb-[0-9]+$" -m 1 || true)"
   if [[ -n "$AUTO_MONGO_CONTAINER" ]]; then
     MONGO_CONTAINER="$AUTO_MONGO_CONTAINER"
     MONGO_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' "$MONGO_CONTAINER" 2>/dev/null || true)"
