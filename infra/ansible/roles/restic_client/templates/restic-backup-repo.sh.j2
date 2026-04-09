@@ -32,6 +32,9 @@ MONGO_PASSWORD="${MONGO_PASSWORD:-thetiptop}"
 MONGO_DB="${MONGO_DB:-thetiptop}"
 MONGO_AUTH_DB="${MONGO_AUTH_DB:-thetiptop}"
 MONGO_CONTAINER="${MONGO_CONTAINER:-${COMPOSE_PROJECT_NAME}-mongodb-1}"
+if [[ -z "${MONGO_CONTAINER:-}" ]]; then
+  MONGO_CONTAINER="${COMPOSE_PROJECT_NAME}-mongodb-1"
+fi
 
 BACKUP_ROOT="/opt/thetiptop/backup/mongodb/$ENV_NAME"
 mkdir -p "$BACKUP_ROOT"
@@ -39,9 +42,16 @@ TS="$(date +%Y%m%d-%H%M%S)"
 DUMP_FILE="$BACKUP_ROOT/mongodump-$TS.archive.gz"
 SIG_FILE="$BACKUP_ROOT/.last-db-signature"
 
-MONGO_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' "$MONGO_CONTAINER" 2>/dev/null || true)"
+MONGO_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' "${MONGO_CONTAINER:-${COMPOSE_PROJECT_NAME}-mongodb-1}" 2>/dev/null || true)"
 if [[ -z "$MONGO_IP" ]]; then
-  log "ERREUR: impossible de trouver l'IP du conteneur Mongo: $MONGO_CONTAINER"
+  AUTO_MONGO_CONTAINER="$(docker ps --format '{{.Names}}' | rg "^${COMPOSE_PROJECT_NAME}-mongodb-[0-9]+$" -m 1 || true)"
+  if [[ -n "$AUTO_MONGO_CONTAINER" ]]; then
+    MONGO_CONTAINER="$AUTO_MONGO_CONTAINER"
+    MONGO_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' "$MONGO_CONTAINER" 2>/dev/null || true)"
+  fi
+fi
+if [[ -z "$MONGO_IP" ]]; then
+  log "ERREUR: impossible de trouver l'IP du conteneur Mongo: ${MONGO_CONTAINER:-unknown}"
   exit 1
 fi
 
