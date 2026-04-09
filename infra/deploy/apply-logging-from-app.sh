@@ -18,6 +18,16 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   echo "::warning::${LOG}/.env manquant — utilisation de .env.example (mot de passe Elasticsearch par défaut « changeme » : à corriger)."
 fi
 
+# Backward-compatibility: if legacy env files do not define KIBANA_SYSTEM_PASSWORD,
+# default it to ELASTIC_PASSWORD so Kibana can still start on first rollout.
+if ! awk -F= '/^KIBANA_SYSTEM_PASSWORD=/{found=1} END{exit(found?0:1)}' "${ENV_FILE}"; then
+  ELASTIC_PASSWORD_VALUE="$(awk -F= '/^ELASTIC_PASSWORD=/{print substr($0, index($0, "=")+1)}' "${ENV_FILE}" | tail -n 1)"
+  if [[ -n "${ELASTIC_PASSWORD_VALUE}" ]]; then
+    printf '\nKIBANA_SYSTEM_PASSWORD=%s\n' "${ELASTIC_PASSWORD_VALUE}" >> "${ENV_FILE}"
+    echo "::notice::KIBANA_SYSTEM_PASSWORD manquant — fallback appliqué depuis ELASTIC_PASSWORD."
+  fi
+fi
+
 cd "${LOG}"
 docker compose --env-file "${ENV_FILE}" up -d
 docker compose --env-file "${ENV_FILE}" up -d --force-recreate elastic-bootstrap kibana filebeat
@@ -47,6 +57,7 @@ fi
 # Kibana can take several minutes on small VPS; use retries before failing.
 KIBANA_READY="false"
 for attempt in $(seq 1 48); do
+  echo "Waiting for Kibana readiness (${attempt}/48)..."
   if docker compose --env-file "${ENV_FILE}" exec -T kibana sh -ec "curl -s --max-time 8 http://127.0.0.1:5601/api/status >/dev/null"; then
     KIBANA_READY="true"
     break
@@ -62,6 +73,7 @@ fi
 
 TRAEFIK_OK="false"
 for attempt in $(seq 1 24); do
+  echo "Checking Traefik -> Kibana route (${attempt}/24)..."
   TRAEFIK_CODE="$(curl -sk -o /dev/null -w '%{http_code}' --resolve "${KIBANA_HOST_VALUE}:443:127.0.0.1" "https://${KIBANA_HOST_VALUE}/" || true)"
   if [[ "${TRAEFIK_CODE}" == "200" || "${TRAEFIK_CODE}" == "302" || "${TRAEFIK_CODE}" == "401" ]]; then
     TRAEFIK_OK="true"
