@@ -1,5 +1,5 @@
 # Kibana routing via Traefik file provider.
-# Kibana binds 127.0.0.1:15601 on the host; Traefik reaches it via host.docker.internal.
+# Same pattern as monitoring.yml: container name on the shared 'traefik' Docker network.
 http:
   routers:
     kibana-logging:
@@ -15,4 +15,4 @@ http:
       loadBalancer:
         passHostHeader: true
         servers:
-          - url: "http://host.docker.internal:15601"
+          - url: "http://thetiptop-kibana:5601"
