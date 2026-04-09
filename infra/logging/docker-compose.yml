@@ -27,12 +27,12 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl -sf -u elastic:${ELASTIC_PASSWORD} 'http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s'",
+          "curl -sf -u elastic:${ELASTIC_PASSWORD} 'http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null",
         ]
       interval: 15s
-      timeout: 10s
-      retries: 20
-      start_period: 90s
+      timeout: 15s
+      retries: 25
+      start_period: 120s
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.15.3
@@ -53,16 +53,28 @@ services:
     networks:
       - logging_net
       - traefik
+    # Ne pas dépendre du JSON exact de /api/status (varie selon la version).
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "curl -sf -u elastic:${ELASTIC_PASSWORD} http://127.0.0.1:5601/api/status | grep -q '\"level\":\"available\"'",
+          "curl -sf -u elastic:${ELASTIC_PASSWORD} http://127.0.0.1:5601/api/status >/dev/null",
         ]
       interval: 20s
-      timeout: 10s
-      retries: 15
-      start_period: 120s
+      timeout: 15s
+      retries: 20
+      start_period: 180s
+    labels:
+      # Même mécanisme que infra/deploy/docker-compose.stack.yml (provider Docker, réseau traefik).
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - "traefik.http.routers.kibana-logging.rule=Host(`kibana.dsp5-archi-o22a-15m-g3.fr`)"
+      - traefik.http.routers.kibana-logging.entrypoints=websecure
+      - traefik.http.routers.kibana-logging.tls=true
+      - traefik.http.routers.kibana-logging.tls.certresolver=le
+      - traefik.http.routers.kibana-logging.priority=30
+      - traefik.http.routers.kibana-logging.service=kibana-logging
+      - traefik.http.services.kibana-logging.loadbalancer.server.port=5601
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.15.3
