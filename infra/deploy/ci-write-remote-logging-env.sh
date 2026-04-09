@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Appelé depuis GitHub Actions après ssh-keyscan et définition de SSH_BASE / REMOTE.
-# Variables : LOGGING_ENV_FILE, LOGGING_ENV_FILE_B64, LOGGING_ELASTIC_PASSWORD, LOGGING_KIBANA_HOST, LOGGING_ADMIN_PASSWORD
+# Write logging .env to the VPS via SSH.
+# Called from deploy-*.yml after SSH_BASE/REMOTE are set.
+# Secrets: LOGGING_ELASTIC_PASSWORD (required), LOGGING_ADMIN_PASSWORD (optional).
 set -euo pipefail
 
 L_CONTENT=""
@@ -9,13 +10,15 @@ if [[ -n "${LOGGING_ENV_FILE_B64:-}" ]]; then
 elif [[ -n "${LOGGING_ENV_FILE:-}" ]]; then
   L_CONTENT="${LOGGING_ENV_FILE}"
 elif [[ -n "${LOGGING_ELASTIC_PASSWORD:-}" ]]; then
-  ADMIN_PASSWORD="${LOGGING_ADMIN_PASSWORD:-${LOGGING_ELASTIC_PASSWORD}}"
-  KIBANA_SYSTEM_PASSWORD="${LOGGING_KIBANA_SYSTEM_PASSWORD:-${LOGGING_ELASTIC_PASSWORD}}"
-  L_CONTENT="$(printf 'KIBANA_HOST=%s\nELASTIC_PASSWORD=%s\nKIBANA_USERNAME=admin\nKIBANA_PASSWORD=%s\nKIBANA_SYSTEM_PASSWORD=%s\n' \
-    "${LOGGING_KIBANA_HOST:-kibana.dsp5-archi-o22a-15m-g3.fr}" \
-    "${LOGGING_ELASTIC_PASSWORD}" \
-    "${ADMIN_PASSWORD}" \
-    "${KIBANA_SYSTEM_PASSWORD}")"
+  EP="${LOGGING_ELASTIC_PASSWORD}"
+  AP="${LOGGING_ADMIN_PASSWORD:-${EP}}"
+  SP="${LOGGING_KIBANA_SYSTEM_PASSWORD:-${EP}}"
+  KH="${LOGGING_KIBANA_HOST:-kibana.dsp5-archi-o22a-15m-g3.fr}"
+  L_CONTENT="KIBANA_HOST=${KH}
+ELASTIC_PASSWORD=${EP}
+KIBANA_SYSTEM_PASSWORD=${SP}
+KIBANA_USERNAME=admin
+KIBANA_PASSWORD=${AP}"
 fi
 
 if [[ -n "${L_CONTENT}" ]]; then
@@ -24,5 +27,5 @@ if [[ -n "${L_CONTENT}" ]]; then
   printf '%s\n' "${L_CONTENT}" | "${SSH_BASE[@]}" "$REMOTE" "cat > /opt/thetiptop/app/infra/logging/.env"
   "${SSH_BASE[@]}" "$REMOTE" "chmod 600 /opt/thetiptop/app/infra/logging/.env"
 else
-  echo "::warning::Secret logging absent : définissez LOGGING_ELASTIC_PASSWORD (recommandé), ou LOGGING_ENV_FILE / LOGGING_ENV_FILE_B64. Sinon apply-logging utilisera .env.example si aucun .env n’existe sur le VPS."
+  echo "::warning::No logging secret found. Set LOGGING_ELASTIC_PASSWORD in GitHub Secrets."
 fi

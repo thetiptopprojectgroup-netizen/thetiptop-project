@@ -1,6 +1,5 @@
-# Kibana (stack infra/logging/docker-compose.yml).
-# Single source of truth for routing via Traefik file provider
-# (avoids Docker-provider drift causing intermittent 404/502).
+# Kibana routing via Traefik file provider.
+# Kibana binds 127.0.0.1:15601 on the host; Traefik reaches it via host.docker.internal.
 http:
   routers:
     kibana-logging:
