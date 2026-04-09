@@ -53,7 +53,7 @@ DB_SIGNATURE="$(docker run --rm \
     --password "$MONGO_PASSWORD" \
     --authenticationDatabase "$MONGO_AUTH_DB" \
     "$MONGO_DB" \
-    --eval 'const s=db.stats(); print([s.objects,s.dataSize,s.storageSize,s.indexSize].join(":"))' 2>/dev/null || true)"
+    --eval "const s=db.stats(); print([s.objects,s.dataSize,s.storageSize,s.indexSize].join(\":\"))" 2>/dev/null || true)"
 
 if [[ "$ON_CHANGE_ONLY" == "1" && -f "$SIG_FILE" ]]; then
   LAST_SIG="$(cat "$SIG_FILE" || true)"
@@ -80,7 +80,7 @@ docker run --rm \
 # Conserver les 30 derniers dumps par environnement pour éviter la croissance infinie.
 ls -1t "$BACKUP_ROOT"/mongodump-*.archive.gz 2>/dev/null | tail -n +31 | xargs -r rm -f
 if [[ -n "$DB_SIGNATURE" ]]; then
-  printf '%s\n' "$DB_SIGNATURE" > "$SIG_FILE"
+  printf "%s\n" "$DB_SIGNATURE" > "$SIG_FILE"
 fi
 
 if ! /usr/local/bin/restic snapshots >/dev/null 2>&1; then
