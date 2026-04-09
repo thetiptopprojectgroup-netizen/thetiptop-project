@@ -32,9 +32,7 @@ MONGO_PASSWORD="${MONGO_PASSWORD:-thetiptop}"
 MONGO_DB="${MONGO_DB:-thetiptop}"
 MONGO_AUTH_DB="${MONGO_AUTH_DB:-thetiptop}"
 MONGO_CONTAINER="${MONGO_CONTAINER:-${COMPOSE_PROJECT_NAME}-mongodb-1}"
-if [[ -z "${MONGO_CONTAINER:-}" ]]; then
-  MONGO_CONTAINER="${COMPOSE_PROJECT_NAME}-mongodb-1"
-fi
+MONGO_HOST="${MONGO_HOST:-$MONGO_CONTAINER}"
 
 BACKUP_ROOT="/opt/thetiptop/backup/mongodb/$ENV_NAME"
 mkdir -p "$BACKUP_ROOT"
@@ -42,29 +40,16 @@ TS="$(date +%Y%m%d-%H%M%S)"
 DUMP_FILE="$BACKUP_ROOT/mongodump-$TS.archive.gz"
 SIG_FILE="$BACKUP_ROOT/.last-db-signature"
 
-MONGO_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' "${MONGO_CONTAINER:-${COMPOSE_PROJECT_NAME}-mongodb-1}" 2>/dev/null || true)"
-if [[ -z "$MONGO_IP" ]]; then
-  AUTO_MONGO_CONTAINER="$(docker ps --format '{% raw %}{{.Names}}{% endraw %}' | rg "^${COMPOSE_PROJECT_NAME}-mongodb-[0-9]+$" -m 1 || true)"
-  if [[ -n "$AUTO_MONGO_CONTAINER" ]]; then
-    MONGO_CONTAINER="$AUTO_MONGO_CONTAINER"
-    MONGO_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' "$MONGO_CONTAINER" 2>/dev/null || true)"
-  fi
-fi
-if [[ -z "$MONGO_IP" ]]; then
-  log "ERREUR: impossible de trouver l'IP du conteneur Mongo: ${MONGO_CONTAINER:-unknown}"
-  exit 1
-fi
-
 DB_SIGNATURE="$(docker run --rm \
   --network "${COMPOSE_PROJECT_NAME}_internal" \
-  -e MONGO_IP="$MONGO_IP" \
+  -e MONGO_HOST="$MONGO_HOST" \
   -e MONGO_USER="$MONGO_USER" \
   -e MONGO_PASSWORD="$MONGO_PASSWORD" \
   -e MONGO_AUTH_DB="$MONGO_AUTH_DB" \
   -e MONGO_DB="$MONGO_DB" \
   mongo:7.0 \
   bash -lc 'mongosh --quiet \
-    --host "$MONGO_IP" \
+    --host "$MONGO_HOST" \
     --port 27017 \
     --username "$MONGO_USER" \
     --password "$MONGO_PASSWORD" \
@@ -83,7 +68,7 @@ fi
 log "mongodump via conteneur mongo:7.0 vers $DUMP_FILE"
 docker run --rm \
   --network "${COMPOSE_PROJECT_NAME}_internal" \
-  -e MONGO_IP="$MONGO_IP" \
+  -e MONGO_HOST="$MONGO_HOST" \
   -e MONGO_USER="$MONGO_USER" \
   -e MONGO_PASSWORD="$MONGO_PASSWORD" \
   -e MONGO_AUTH_DB="$MONGO_AUTH_DB" \
@@ -92,7 +77,7 @@ docker run --rm \
   -v "$BACKUP_ROOT:/backup" \
   mongo:7.0 \
   bash -lc 'mongodump \
-    --host "$MONGO_IP" \
+    --host "$MONGO_HOST" \
     --port 27017 \
     --username "$MONGO_USER" \
     --password "$MONGO_PASSWORD" \
