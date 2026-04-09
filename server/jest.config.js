@@ -3,7 +3,7 @@ export default {
   transform: {},
   extensionsToTreatAsEsm: [],
   moduleFileExtensions: ['js', 'json'],
-  testMatch: ['**/tests/**/*.test.js'],
+  testMatch: ['**/tests/**/*.test.js', '**/tests/**/*.integration.test.js', '**/tests/**/*.functional.test.js'],
   collectCoverageFrom: [
     'src/utils/**/*.js',
     'src/middlewares/**/*.js',
