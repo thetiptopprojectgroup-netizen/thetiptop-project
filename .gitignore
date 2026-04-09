@@ -17,6 +17,8 @@ infra/deploy/env/*.env
 !infra/deploy/env/*.env.example
 infra/monitoring/.env
 !infra/monitoring/.env.example
+infra/logging/.env
+!infra/logging/.env.example
 
 # Build outputs
 dist/
