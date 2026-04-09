@@ -18,9 +18,14 @@ fi
 
 cd "${LOG}"
 docker compose --env-file "${ENV_FILE}" up -d
-docker compose --env-file "${ENV_FILE}" up -d --force-recreate kibana filebeat
+docker compose --env-file "${ENV_FILE}" up -d --force-recreate elastic-bootstrap kibana filebeat
 
 docker network connect traefik thetiptop-kibana 2>/dev/null || true
+
+# Vérification rapide post-déploiement (locale) pour rendre le diagnostic CI plus explicite.
+if ! docker compose --env-file "${ENV_FILE}" ps kibana | grep -q "Up"; then
+  echo "::warning::Kibana ne semble pas démarré (container non Up). Vérifiez 'docker compose logs kibana' sur le VPS."
+fi
 
 if [[ -f /opt/thetiptop/traefik/dynamic/logging.yml ]]; then
   rm -f /opt/thetiptop/traefik/dynamic/logging.yml
@@ -28,3 +33,5 @@ if [[ -f /opt/thetiptop/traefik/dynamic/logging.yml ]]; then
     (cd /opt/thetiptop/traefik && docker compose up -d)
   fi
 fi
+
+echo "Logging stack appliquée. URL Kibana attendue : https://$(awk -F= '/^KIBANA_HOST=/{print $2}' "${ENV_FILE}" | tail -n 1)"

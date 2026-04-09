@@ -70,6 +70,9 @@ Secrets utilisés par **`deploy-vdev.yml`** (noms exacts) :
 | `VPS_SSH_KEY` | Clé **privée** PEM (multiligne) |
 | `VDEV_ENV_FILE` ou `VDEV_ENV` | **Contenu entier** du fichier `vdev.env` (voir `infra/deploy/env/vdev.env.example`) : Mongo, JWT, `CLIENT_URL`, `BACKEND_URL`, `TRAEFIK_HOST_RULE`, `REGISTRY`, **Google OAuth**, **EmailJS**, etc. Option : `VDEV_ENV_FILE_B64` (fichier en base64). |
 | `HARBOR_CA_CERT` | *(optionnel)* PEM de la CA si registry en TLS avec CA privée |
+| `LOGGING_ELASTIC_PASSWORD` | Mot de passe de l’utilisateur `elastic` pour Elasticsearch/Kibana (recommandé, simple). |
+| `LOGGING_ENV_FILE` / `LOGGING_ENV_FILE_B64` | *(optionnel, avancé)* contenu complet de `infra/logging/.env` (inclut `KIBANA_HOST` + `ELASTIC_PASSWORD`). |
+| `LOGGING_KIBANA_HOST` | *(optionnel)* FQDN Kibana quand vous utilisez `LOGGING_ELASTIC_PASSWORD` (défaut : `kibana.dsp5-archi-o22a-15m-g3.fr`). |
 
 **Variable** (onglet *Variables* ou secret) pour le **build client** :
 
@@ -79,6 +82,7 @@ Secrets utilisés par **`deploy-vdev.yml`** (noms exacts) :
 
 - [ ] Tous les secrets / variables ci-dessus renseignés pour votre environnement (Google + EmailJS si soutenance)
 - [ ] `VDEV_ENV_FILE` sans **CRLF** (fin de ligne LF) pour ne pas casser les règles Traefik — voir commentaire dans le workflow
+- [ ] Secret `LOGGING_ELASTIC_PASSWORD` (ou `LOGGING_ENV_FILE`) défini pour activer Kibana/ELK sans mot de passe par défaut
 - [ ] *(Si SSH ≠ port 22)* : adapter la connexion SSH dans `.github/workflows/deploy-vdev.yml` (le workflow actuel utilise `ssh` / `rsync` en ligne de commande, pas `appleboy/ssh-action`)
 
 ---
@@ -97,6 +101,7 @@ Secrets utilisés par **`deploy-vdev.yml`** (noms exacts) :
 - [ ] Pipeline GitHub Actions au vert : **Harbor projet → build & push images → déploiement VPS** (puis éventuellement PR de promotion vers `vpreprod`)
 - [ ] Site accessible en **HTTPS** sur le FQDN vdev (ex. `https://vdev.dsp5-archi-o22a-15m-g3.fr` — adapter à votre domaine)
 - [ ] API : `GET …/api/health` OK (même host que le front si l’API est servie sous `/api`)
+- [ ] Kibana : `https://kibana.dsp5-archi-o22a-15m-g3.fr/` accessible (auth `elastic` + mot de passe `LOGGING_ELASTIC_PASSWORD`)
 
 ---
 

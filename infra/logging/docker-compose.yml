@@ -44,13 +44,15 @@ services:
     depends_on:
       elasticsearch:
         condition: service_started
+      elastic-bootstrap:
+        condition: service_completed_successfully
     environment:
       - SERVER_NAME=kibana
       - SERVER_HOST=0.0.0.0
       - SERVER_PUBLICBASEURL=https://${KIBANA_HOST}/
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - ELASTICSEARCH_USERNAME=elastic
-      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
+      - ELASTICSEARCH_USERNAME=${KIBANA_USERNAME:-admin}
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:?set KIBANA_PASSWORD in .env}
     volumes:
       - kibana_data:/usr/share/kibana/data
     networks:
@@ -71,13 +73,37 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik
-      - "traefik.http.routers.kibana-logging.rule=Host(`kibana.dsp5-archi-o22a-15m-g3.fr`)"
+      - "traefik.http.routers.kibana-logging.rule=Host(`${KIBANA_HOST:?set KIBANA_HOST in .env}`)"
       - traefik.http.routers.kibana-logging.entrypoints=websecure
       - traefik.http.routers.kibana-logging.tls=true
       - traefik.http.routers.kibana-logging.tls.certresolver=le
       - traefik.http.routers.kibana-logging.priority=30
       - traefik.http.routers.kibana-logging.service=kibana-logging
       - traefik.http.services.kibana-logging.loadbalancer.server.port=5601
+
+  elastic-bootstrap:
+    image: curlimages/curl:8.12.1
+    container_name: thetiptop-elastic-bootstrap
+    restart: "no"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
+      - KIBANA_USERNAME=${KIBANA_USERNAME:-admin}
+      - KIBANA_PASSWORD=${KIBANA_PASSWORD:?set KIBANA_PASSWORD in .env}
+    networks:
+      - logging_net
+    command:
+      - sh
+      - -ec
+      - |
+        echo "Create/update Kibana admin user '${KIBANA_USERNAME}'..."
+        curl -sS -u "elastic:${ELASTIC_PASSWORD}" \
+          -H "Content-Type: application/json" \
+          -X PUT "http://elasticsearch:9200/_security/user/${KIBANA_USERNAME}" \
+          -d "{\"password\":\"${KIBANA_PASSWORD}\",\"roles\":[\"superuser\"],\"full_name\":\"Kibana Admin\"}" >/dev/null
+        echo "Kibana admin user ready."
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.15.3
