@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Démarre / met à jour Elasticsearch + Kibana + Filebeat (après rsync du dépôt).
-# Routage HTTPS : labels Traefik sur le service Kibana (provider Docker), pas de fichier dynamic/logging.yml.
+# HTTPS : provider fichier Traefik (infra/vps/traefik/dynamic/logging.yml), comme Grafana.
 set -euo pipefail
 ROOT="${1:-/opt/thetiptop/app}"
 LOG="${ROOT}/infra/logging"
@@ -17,14 +17,14 @@ fi
 
 cd "${LOG}"
 docker compose --env-file "${ENV_FILE}" up -d
-# Recharger Kibana / Filebeat (config, image) sans redémarrer Elasticsearch à chaque CD.
 docker compose --env-file "${ENV_FILE}" up -d --force-recreate kibana filebeat
 
 docker network connect traefik thetiptop-kibana 2>/dev/null || true
 
-# Ancienne route provider fichier : la retirer pour éviter doublon Host() avec les labels Docker.
-if [[ -f /opt/thetiptop/traefik/dynamic/logging.yml ]]; then
-  rm -f /opt/thetiptop/traefik/dynamic/logging.yml
+LOG_YML="${ROOT}/infra/vps/traefik/dynamic/logging.yml"
+if [[ -f "${LOG_YML}" ]]; then
+  mkdir -p /opt/thetiptop/traefik/dynamic
+  install -m 0644 "${LOG_YML}" /opt/thetiptop/traefik/dynamic/logging.yml
   if [[ -f /opt/thetiptop/traefik/docker-compose.yml ]]; then
     (cd /opt/thetiptop/traefik && docker compose up -d)
   fi
