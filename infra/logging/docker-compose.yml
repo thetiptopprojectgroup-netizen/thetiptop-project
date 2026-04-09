@@ -44,8 +44,6 @@ services:
     depends_on:
       elasticsearch:
         condition: service_started
-      elastic-bootstrap:
-        condition: service_completed_successfully
     environment:
       - SERVER_NAME=kibana
       - SERVER_HOST=0.0.0.0
@@ -58,8 +56,10 @@ services:
     volumes:
       - kibana_data:/usr/share/kibana/data
     networks:
-      - logging_net
-      - traefik
+      logging_net:
+      traefik:
+        aliases:
+          - kibana-logging
     # Ne pas dépendre du JSON exact de /api/status (varie selon la version).
     healthcheck:
       # Pas de -f : Kibana peut répondre 401 sur /api/status sans session ; l’important est que le port réponde.
@@ -101,11 +101,17 @@ services:
       - -ec
       - |
         echo "Create/update Kibana admin user '${KIBANA_USERNAME}'..."
-        curl -sS -u "elastic:${ELASTIC_PASSWORD}" \
+        ADMIN_PASSWORD="$${KIBANA_PASSWORD:-$${ELASTIC_PASSWORD}}"
+        HTTP_CODE="$$(curl -sS -o /tmp/es_user_resp.json -w '%{http_code}' -u "elastic:${ELASTIC_PASSWORD}" \
           -H "Content-Type: application/json" \
           -X PUT "http://elasticsearch:9200/_security/user/${KIBANA_USERNAME}" \
-          -d "{\"password\":\"${KIBANA_PASSWORD}\",\"roles\":[\"superuser\"],\"full_name\":\"Kibana Admin\"}" >/dev/null
-        echo "Kibana admin user ready."
+          -d "{\"password\":\"$${ADMIN_PASSWORD}\",\"roles\":[\"superuser\"],\"full_name\":\"Kibana Admin\"}")"
+        if [ "$${HTTP_CODE}" = "200" ] || [ "$${HTTP_CODE}" = "201" ]; then
+          echo "Kibana admin user ready."
+        else
+          echo "WARN: admin user bootstrap failed (HTTP $${HTTP_CODE}). Kibana remains available with elastic user."
+          cat /tmp/es_user_resp.json || true
+        fi
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.15.3

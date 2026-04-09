@@ -15,4 +15,4 @@ http:
       loadBalancer:
         passHostHeader: true
         servers:
-          - url: "http://thetiptop-kibana:5601"
+          - url: "http://kibana-logging:5601"
