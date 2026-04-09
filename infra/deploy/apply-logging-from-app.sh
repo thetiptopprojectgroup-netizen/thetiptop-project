@@ -1,26 +1,36 @@
 #!/usr/bin/env bash
-# Démarre / met à jour Elasticsearch + Kibana + Filebeat (après rsync du dépôt).
-# HTTPS : provider fichier Traefik (infra/vps/traefik/dynamic/logging.yml), comme Grafana.
+# Deploy ELK stack (Elasticsearch + Kibana + Filebeat).
+# Routing: Traefik file provider (infra/vps/traefik/dynamic/logging.yml).
+# Called from CD workflows after rsync.
 set -euo pipefail
 ROOT="${1:-/opt/thetiptop/app}"
 LOG="${ROOT}/infra/logging"
+
 if [[ ! -f "${LOG}/docker-compose.yml" ]]; then
-  echo "Répertoire logging absent : ${LOG}" >&2
+  echo "Logging compose not found: ${LOG}" >&2
   exit 1
 fi
 
 ENV_FILE="${LOG}/.env"
 if [[ ! -f "${ENV_FILE}" ]]; then
-  ENV_FILE="${LOG}/.env.example"
-  echo "::warning::${LOG}/.env manquant — utilisation de .env.example (mot de passe Elasticsearch par défaut « changeme » : à corriger)."
+  echo "::error::${LOG}/.env missing. Set LOGGING_ELASTIC_PASSWORD in GitHub Secrets so the CI creates it."
+  exit 1
+fi
+
+# Ensure KIBANA_SYSTEM_PASSWORD exists (backward compat with old .env files).
+if ! grep -q '^KIBANA_SYSTEM_PASSWORD=' "${ENV_FILE}"; then
+  EP="$(grep '^ELASTIC_PASSWORD=' "${ENV_FILE}" | head -1 | cut -d= -f2-)"
+  if [[ -n "${EP}" ]]; then
+    printf '\nKIBANA_SYSTEM_PASSWORD=%s\n' "${EP}" >> "${ENV_FILE}"
+  fi
 fi
 
 cd "${LOG}"
-docker compose --env-file "${ENV_FILE}" up -d
-docker compose --env-file "${ENV_FILE}" up -d --force-recreate kibana filebeat
 
-docker network connect traefik thetiptop-kibana 2>/dev/null || true
+# Start everything. setup-users runs first (depends_on), then Kibana starts.
+docker compose --env-file "${ENV_FILE}" up -d --remove-orphans
 
+# Copy Traefik dynamic config for Kibana routing.
 LOG_YML="${ROOT}/infra/vps/traefik/dynamic/logging.yml"
 if [[ -f "${LOG_YML}" ]]; then
   mkdir -p /opt/thetiptop/traefik/dynamic
@@ -29,3 +39,5 @@ if [[ -f "${LOG_YML}" ]]; then
     (cd /opt/thetiptop/traefik && docker compose up -d)
   fi
 fi
+
+echo "ELK stack deployed. Kibana: https://$(grep '^KIBANA_HOST=' "${ENV_FILE}" | cut -d= -f2- || echo 'kibana.dsp5-archi-o22a-15m-g3.fr')"
