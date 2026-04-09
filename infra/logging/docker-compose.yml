@@ -44,22 +44,25 @@ services:
     depends_on:
       elasticsearch:
         condition: service_started
+      elastic-bootstrap:
+        condition: service_completed_successfully
     environment:
       - SERVER_NAME=kibana
       - SERVER_HOST=0.0.0.0
       - SERVER_PUBLICBASEURL=https://${KIBANA_HOST}/
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      # Kibana backend should use the built-in elastic superuser for startup reliability.
-      # The custom `admin` user is for interactive login only.
-      - ELASTICSEARCH_USERNAME=elastic
-      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
+      # Kibana 8.x forbids using `elastic` as backend user.
+      # Use `kibana_system` for Kibana internals; keep `admin` for interactive login.
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD:?set KIBANA_SYSTEM_PASSWORD in .env}
     volumes:
       - kibana_data:/usr/share/kibana/data
+    ports:
+      # Bind local-only host port to give Traefik a deterministic backend target.
+      - "127.0.0.1:15601:5601"
     networks:
-      logging_net:
-      traefik:
-        aliases:
-          - kibana-logging
+      - logging_net
+      - traefik
     # Ne pas dépendre du JSON exact de /api/status (varie selon la version).
     healthcheck:
       # Pas de -f : Kibana peut répondre 401 sur /api/status sans session ; l’important est que le port réponde.
@@ -81,6 +84,7 @@ services:
         condition: service_healthy
     environment:
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
+      - KIBANA_SYSTEM_PASSWORD=${KIBANA_SYSTEM_PASSWORD:?set KIBANA_SYSTEM_PASSWORD in .env}
       - KIBANA_USERNAME=${KIBANA_USERNAME:-admin}
       - KIBANA_PASSWORD=${KIBANA_PASSWORD:-}
     networks:
@@ -89,18 +93,43 @@ services:
       - sh
       - -ec
       - |
-        echo "Create/update Kibana admin user '${KIBANA_USERNAME}'..."
+        echo "Bootstrap Elasticsearch users for Kibana..."
+        SYS_PASSWORD="$${KIBANA_SYSTEM_PASSWORD:-$${ELASTIC_PASSWORD}}"
         ADMIN_PASSWORD="$${KIBANA_PASSWORD:-$${ELASTIC_PASSWORD}}"
-        HTTP_CODE="$$(curl -sS -o /tmp/es_user_resp.json -w '%{http_code}' -u "elastic:${ELASTIC_PASSWORD}" \
-          -H "Content-Type: application/json" \
-          -X PUT "http://elasticsearch:9200/_security/user/${KIBANA_USERNAME}" \
-          -d "{\"password\":\"$${ADMIN_PASSWORD}\",\"roles\":[\"superuser\"],\"full_name\":\"Kibana Admin\"}")"
-        if [ "$${HTTP_CODE}" = "200" ] || [ "$${HTTP_CODE}" = "201" ]; then
-          echo "Kibana admin user ready."
-        else
-          echo "WARN: admin user bootstrap failed (HTTP $${HTTP_CODE}). Kibana remains available with elastic user."
-          cat /tmp/es_user_resp.json || true
+        CODE_SYS=""
+        for attempt in $$(seq 1 20); do
+          CODE_SYS="$$(curl -sS -o /tmp/es_kibana_system_resp.json -w '%{http_code}' -u "elastic:${ELASTIC_PASSWORD}" \
+            -H "Content-Type: application/json" \
+            -X POST "http://elasticsearch:9200/_security/user/kibana_system/_password" \
+            -d "{\"password\":\"$${SYS_PASSWORD}\"}" || true)"
+          if [ "$${CODE_SYS}" = "200" ]; then
+            break
+          fi
+          sleep 3
+        done
+        if [ "$${CODE_SYS}" != "200" ]; then
+          echo "ERROR: failed to set kibana_system password (HTTP $${CODE_SYS})."
+          cat /tmp/es_kibana_system_resp.json || true
+          exit 1
         fi
+
+        CODE_ADMIN=""
+        for attempt in $$(seq 1 20); do
+          CODE_ADMIN="$$(curl -sS -o /tmp/es_admin_resp.json -w '%{http_code}' -u "elastic:${ELASTIC_PASSWORD}" \
+            -H "Content-Type: application/json" \
+            -X PUT "http://elasticsearch:9200/_security/user/$${KIBANA_USERNAME}" \
+            -d "{\"password\":\"$${ADMIN_PASSWORD}\",\"roles\":[\"superuser\"],\"full_name\":\"Kibana Admin\"}" || true)"
+          if [ "$${CODE_ADMIN}" = "200" ] || [ "$${CODE_ADMIN}" = "201" ]; then
+            break
+          fi
+          sleep 3
+        done
+        if [ "$${CODE_ADMIN}" != "200" ] && [ "$${CODE_ADMIN}" != "201" ]; then
+          echo "ERROR: failed to create/update admin user (HTTP $${CODE_ADMIN})."
+          cat /tmp/es_admin_resp.json || true
+          exit 1
+        fi
+        echo "Users ready: kibana_system and $${KIBANA_USERNAME}"
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.15.3

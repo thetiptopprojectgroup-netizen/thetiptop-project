@@ -61,13 +61,13 @@ if [[ "${KIBANA_READY}" != "true" ]]; then
 fi
 
 TRAEFIK_OK="false"
-for attempt in $(seq 1 18); do
+for attempt in $(seq 1 24); do
   TRAEFIK_CODE="$(curl -sk -o /dev/null -w '%{http_code}' --resolve "${KIBANA_HOST_VALUE}:443:127.0.0.1" "https://${KIBANA_HOST_VALUE}/" || true)"
   if [[ "${TRAEFIK_CODE}" == "200" || "${TRAEFIK_CODE}" == "302" || "${TRAEFIK_CODE}" == "401" ]]; then
     TRAEFIK_OK="true"
     break
   fi
-  sleep 5
+  sleep 10
 done
 
 if [[ "${TRAEFIK_OK}" != "true" ]]; then
