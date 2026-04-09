@@ -19,6 +19,9 @@ docker compose --env-file "${ENV_FILE}" up -d
 # Recharger Kibana / Filebeat (config, image) sans redémarrer Elasticsearch à chaque CD.
 docker compose --env-file "${ENV_FILE}" up -d --force-recreate kibana filebeat
 
+# Même réseau « traefik » que le proxy (sinon 502 : Traefik ne résout pas le backend).
+docker network connect traefik thetiptop-kibana 2>/dev/null || true
+
 LOG_YML="${ROOT}/infra/vps/traefik/dynamic/logging.yml"
 if [[ -f "${LOG_YML}" ]]; then
   mkdir -p /opt/thetiptop/traefik/dynamic
