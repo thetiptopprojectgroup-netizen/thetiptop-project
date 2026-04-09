@@ -38,4 +38,22 @@ if [[ -f "${LOG_YML}" ]]; then
   fi
 fi
 
-echo "Logging stack appliquée. URL Kibana attendue : https://$(awk -F= '/^KIBANA_HOST=/{print $2}' "${ENV_FILE}" | tail -n 1)"
+KIBANA_HOST_VALUE="$(awk -F= '/^KIBANA_HOST=/{print $2}' "${ENV_FILE}" | tail -n 1)"
+if [[ -z "${KIBANA_HOST_VALUE}" ]]; then
+  KIBANA_HOST_VALUE="kibana.dsp5-archi-o22a-15m-g3.fr"
+fi
+
+# Readiness checks to catch 502/404 during CI deploy instead of after.
+if ! docker exec thetiptop-kibana sh -ec "curl -s --max-time 10 http://127.0.0.1:5601/api/status >/dev/null"; then
+  echo "::error::Kibana container is not ready on port 5601."
+  docker compose --env-file "${ENV_FILE}" logs --tail=120 kibana || true
+  exit 1
+fi
+
+TRAEFIK_CODE="$(curl -sk -o /dev/null -w '%{http_code}' --resolve "${KIBANA_HOST_VALUE}:443:127.0.0.1" "https://${KIBANA_HOST_VALUE}/" || true)"
+if [[ "${TRAEFIK_CODE}" != "200" && "${TRAEFIK_CODE}" != "302" && "${TRAEFIK_CODE}" != "401" ]]; then
+  echo "::error::Traefik → Kibana check failed (HTTP ${TRAEFIK_CODE}) for ${KIBANA_HOST_VALUE}."
+  exit 1
+fi
+
+echo "Logging stack applied. Kibana expected URL: https://${KIBANA_HOST_VALUE}"

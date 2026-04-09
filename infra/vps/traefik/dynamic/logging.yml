@@ -1,5 +1,6 @@
 # Kibana (stack infra/logging/docker-compose.yml).
-# Fallback file-provider route to avoid 404 when Traefik Docker provider is unavailable.
+# Single source of truth for routing via Traefik file provider
+# (avoids Docker-provider drift causing intermittent 404/502).
 http:
   routers:
     kibana-logging:

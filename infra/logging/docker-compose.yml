@@ -72,17 +72,6 @@ services:
       timeout: 15s
       retries: 25
       start_period: 300s
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=traefik
-      - "traefik.http.routers.kibana-logging.rule=Host(`${KIBANA_HOST:?set KIBANA_HOST in .env}`)"
-      - traefik.http.routers.kibana-logging.entrypoints=websecure
-      - traefik.http.routers.kibana-logging.tls=true
-      - traefik.http.routers.kibana-logging.tls.certresolver=le
-      - traefik.http.routers.kibana-logging.priority=30
-      - traefik.http.routers.kibana-logging.service=kibana-logging
-      - traefik.http.services.kibana-logging.loadbalancer.server.port=5601
-
   elastic-bootstrap:
     image: curlimages/curl:8.12.1
     container_name: thetiptop-elastic-bootstrap
