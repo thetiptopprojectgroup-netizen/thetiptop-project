@@ -5,6 +5,8 @@ set -euo pipefail
 RESTIC_REPOSITORY="${1:?Argument requis : URL s3 du dépôt restic}"
 ENV_FILE="${2:?Argument requis : fichier d'environnement deploy (*.env)}"
 ENV_NAME="${3:-default}"
+ON_CHANGE_ONLY="${ON_CHANGE_ONLY:-0}"
+SKIP_FORGET_PRUNE="${SKIP_FORGET_PRUNE:-0}"
 export RESTIC_REPOSITORY
 export RESTIC_PASSWORD="{{ restic_password }}"
 export AWS_ACCESS_KEY_ID="{{ minio_root_user }}"
@@ -35,6 +37,7 @@ BACKUP_ROOT="/opt/thetiptop/backup/mongodb/$ENV_NAME"
 mkdir -p "$BACKUP_ROOT"
 TS="$(date +%Y%m%d-%H%M%S)"
 DUMP_FILE="$BACKUP_ROOT/mongodump-$TS.archive.gz"
+SIG_FILE="$BACKUP_ROOT/.last-db-signature"
 
 MONGO_IP="$(docker inspect -f '{% raw %}{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}{% endraw %}' "$MONGO_CONTAINER" 2>/dev/null || true)"
 if [[ -z "$MONGO_IP" ]]; then
@@ -42,23 +45,57 @@ if [[ -z "$MONGO_IP" ]]; then
   exit 1
 fi
 
+DB_SIGNATURE="$(docker run --rm \
+  --network "${COMPOSE_PROJECT_NAME}_internal" \
+  -e MONGO_IP="$MONGO_IP" \
+  -e MONGO_USER="$MONGO_USER" \
+  -e MONGO_PASSWORD="$MONGO_PASSWORD" \
+  -e MONGO_AUTH_DB="$MONGO_AUTH_DB" \
+  -e MONGO_DB="$MONGO_DB" \
+  mongo:7.0 \
+  bash -lc 'mongosh --quiet \
+    --host "$MONGO_IP" \
+    --port 27017 \
+    --username "$MONGO_USER" \
+    --password "$MONGO_PASSWORD" \
+    --authenticationDatabase "$MONGO_AUTH_DB" \
+    "$MONGO_DB" \
+    --eval "const s=db.stats(); print([s.objects,s.dataSize,s.storageSize,s.indexSize].join(\":\"))"' 2>/dev/null || true)"
+
+if [[ "$ON_CHANGE_ONLY" == "1" && -f "$SIG_FILE" ]]; then
+  LAST_SIG="$(cat "$SIG_FILE" || true)"
+  if [[ -n "$DB_SIGNATURE" && "$DB_SIGNATURE" == "$LAST_SIG" ]]; then
+    log "Aucun changement MongoDB détecté, backup ignoré."
+    exit 0
+  fi
+fi
+
 log "mongodump via conteneur mongo:7.0 vers $DUMP_FILE"
 docker run --rm \
   --network "${COMPOSE_PROJECT_NAME}_internal" \
+  -e MONGO_IP="$MONGO_IP" \
+  -e MONGO_USER="$MONGO_USER" \
+  -e MONGO_PASSWORD="$MONGO_PASSWORD" \
+  -e MONGO_AUTH_DB="$MONGO_AUTH_DB" \
+  -e MONGO_DB="$MONGO_DB" \
+  -e TS="$TS" \
   -v "$BACKUP_ROOT:/backup" \
   mongo:7.0 \
-  bash -lc "mongodump \
-    --host '$MONGO_IP' \
+  bash -lc 'mongodump \
+    --host "$MONGO_IP" \
     --port 27017 \
-    --username '$MONGO_USER' \
-    --password '$MONGO_PASSWORD' \
-    --authenticationDatabase '$MONGO_AUTH_DB' \
-    --db '$MONGO_DB' \
-    --archive='/backup/mongodump-$TS.archive.gz' \
-    --gzip"
+    --username "$MONGO_USER" \
+    --password "$MONGO_PASSWORD" \
+    --authenticationDatabase "$MONGO_AUTH_DB" \
+    --db "$MONGO_DB" \
+    --archive="/backup/mongodump-$TS.archive.gz" \
+    --gzip'
 
 # Conserver les 30 derniers dumps par environnement pour éviter la croissance infinie.
 ls -1t "$BACKUP_ROOT"/mongodump-*.archive.gz 2>/dev/null | tail -n +31 | xargs -r rm -f
+if [[ -n "$DB_SIGNATURE" ]]; then
+  printf '%s\n' "$DB_SIGNATURE" > "$SIG_FILE"
+fi
 
 if ! /usr/local/bin/restic snapshots >/dev/null 2>&1; then
   log "restic init"
@@ -70,6 +107,10 @@ log "restic backup…"
   --exclude "{{ minio_data_path }}" \
   --exclude "{{ harbor_data_volume }}"
 
-log "restic forget / prune…"
-/usr/local/bin/restic forget --keep-daily 7 --keep-weekly 4 --prune || log "ATTENTION : forget/prune a échoué"
+if [[ "$SKIP_FORGET_PRUNE" != "1" ]]; then
+  log "restic forget / prune…"
+  /usr/local/bin/restic forget --keep-daily 7 --keep-weekly 4 --prune || log "ATTENTION : forget/prune a échoué"
+else
+  log "forget/prune ignoré (mode watch)."
+fi
 log "OK"

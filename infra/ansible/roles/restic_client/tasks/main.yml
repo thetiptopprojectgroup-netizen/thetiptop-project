@@ -120,6 +120,25 @@
   loop: "{{ restic_cron_jobs }}"
   when: restic_install | default(true)
 
+- name: Retirer anciens crons watchdog mongodump (compat)
+  ansible.builtin.cron:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - thetiptop mongodump watch vdev
+    - thetiptop mongodump watch vpreprod
+    - thetiptop mongodump watch vprod
+  when: restic_install | default(true)
+
+- name: Cron watchdog changement Mongo (toutes les 5 min, par environnement)
+  ansible.builtin.cron:
+    name: "thetiptop mongodump watch {{ item.env_name }}"
+    minute: "*/5"
+    job: "ON_CHANGE_ONLY=1 SKIP_FORGET_PRUNE=1 /opt/thetiptop/restic/backup-repo.sh {{ restic_repo_list[item.repo_index] }} {{ item.env_file }} {{ item.env_name }} >> /var/log/thetiptop-restic.log 2>&1"
+    user: root
+  loop: "{{ restic_cron_jobs }}"
+  when: restic_install | default(true)
+
 - name: Contrôle — chaque dépôt répond (snapshots)
   ansible.builtin.command: /usr/local/bin/restic snapshots
   environment: "{{ restic_env_base | combine({'RESTIC_REPOSITORY': item}) }}"
