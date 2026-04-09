@@ -31,8 +31,7 @@ MONGO_USER="${MONGO_USER:-thetiptop}"
 MONGO_PASSWORD="${MONGO_PASSWORD:-thetiptop}"
 MONGO_DB="${MONGO_DB:-thetiptop}"
 MONGO_AUTH_DB="${MONGO_AUTH_DB:-thetiptop}"
-MONGO_CONTAINER="${MONGO_CONTAINER:-${COMPOSE_PROJECT_NAME}-mongodb-1}"
-MONGO_HOST="${MONGO_HOST:-$MONGO_CONTAINER}"
+MONGO_HOST="${MONGO_HOST:-${COMPOSE_PROJECT_NAME}-mongodb-1}"
 
 BACKUP_ROOT="/opt/thetiptop/backup/mongodb/$ENV_NAME"
 mkdir -p "$BACKUP_ROOT"
@@ -47,15 +46,14 @@ DB_SIGNATURE="$(docker run --rm \
   -e MONGO_PASSWORD="$MONGO_PASSWORD" \
   -e MONGO_AUTH_DB="$MONGO_AUTH_DB" \
   -e MONGO_DB="$MONGO_DB" \
-  mongo:7.0 \
-  bash -lc 'mongosh --quiet \
+  mongo:7.0 mongosh --quiet \
     --host "$MONGO_HOST" \
     --port 27017 \
     --username "$MONGO_USER" \
     --password "$MONGO_PASSWORD" \
     --authenticationDatabase "$MONGO_AUTH_DB" \
     "$MONGO_DB" \
-    --eval "const s=db.stats(); print([s.objects,s.dataSize,s.storageSize,s.indexSize].join(\":\"))"' 2>/dev/null || true)"
+    --eval 'const s=db.stats(); print([s.objects,s.dataSize,s.storageSize,s.indexSize].join(":"))' 2>/dev/null || true)"
 
 if [[ "$ON_CHANGE_ONLY" == "1" && -f "$SIG_FILE" ]]; then
   LAST_SIG="$(cat "$SIG_FILE" || true)"
@@ -68,15 +66,8 @@ fi
 log "mongodump via conteneur mongo:7.0 vers $DUMP_FILE"
 docker run --rm \
   --network "${COMPOSE_PROJECT_NAME}_internal" \
-  -e MONGO_HOST="$MONGO_HOST" \
-  -e MONGO_USER="$MONGO_USER" \
-  -e MONGO_PASSWORD="$MONGO_PASSWORD" \
-  -e MONGO_AUTH_DB="$MONGO_AUTH_DB" \
-  -e MONGO_DB="$MONGO_DB" \
-  -e TS="$TS" \
   -v "$BACKUP_ROOT:/backup" \
-  mongo:7.0 \
-  bash -lc 'mongodump \
+  mongo:7.0 mongodump \
     --host "$MONGO_HOST" \
     --port 27017 \
     --username "$MONGO_USER" \
@@ -84,7 +75,7 @@ docker run --rm \
     --authenticationDatabase "$MONGO_AUTH_DB" \
     --db "$MONGO_DB" \
     --archive="/backup/mongodump-$TS.archive.gz" \
-    --gzip'
+    --gzip
 
 # Conserver les 30 derniers dumps par environnement pour éviter la croissance infinie.
 ls -1t "$BACKUP_ROOT"/mongodump-*.archive.gz 2>/dev/null | tail -n +31 | xargs -r rm -f
