@@ -10,7 +10,11 @@
     "seed": "node src/scripts/seedTickets.js",
     "seed:admin": "node src/scripts/createAdmin.js",
     "seed:admin:prompt": "powershell -ExecutionPolicy Bypass -File ./src/scripts/run-seed-admin.ps1",
-    "test": "jest"
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:unit": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --passWithNoTests --testPathIgnorePatterns=tests/integration tests/functional",
+    "test:integration": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --testPathPattern=tests/integration",
+    "test:functional": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --testPathPattern=tests/functional",
+    "test:ci": "npm run test:unit && npm run test:integration && npm run test:functional"
   },
   "keywords": [
     "tea",
