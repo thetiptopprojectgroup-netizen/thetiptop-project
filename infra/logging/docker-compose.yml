@@ -64,17 +64,6 @@ services:
       timeout: 15s
       retries: 20
       start_period: 180s
-    labels:
-      # Même mécanisme que infra/deploy/docker-compose.stack.yml (provider Docker, réseau traefik).
-      - traefik.enable=true
-      - traefik.docker.network=traefik
-      - "traefik.http.routers.kibana-logging.rule=Host(`kibana.dsp5-archi-o22a-15m-g3.fr`)"
-      - traefik.http.routers.kibana-logging.entrypoints=websecure
-      - traefik.http.routers.kibana-logging.tls=true
-      - traefik.http.routers.kibana-logging.tls.certresolver=le
-      - traefik.http.routers.kibana-logging.priority=30
-      - traefik.http.routers.kibana-logging.service=kibana-logging
-      - traefik.http.services.kibana-logging.loadbalancer.server.port=5601
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.15.3
