@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Démarre / met à jour Elasticsearch + Kibana + Filebeat (après rsync du dépôt).
-# Routage HTTPS Kibana : labels Traefik sur le service kibana (provider Docker → IP conteneur, pas DNS fragile).
-# Supprime toute ancienne route fichier logging.yml sur le VPS (évite 404/502 ou doublons).
+# Routage HTTPS Kibana :
+# - labels Traefik sur le service kibana (provider Docker),
+# - + fallback file provider (/opt/thetiptop/traefik/dynamic/logging.yml) pour éviter les 404
+#   si le provider Docker n'est pas disponible.
 set -euo pipefail
 ROOT="${1:-/opt/thetiptop/app}"
 LOG="${ROOT}/infra/logging"
@@ -27,8 +29,10 @@ if ! docker compose --env-file "${ENV_FILE}" ps kibana | grep -q "Up"; then
   echo "::warning::Kibana ne semble pas démarré (container non Up). Vérifiez 'docker compose logs kibana' sur le VPS."
 fi
 
-if [[ -f /opt/thetiptop/traefik/dynamic/logging.yml ]]; then
-  rm -f /opt/thetiptop/traefik/dynamic/logging.yml
+LOG_YML="${ROOT}/infra/vps/traefik/dynamic/logging.yml"
+if [[ -f "${LOG_YML}" ]]; then
+  mkdir -p /opt/thetiptop/traefik/dynamic
+  install -m 0644 "${LOG_YML}" /opt/thetiptop/traefik/dynamic/logging.yml
   if [[ -f /opt/thetiptop/traefik/docker-compose.yml ]]; then
     (cd /opt/thetiptop/traefik && docker compose up -d)
   fi
