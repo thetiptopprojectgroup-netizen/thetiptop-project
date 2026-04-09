@@ -44,15 +44,34 @@ if [[ -z "${KIBANA_HOST_VALUE}" ]]; then
 fi
 
 # Readiness checks to catch 502/404 during CI deploy instead of after.
-if ! docker exec thetiptop-kibana sh -ec "curl -s --max-time 10 http://127.0.0.1:5601/api/status >/dev/null"; then
-  echo "::error::Kibana container is not ready on port 5601."
-  docker compose --env-file "${ENV_FILE}" logs --tail=120 kibana || true
+# Kibana can take several minutes on small VPS; use retries before failing.
+KIBANA_READY="false"
+for attempt in $(seq 1 48); do
+  if docker compose --env-file "${ENV_FILE}" exec -T kibana sh -ec "curl -s --max-time 8 http://127.0.0.1:5601/api/status >/dev/null"; then
+    KIBANA_READY="true"
+    break
+  fi
+  sleep 10
+done
+
+if [[ "${KIBANA_READY}" != "true" ]]; then
+  echo "::error::Kibana container is not ready on port 5601 after waiting ~8 minutes."
+  docker compose --env-file "${ENV_FILE}" logs --tail=200 kibana || true
   exit 1
 fi
 
-TRAEFIK_CODE="$(curl -sk -o /dev/null -w '%{http_code}' --resolve "${KIBANA_HOST_VALUE}:443:127.0.0.1" "https://${KIBANA_HOST_VALUE}/" || true)"
-if [[ "${TRAEFIK_CODE}" != "200" && "${TRAEFIK_CODE}" != "302" && "${TRAEFIK_CODE}" != "401" ]]; then
-  echo "::error::Traefik → Kibana check failed (HTTP ${TRAEFIK_CODE}) for ${KIBANA_HOST_VALUE}."
+TRAEFIK_OK="false"
+for attempt in $(seq 1 18); do
+  TRAEFIK_CODE="$(curl -sk -o /dev/null -w '%{http_code}' --resolve "${KIBANA_HOST_VALUE}:443:127.0.0.1" "https://${KIBANA_HOST_VALUE}/" || true)"
+  if [[ "${TRAEFIK_CODE}" == "200" || "${TRAEFIK_CODE}" == "302" || "${TRAEFIK_CODE}" == "401" ]]; then
+    TRAEFIK_OK="true"
+    break
+  fi
+  sleep 5
+done
+
+if [[ "${TRAEFIK_OK}" != "true" ]]; then
+  echo "::error::Traefik → Kibana check failed (last HTTP ${TRAEFIK_CODE}) for ${KIBANA_HOST_VALUE}."
   exit 1
 fi
 
