@@ -33,9 +33,21 @@ export default function Footer() {
   };
 
   const socialLinks = [
-    { icon: <Facebook className="w-5 h-5" />, href: 'https://facebook.com', label: 'Facebook' },
-    { icon: <Instagram className="w-5 h-5" />, href: 'https://instagram.com', label: 'Instagram' },
-    { icon: <Twitter className="w-5 h-5" />, href: 'https://twitter.com', label: 'Twitter' },
+    {
+      icon: <Facebook className="w-5 h-5" />,
+      href: 'https://www.facebook.com/people/Thetiptop/61573344546262/',
+      label: 'Facebook',
+    },
+    {
+      icon: <Instagram className="w-5 h-5" />,
+      href: 'https://www.instagram.com/thetiptopproject/',
+      label: 'Instagram',
+    },
+    {
+      icon: <Twitter className="w-5 h-5" />,
+      href: 'https://x.com/thetiptop237',
+      label: 'X',
+    },
   ];
 
   return (
