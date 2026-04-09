@@ -9,10 +9,11 @@ if [[ -n "${LOGGING_ENV_FILE_B64:-}" ]]; then
 elif [[ -n "${LOGGING_ENV_FILE:-}" ]]; then
   L_CONTENT="${LOGGING_ENV_FILE}"
 elif [[ -n "${LOGGING_ELASTIC_PASSWORD:-}" ]]; then
+  ADMIN_PASSWORD="${LOGGING_ADMIN_PASSWORD:-${LOGGING_ELASTIC_PASSWORD}}"
   L_CONTENT="$(printf 'KIBANA_HOST=%s\nELASTIC_PASSWORD=%s\nKIBANA_USERNAME=admin\nKIBANA_PASSWORD=%s\n' \
     "${LOGGING_KIBANA_HOST:-kibana.dsp5-archi-o22a-15m-g3.fr}" \
     "${LOGGING_ELASTIC_PASSWORD}" \
-    "${LOGGING_ADMIN_PASSWORD:-${LOGGING_ELASTIC_PASSWORD}}")"
+    "${ADMIN_PASSWORD}")"
 fi
 
 if [[ -n "${L_CONTENT}" ]]; then

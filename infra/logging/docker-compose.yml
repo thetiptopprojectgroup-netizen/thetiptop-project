@@ -51,8 +51,10 @@ services:
       - SERVER_HOST=0.0.0.0
       - SERVER_PUBLICBASEURL=https://${KIBANA_HOST}/
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-      - ELASTICSEARCH_USERNAME=${KIBANA_USERNAME:-admin}
-      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:?set KIBANA_PASSWORD in .env}
+      # Kibana backend should use the built-in elastic superuser for startup reliability.
+      # The custom `admin` user is for interactive login only.
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
     volumes:
       - kibana_data:/usr/share/kibana/data
     networks:
@@ -91,7 +93,7 @@ services:
     environment:
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD in .env}
       - KIBANA_USERNAME=${KIBANA_USERNAME:-admin}
-      - KIBANA_PASSWORD=${KIBANA_PASSWORD:?set KIBANA_PASSWORD in .env}
+      - KIBANA_PASSWORD=${KIBANA_PASSWORD:-}
     networks:
       - logging_net
     command:
