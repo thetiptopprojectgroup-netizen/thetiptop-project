@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Gift, Leaf, Star, Trophy, Clock, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
+import { Gift, Leaf, Star, Trophy, Clock, CheckCircle, ArrowRight, Sparkles, Ticket, Zap } from 'lucide-react';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import { PRIZES } from '../data/prizes';
@@ -15,27 +15,43 @@ export default function HomePage() {
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-matcha-700 via-matcha-600 to-matcha-800 overflow-hidden">
-        <div className="absolute inset-0 leaf-pattern opacity-10" />
-        <div className="absolute top-20 left-10 w-20 h-20 bg-gold-400/20 rounded-full blur-xl animate-float" />
-        <div className="absolute bottom-40 right-20 w-32 h-32 bg-matcha-400/20 rounded-full blur-xl animate-float animate-delay-300" />
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-matcha-800 via-matcha-600 to-emerald-800">
+        <div className="absolute inset-0 leaf-pattern opacity-[0.12]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-10%,rgba(219,150,69,0.35),transparent_55%)]" />
+        <div className="absolute top-20 left-10 w-24 h-24 bg-gold-400/25 rounded-full blur-2xl animate-float" />
+        <div className="absolute top-1/3 right-[8%] w-40 h-40 bg-amber-300/15 rounded-full blur-3xl animate-float animate-delay-200" />
+        <div className="absolute bottom-40 right-20 w-36 h-36 bg-emerald-400/20 rounded-full blur-2xl animate-float animate-delay-300" />
+        <div className="absolute bottom-24 left-[12%] w-28 h-28 bg-gold-300/20 rounded-full blur-xl animate-float" />
 
         <div className="container-wide relative z-10 pt-32 pb-20">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-cream-100 text-sm mb-6">
-                <Sparkles className="w-4 h-4 text-gold-400" />
-                Grand jeu-concours thé — Thé Tip Top
+              <div className="flex flex-wrap gap-2 mb-6">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-cream-100 text-sm shadow-lg shadow-matcha-950/20">
+                  <Sparkles className="w-4 h-4 text-gold-400 shrink-0" />
+                  Grand jeu-concours — Thé Tip Top
+                </div>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm text-cream-50 border border-gold-400/40 bg-gold-500/15 backdrop-blur-sm shadow-md">
+                  <Ticket className="w-4 h-4 text-gold-300 shrink-0" />
+                  1 ticket = 1 lot à gagner
+                </div>
               </div>
-              
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white leading-tight mb-6">
+
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white leading-[1.12] mb-6 drop-shadow-sm">
                 100% des tickets<br />sont{' '}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold-300 to-gold-500">gagnants</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-gold-300 to-amber-400">
+                  gagnants
+                </span>
               </h1>
-              
-              <p className="text-xl text-cream-200 mb-8 max-w-lg leading-relaxed">
-                Célébrez l'ouverture de notre 10ème boutique à Nice ! 
-                Participez et remportez des lots exceptionnels parmi nos thés d'exception.
+
+              <p className="inline-flex items-center gap-2 text-gold-100/95 font-medium mb-4 text-sm md:text-base">
+                <Zap className="w-4 h-4 text-gold-400 shrink-0" />
+                Jouez en quelques clics — coffrets, thés premium & tirage 360€
+              </p>
+
+              <p className="text-lg md:text-xl text-cream-100/95 mb-8 max-w-lg leading-relaxed">
+                Célébrez l&apos;ouverture de notre 10ème boutique à Nice : entrez votre code et découvrez immédiatement
+                votre lot parmi nos thés d&apos;exception.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
@@ -95,14 +111,19 @@ export default function HomePage() {
       </section>
 
       {/* Prizes Section */}
-      <section className="section bg-cream-50">
+      <section className="section bg-cream-50/90 backdrop-blur-[2px] border-y border-gold-200/30 shadow-inner">
         <div className="container-wide">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
             <span className="inline-flex items-center gap-2 px-4 py-2 bg-gold-100 rounded-full text-gold-700 text-sm font-medium mb-4">
               <Gift className="w-4 h-4" />Les lots à gagner
             </span>
-            <h2 className="text-3xl md:text-4xl font-display font-bold text-tea-900 mb-4">5 lots exceptionnels vous attendent</h2>
-            <p className="text-tea-600 max-w-2xl mx-auto">Chaque ticket est gagnant ! Découvrez les lots que vous pouvez remporter.</p>
+            <h2 className="text-3xl md:text-4xl font-display font-bold text-tea-900 mb-4">
+              5 lots exceptionnels vous attendent
+            </h2>
+            <p className="text-tea-600 max-w-2xl mx-auto text-balance">
+              Chaque participation peut vous faire gagner un cadeau : de l&apos;infuseur au coffret prestige. Tentez votre
+              chance !
+            </p>
           </motion.div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -147,7 +168,7 @@ export default function HomePage() {
       </section>
 
       {/* How it works */}
-      <section className="section bg-white">
+      <section className="section bg-white/80 backdrop-blur-sm">
         <div className="container-wide">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
             <span className="inline-flex items-center gap-2 px-4 py-2 bg-matcha-100 rounded-full text-matcha-700 text-sm font-medium mb-4">
@@ -174,15 +195,22 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="section bg-gradient-to-br from-tea-900 to-tea-950 relative overflow-hidden">
-        <div className="absolute inset-0 leaf-pattern opacity-5" />
+      <section className="section bg-gradient-to-br from-tea-900 via-matcha-950 to-tea-950 relative overflow-hidden">
+        <div className="absolute inset-0 leaf-pattern opacity-[0.07]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(219,150,69,0.2),transparent_60%)]" />
         <div className="container-tight relative z-10 text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full text-cream-200 text-sm mb-6">
-              <Clock className="w-4 h-4" />Offre limitée dans le temps
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full text-cream-200 text-sm mb-6 border border-white/10">
+              <Clock className="w-4 h-4" />
+              Fenêtre limitée — ne laissez pas votre ticket dormir
             </div>
-            <h2 className="text-3xl md:text-4xl font-display font-bold text-white mb-6">Ne manquez pas cette opportunité unique !</h2>
-            <p className="text-cream-300 text-lg mb-8 max-w-xl mx-auto">Le jeu-concours dure 30 jours. Plus de 500 000 tickets vous attendent.</p>
+            <h2 className="text-3xl md:text-4xl font-display font-bold text-white mb-6 text-balance">
+              Prêt à gratter virtuellement votre lot ?
+            </h2>
+            <p className="text-cream-200 text-lg mb-8 max-w-xl mx-auto text-balance">
+              30 jours de jeu, plus de 500 000 tickets : rejoignez des milliers de joueurs et révélez votre gain en
+              direct.
+            </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/register"><Button variant="gold" size="lg" rightIcon={<ArrowRight className="w-5 h-5" />}>S'inscrire gratuitement</Button></Link>
               <Link to="/prizes"><Button variant="secondary" size="lg" className="border-white/30 text-white hover:bg-white/10 bg-transparent">Voir tous les lots</Button></Link>

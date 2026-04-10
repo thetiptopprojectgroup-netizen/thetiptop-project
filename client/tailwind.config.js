@@ -65,12 +65,9 @@ export default {
         },
       },
       fontFamily: {
-        // Titres : serif expressive (Google Fonts)
-        display: ['Fraunces', 'Georgia', 'serif'],
-        // Corps & UI : sans lisible et chaleureux
-        sans: ['Outfit', 'system-ui', 'sans-serif'],
-        // Textes longs / mentions légales (optionnel)
-        serif: ['Lora', 'Georgia', 'serif'],
+        sans: ['Poppins', 'system-ui', 'sans-serif'],
+        display: ['Poppins', 'system-ui', 'sans-serif'],
+        serif: ['Poppins', 'Georgia', 'serif'],
       },
       backgroundImage: {
         'tea-pattern': "url('/images/tea-pattern.svg')",
