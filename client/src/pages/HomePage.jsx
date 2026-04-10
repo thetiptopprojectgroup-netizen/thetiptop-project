@@ -15,91 +15,69 @@ export default function HomePage() {
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-matcha-800 via-matcha-600 to-emerald-800">
-        <div className="absolute inset-0 leaf-pattern opacity-[0.12]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-10%,rgba(219,150,69,0.35),transparent_55%)]" />
-        <div className="absolute top-20 left-10 w-24 h-24 bg-gold-400/25 rounded-full blur-2xl animate-float" />
-        <div className="absolute top-1/3 right-[8%] w-40 h-40 bg-amber-300/15 rounded-full blur-3xl animate-float animate-delay-200" />
-        <div className="absolute bottom-40 right-20 w-36 h-36 bg-emerald-400/20 rounded-full blur-2xl animate-float animate-delay-300" />
-        <div className="absolute bottom-24 left-[12%] w-28 h-28 bg-gold-300/20 rounded-full blur-xl animate-float" />
+      <section className="relative min-h-screen flex items-center overflow-hidden">
+        {/* GIF background — loops natively */}
+        <img
+          src="/images/imagesite/Design sans titre (3).gif"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+        />
 
-        <div className="container-wide relative z-10 pt-32 pb-20">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+        {/* Dark overlay for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-matcha-950/90 via-matcha-900/75 to-matcha-950/50 lg:to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-matcha-950/80 via-transparent to-matcha-950/40" />
+
+        <div className="container-wide relative z-10 pt-28 pb-24 md:pt-36 md:pb-28">
+          <div className="max-w-2xl">
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-              <div className="flex flex-wrap gap-2 mb-6">
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-cream-100 text-sm shadow-lg shadow-matcha-950/20">
-                  <Sparkles className="w-4 h-4 text-gold-400 shrink-0" />
-                  Grand jeu-concours — Thé Tip Top
-                </div>
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm text-cream-50 border border-gold-400/40 bg-gold-500/15 backdrop-blur-sm shadow-md">
-                  <Ticket className="w-4 h-4 text-gold-300 shrink-0" />
-                  1 ticket = 1 lot à gagner
+              <div className="flex flex-wrap gap-2 mb-5">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-white/10 backdrop-blur-md rounded-full text-cream-100 text-xs md:text-sm shadow-lg">
+                  <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-gold-400 shrink-0" />
+                  Grand jeu-concours Thé Tip Top
                 </div>
               </div>
 
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white leading-[1.12] mb-6 drop-shadow-sm">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white leading-[1.1] mb-5 drop-shadow-lg">
                 100% des tickets<br />sont{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-gold-300 to-amber-400">
                   gagnants
                 </span>
               </h1>
 
-              <p className="inline-flex items-center gap-2 text-gold-100/95 font-medium mb-4 text-sm md:text-base">
-                <Zap className="w-4 h-4 text-gold-400 shrink-0" />
-                Jouez en quelques clics — coffrets, thés premium & tirage 360€
+              <p className="text-sm sm:text-base md:text-lg text-cream-100/90 mb-7 max-w-lg leading-relaxed drop-shadow-md">
+                Célébrez l&apos;ouverture de notre 10ème boutique à Nice !
+                Participez et remportez des lots exceptionnels parmi nos thés d&apos;exception.
               </p>
 
-              <p className="text-lg md:text-xl text-cream-100/95 mb-8 max-w-lg leading-relaxed">
-                Célébrez l&apos;ouverture de notre 10ème boutique à Nice : entrez votre code et découvrez immédiatement
-                votre lot parmi nos thés d&apos;exception.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 mb-12">
+              <div className="flex flex-col sm:flex-row gap-3 mb-10">
                 <Link to="/register">
                   <Button variant="gold" size="lg" rightIcon={<ArrowRight className="w-5 h-5" />}>
                     Participer maintenant
                   </Button>
                 </Link>
                 <Link to="/how-it-works">
-                  <Button variant="secondary" size="lg" className="border-white/30 text-white hover:bg-white/10 bg-transparent">
+                  <Button variant="secondary" size="lg" className="border-white/30 text-white hover:bg-white/10 bg-transparent backdrop-blur-sm">
                     Comment ça marche ?
                   </Button>
                 </Link>
               </div>
 
-              <div className="flex gap-8">
-                <div><div className="text-3xl font-display font-bold text-white">500K</div><div className="text-cream-300 text-sm">Tickets à gagner</div></div>
-                <div><div className="text-3xl font-display font-bold text-white">30</div><div className="text-cream-300 text-sm">Jours de jeu</div></div>
-                <div><div className="text-3xl font-display font-bold text-white">360€</div><div className="text-cream-300 text-sm">Gros lot final</div></div>
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }} className="relative hidden lg:block">
-              <div className="relative w-full aspect-square max-w-lg mx-auto flex items-center justify-center">
-                {/*
-                  Ancienne illustration « tasse » en pur CSS (forme + liquide + vapeur animate-steam + anse + soucoupe).
-                  Conservée en commentaire pour référence ; remplacée par heroanime.gif (boucle native du navigateur, sans fin).
-                <div className="relative">
-                  <div className="w-64 h-64 bg-gradient-to-br from-cream-100 to-cream-200 rounded-b-[50%] rounded-t-xl shadow-2xl relative overflow-hidden">
-                    <div className="absolute bottom-0 left-0 right-0 h-3/4 bg-gradient-to-b from-gold-300/60 to-gold-500/80" />
-                    <div className="absolute -top-8 left-1/4 w-2 h-16 bg-white/30 rounded-full animate-steam" />
-                    <div className="absolute -top-10 left-1/2 w-2 h-20 bg-white/20 rounded-full animate-steam animate-delay-200" />
-                  </div>
-                  <div className="absolute right-0 top-1/4 w-8 h-20 border-4 border-cream-200 rounded-r-full translate-x-1/2" />
-                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-72 h-8 bg-gradient-to-b from-cream-100 to-cream-300 rounded-full shadow-lg" />
+              <div className="flex gap-6 sm:gap-8">
+                <div>
+                  <div className="text-2xl sm:text-3xl font-display font-bold text-white drop-shadow-md">500K</div>
+                  <div className="text-cream-300/90 text-xs sm:text-sm">Tickets à gagner</div>
                 </div>
-                */}
-                <img
-                  src="/images/imagesite/heroanime.gif"
-                  alt="Animation thé — accessoires et coffret"
-                  className="hero-heroanime relative z-0 w-full max-h-[min(28rem,70vh)] h-auto object-contain select-none pointer-events-none"
-                  width={512}
-                  height={512}
-                  loading="eager"
-                  decoding="async"
-                />
-                <div className="absolute top-10 left-10 animate-float pointer-events-none"><Leaf className="w-12 h-12 text-matcha-300/40" /></div>
-                <div className="absolute bottom-20 right-10 animate-float animate-delay-300 pointer-events-none"><Leaf className="w-8 h-8 text-gold-300/40" /></div>
+                <div>
+                  <div className="text-2xl sm:text-3xl font-display font-bold text-white drop-shadow-md">30</div>
+                  <div className="text-cream-300/90 text-xs sm:text-sm">Jours de jeu</div>
+                </div>
+                <div>
+                  <div className="text-2xl sm:text-3xl font-display font-bold text-white drop-shadow-md">360€</div>
+                  <div className="text-cream-300/90 text-xs sm:text-sm">Gros lot final</div>
+                </div>
               </div>
             </motion.div>
           </div>
