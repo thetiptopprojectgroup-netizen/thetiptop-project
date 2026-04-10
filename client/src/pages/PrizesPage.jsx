@@ -3,14 +3,7 @@ import { Gift, Trophy, Star, Sparkles, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-
-const prizes = [
-  { icon: '🍵', name: 'Infuseur à thé', description: 'Un infuseur à thé élégant en acier inoxydable, parfait pour déguster nos thés en feuilles.', probability: '60%', value: '10€', color: 'from-matcha-400 to-matcha-600' },
-  { icon: '🌿', name: 'Thé détox ou infusion 100g', description: 'Une boîte de 100g de thé détox bio ou infusion aux herbes, sélectionné par nos experts.', probability: '20%', value: '15€', color: 'from-emerald-400 to-emerald-600' },
-  { icon: '✨', name: 'Thé signature 100g', description: "Notre mélange signature exclusif, créé spécialement pour l'anniversaire de Thé Tip Top.", probability: '10%', value: '25€', color: 'from-gold-400 to-gold-600' },
-  { icon: '🎁', name: 'Coffret découverte 39€', description: 'Un assortiment premium de nos meilleurs thés, dans un coffret élégant.', probability: '6%', value: '39€', color: 'from-amber-400 to-amber-600' },
-  { icon: '👑', name: 'Coffret prestige 69€', description: 'Notre collection prestige : thés rares, accessoires et surprises dans un écrin luxueux.', probability: '4%', value: '69€', color: 'from-rose-400 to-rose-600' },
-];
+import { PRIZES } from '../data/prizes';
 
 export default function PrizesPage() {
   return (
@@ -28,19 +21,33 @@ export default function PrizesPage() {
         </div>
       </section>
 
-      <section className="section bg-cream-50">
+      <section className="section bg-cream-50" aria-labelledby="lots-detail-heading">
         <div className="container-wide">
+          <h2 id="lots-detail-heading" className="mb-10 text-center text-2xl font-display font-bold text-tea-900 md:text-3xl">
+            Détail des lots à gagner
+          </h2>
           <div className="space-y-8">
-            {prizes.map((prize, index) => (
-              <motion.div key={prize.name} initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
+            {PRIZES.map((prize, index) => (
+              <motion.div key={prize.id} initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
                 <Card hover className="overflow-hidden">
                   <div className="flex flex-col md:flex-row items-center gap-8">
-                    <div className={`w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br ${prize.color} flex items-center justify-center text-6xl flex-shrink-0 shadow-lg`}>
-                      {prize.icon}
+                    <div
+                      className={`flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br p-2 shadow-lg md:h-44 md:w-44 ${prize.color}`}
+                    >
+                      <img
+                        src={prize.image}
+                        alt={prize.name}
+                        className="max-h-full max-w-full object-contain"
+                        width={176}
+                        height={176}
+                        loading="lazy"
+                        decoding="async"
+                      />
                     </div>
                     <div className="flex-1 text-center md:text-left">
                       <h3 className="text-2xl font-display font-bold text-tea-900 mb-2">{prize.name}</h3>
-                      <p className="text-tea-600 mb-4 leading-relaxed">{prize.description}</p>
+                      <p className="text-tea-700 font-medium mb-2">{prize.description}</p>
+                      <p className="text-tea-600 mb-4 leading-relaxed">{prize.detail}</p>
                       <div className="flex flex-wrap justify-center md:justify-start gap-3">
                         <span className="badge badge-success flex items-center gap-1"><Star className="w-3 h-3" /> Probabilité : {prize.probability}</span>
                         <span className="badge badge-warning flex items-center gap-1"><Sparkles className="w-3 h-3" /> Valeur : {prize.value}</span>

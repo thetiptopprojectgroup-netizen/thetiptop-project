@@ -45,15 +45,12 @@ Card.Header = function CardHeader({ children, className, ...props }) {
   );
 };
 
-// Card Title
-Card.Title = function CardTitle({ children, className, ...props }) {
+// Card Title — `as` permet d’aligner la hiérarchie SEO (h2 sous une page avec h1, etc.)
+Card.Title = function CardTitle({ children, className, as: Comp = 'h3', ...props }) {
   return (
-    <h3
-      className={clsx('text-xl font-display font-semibold text-tea-900', className)}
-      {...props}
-    >
+    <Comp className={clsx('text-xl font-display font-semibold text-tea-900', className)} {...props}>
       {children}
-    </h3>
+    </Comp>
   );
 };
 

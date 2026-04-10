@@ -30,8 +30,11 @@ export default function FAQPage() {
           </motion.div>
         </div>
       </section>
-      <section className="section bg-cream-50">
+      <section className="section bg-cream-50" aria-labelledby="faq-liste-heading">
         <div className="container-wide max-w-3xl">
+          <h2 id="faq-liste-heading" className="sr-only">
+            Liste des questions fréquentes sur le jeu-concours Thé Tip Top
+          </h2>
           <div className="space-y-4">
             {faqItems.map((item, index) => (
               <motion.div key={index} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.05 }}>
@@ -54,7 +57,7 @@ export default function FAQPage() {
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="mt-12">
             <Card className="bg-matcha-50 border border-matcha-200 text-center">
               <MessageCircle className="w-10 h-10 text-matcha-600 mx-auto mb-4" />
-              <h3 className="font-display font-semibold text-tea-900 mb-2">Vous n'avez pas trouvé votre réponse ?</h3>
+              <h2 className="font-display font-semibold text-tea-900 mb-2">Vous n&apos;avez pas trouvé votre réponse ?</h2>
               <p className="text-tea-600">Contactez-nous à <a href="mailto:concours@thetiptop.fr" className="text-matcha-600 hover:underline font-medium">concours@thetiptop.fr</a></p>
             </Card>
           </motion.div>

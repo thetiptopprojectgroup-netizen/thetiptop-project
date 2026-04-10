@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getSeoForPath, getSiteUrl, SITE_NAME } from '../../config/seo';
+import { getSeoForPath, getSiteUrl, SITE_NAME, shouldNoIndexPath } from '../../config/seo';
 
 function setMeta(name, content, isProperty = false) {
   const attr = isProperty ? 'property' : 'name';
@@ -26,8 +26,6 @@ function setLink(rel, href) {
 /**
  * Met à jour title, meta description, keywords, Open Graph, Twitter et canonical selon la route.
  */
-const NOINDEX_PREFIXES = ['/admin', '/employee', '/play', '/dashboard', '/profile', '/oauth'];
-
 const PRIVATE_SEO = {
   title: `${SITE_NAME} — Espace personnel`,
   description: 'Accès sécurisé à votre compte Thé Tip Top (jeu-concours).',
@@ -36,16 +34,19 @@ const PRIVATE_SEO = {
 
 export default function SeoHead() {
   const { pathname } = useLocation();
-  const privateArea = NOINDEX_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const noIndex = shouldNoIndexPath(pathname);
+  const privateArea =
+    noIndex && pathname !== '/newsletter/unsubscribe' && !pathname.startsWith('/reset-password');
   const seo = privateArea ? PRIVATE_SEO : getSeoForPath(pathname);
   const base = getSiteUrl();
   const canonical = `${base}${pathname === '/' ? '' : pathname}`;
+  const ogImage = `${base}/images/logo/logo.png`;
 
   useEffect(() => {
     document.title = seo.title;
     setMeta('description', seo.description);
     if (seo.keywords) setMeta('keywords', seo.keywords);
-    if (privateArea) {
+    if (noIndex) {
       setMeta('robots', 'noindex, nofollow');
     } else {
       setMeta('robots', 'index, follow');
@@ -56,14 +57,17 @@ export default function SeoHead() {
     setMeta('og:title', seo.title, true);
     setMeta('og:description', seo.description, true);
     setMeta('og:locale', 'fr_FR', true);
+    setMeta('og:image', ogImage, true);
+    setMeta('og:image:alt', `${SITE_NAME} — logo du jeu-concours thé`, true);
 
     setMeta('twitter:card', 'summary_large_image', true);
     setMeta('twitter:url', canonical, true);
     setMeta('twitter:title', seo.title, true);
     setMeta('twitter:description', seo.description, true);
+    setMeta('twitter:image', ogImage, true);
 
     setLink('canonical', canonical);
-  }, [pathname, seo, canonical, privateArea]);
+  }, [pathname, seo, canonical, noIndex, ogImage]);
 
   return null;
 }

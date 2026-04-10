@@ -90,6 +90,12 @@ const ROUTES = {
     description: 'Définissez un nouveau mot de passe pour votre compte Thé Tip Top.',
     keywords: 'réinitialisation mot de passe Thé Tip Top',
   },
+  '/newsletter/unsubscribe': {
+    title: 'Désinscription newsletter | Thé Tip Top',
+    description:
+      'Retirez votre adresse email de la liste de diffusion Thé Tip Top. Votre compte jeu-concours reste inchangé.',
+    keywords: '',
+  },
 };
 
 /**
@@ -100,5 +106,16 @@ export function getSeoForPath(pathname) {
   if (pathname.startsWith('/reset-password')) {
     return ROUTES['/reset-password'];
   }
+  if (pathname === '/newsletter/unsubscribe') {
+    return ROUTES['/newsletter/unsubscribe'];
+  }
   return ROUTES[pathname] || ROUTES['/'];
+}
+
+/** Pages à ne pas indexer (comptes, outils, désinscription). */
+export function shouldNoIndexPath(pathname) {
+  if (pathname === '/newsletter/unsubscribe') return true;
+  if (pathname.startsWith('/reset-password')) return true;
+  const prefixes = ['/admin', '/employee', '/play', '/dashboard', '/profile', '/oauth'];
+  return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
