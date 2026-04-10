@@ -87,8 +87,8 @@ export default function HomePage() {
         </div>
 
         <div className="absolute bottom-0 left-0 right-0">
-          <hr className="border-t-2 border-cream-50/90" />
-          {/* <svg viewBox="0 0 1440 120" fill="none"><path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H0V120Z" fill="#fefdfb"/></svg> */}
+      
+           <svg viewBox="0 0 1440 120" fill="none"><path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H0V120Z" fill="#fefdfb"/></svg> 
         </div>
       </section>
 
@@ -111,23 +111,25 @@ export default function HomePage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
             {PRIZES.map((prize, index) => (
               <motion.div key={prize.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
-                <Card hover className="h-full text-center">
-                  <div className="mb-4 mx-auto flex h-36 max-w-[11rem] items-center justify-center overflow-hidden rounded-xl bg-cream-100/80 p-2">
+                <Card hover padding="none" className="group flex h-full flex-col overflow-hidden text-center">
+                  <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-cream-100">
                     <img
                       src={prize.image}
                       alt={prize.name}
-                      className="max-h-full w-full object-contain"
-                      width={176}
-                      height={144}
+                      className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+                      width={400}
+                      height={300}
                       loading="lazy"
                       decoding="async"
                     />
                   </div>
-                  <h3 className="font-display font-semibold text-tea-900 mb-2">{prize.name}</h3>
-                  <p className="text-sm text-tea-600 mb-4">{prize.description}</p>
-                  <div className="flex justify-center gap-2">
-                    <span className="badge badge-success">{prize.probability}</span>
-                    <span className="badge badge-warning">{prize.value}</span>
+                  <div className="flex flex-1 flex-col px-4 pb-5 pt-4 sm:px-5">
+                    <h3 className="font-display text-base font-semibold text-tea-900 sm:text-lg">{prize.name}</h3>
+                    <p className="mt-2 flex-1 text-sm leading-relaxed text-tea-600">{prize.description}</p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      <span className="badge badge-success">{prize.probability}</span>
+                      <span className="badge badge-warning">{prize.value}</span>
+                    </div>
                   </div>
                 </Card>
               </motion.div>
