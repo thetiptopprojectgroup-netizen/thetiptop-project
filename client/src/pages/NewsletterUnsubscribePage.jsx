@@ -43,7 +43,7 @@ export default function NewsletterUnsubscribePage() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
           <Card>
             <Card.Header>
-              <Card.Title>Se désinscrire de la newsletter</Card.Title>
+              <Card.Title as="h1">Se désinscrire de la newsletter</Card.Title>
               <Card.Description>
                 Indiquez l’adresse email à retirer de notre liste. Aucun compte jeu n’est supprimé.
               </Card.Description>
