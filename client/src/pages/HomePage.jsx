@@ -21,7 +21,7 @@ export default function HomePage() {
           src="/images/imagesite/Design sans titre (3).gif"
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover object-right-top md:object-center"
+          className="absolute inset-0 w-full h-full object-fill"
           loading="eager"
           decoding="async"
         />
