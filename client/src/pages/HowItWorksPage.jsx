@@ -36,8 +36,11 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      <section className="section bg-cream-50">
+      <section className="section bg-cream-50" aria-labelledby="etapes-jeu-heading">
         <div className="container-wide max-w-4xl">
+          <h2 id="etapes-jeu-heading" className="mb-10 text-center text-2xl font-display font-bold text-tea-900 md:text-3xl">
+            Les étapes du jeu-concours
+          </h2>
           <div className="space-y-8">
             {steps.map((step, index) => (
               <motion.div key={step.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>

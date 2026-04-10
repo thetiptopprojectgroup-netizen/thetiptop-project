@@ -21,8 +21,11 @@ export default function PrizesPage() {
         </div>
       </section>
 
-      <section className="section bg-cream-50">
+      <section className="section bg-cream-50" aria-labelledby="lots-detail-heading">
         <div className="container-wide">
+          <h2 id="lots-detail-heading" className="mb-10 text-center text-2xl font-display font-bold text-tea-900 md:text-3xl">
+            Détail des lots à gagner
+          </h2>
           <div className="space-y-8">
             {PRIZES.map((prize, index) => (
               <motion.div key={prize.id} initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>

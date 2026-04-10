@@ -57,9 +57,9 @@ export default function RegisterPage() {
           className="relative z-10 text-center text-white max-w-md"
         >
           <div className="text-6xl mb-6">✨</div>
-          <h2 className="text-3xl font-display font-bold mb-4">
-            Rejoignez l'aventure Thé Tip Top
-          </h2>
+          <p className="text-3xl font-display font-bold mb-4">
+            Rejoignez l&apos;aventure Thé Tip Top
+          </p>
           <p className="text-cream-100 text-lg mb-8">
             Inscrivez-vous gratuitement et participez immédiatement au jeu-concours.
           </p>

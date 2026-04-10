@@ -28,7 +28,7 @@ export default function RulesPage() {
         <div className="container-wide max-w-4xl">
           <div className="space-y-8">
             <Card>
-              <Card.Header><Card.Title className="flex items-center gap-3"><Users className="w-6 h-6 text-matcha-600" /> Article 1 - Organisation</Card.Title></Card.Header>
+              <Card.Header><Card.Title as="h2" className="flex items-center gap-3"><Users className="w-6 h-6 text-matcha-600" /> Article 1 - Organisation</Card.Title></Card.Header>
               <div className="prose text-tea-700 space-y-3">
                 <p>La société Thé Tip Top, SA au capital de 150 000€, dont le siège social est situé 18 rue Léon Frot, 75011 Paris, immatriculée au RCS de Paris, organise un jeu-concours gratuit sans obligation d'achat du 1er mars au 30 mars 2026.</p>
                 <p>Le règlement est déposé chez Maître Arnaud Rick, huissier de justice, et disponible sur le site internet thetiptop.fr.</p>
@@ -36,7 +36,7 @@ export default function RulesPage() {
             </Card>
 
             <Card>
-              <Card.Header><Card.Title className="flex items-center gap-3"><Calendar className="w-6 h-6 text-matcha-600" /> Article 2 - Dates et durée</Card.Title></Card.Header>
+              <Card.Header><Card.Title as="h2" className="flex items-center gap-3"><Calendar className="w-6 h-6 text-matcha-600" /> Article 2 - Dates et durée</Card.Title></Card.Header>
               <div className="prose text-tea-700 space-y-3">
                 <p>Le jeu-concours se déroule du <strong>1er mars 2026 à 00h00</strong> au <strong>30 mars 2026 à 23h59</strong> (heure de Paris).</p>
                 <p>La réclamation des lots est possible jusqu'au <strong>29 avril 2026</strong>.</p>
@@ -45,7 +45,7 @@ export default function RulesPage() {
             </Card>
 
             <Card>
-              <Card.Header><Card.Title className="flex items-center gap-3"><Scale className="w-6 h-6 text-matcha-600" /> Article 3 - Conditions de participation</Card.Title></Card.Header>
+              <Card.Header><Card.Title as="h2" className="flex items-center gap-3"><Scale className="w-6 h-6 text-matcha-600" /> Article 3 - Conditions de participation</Card.Title></Card.Header>
               <div className="prose text-tea-700 space-y-3">
                 <p>Le jeu-concours est ouvert à toute personne physique majeure (18 ans révolus) résidant en France métropolitaine.</p>
                 <p>Sont exclus de la participation : les employés de Thé Tip Top et les membres de leur famille directe.</p>
@@ -70,7 +70,7 @@ export default function RulesPage() {
             </Card>
 
             <Card>
-              <Card.Header><Card.Title className="flex items-center gap-3"><FileText className="w-6 h-6 text-matcha-600" /> Article 5 - Données personnelles (RGPD)</Card.Title></Card.Header>
+              <Card.Header><Card.Title as="h2" className="flex items-center gap-3"><FileText className="w-6 h-6 text-matcha-600" /> Article 5 - Données personnelles (RGPD)</Card.Title></Card.Header>
               <div className="prose text-tea-700 space-y-3">
                 <p>Les données collectées sont nécessaires à la gestion du jeu-concours. Elles sont traitées conformément au Règlement Général sur la Protection des Données (RGPD).</p>
                 <p>Les participants disposent d'un droit d'accès, de rectification, de suppression et de portabilité de leurs données, qu'ils peuvent exercer par email à dpo@thetiptop.fr.</p>
@@ -79,7 +79,7 @@ export default function RulesPage() {
             </Card>
 
             <Card>
-              <Card.Header><Card.Title className="flex items-center gap-3"><Mail className="w-6 h-6 text-matcha-600" /> Article 6 - Contact</Card.Title></Card.Header>
+              <Card.Header><Card.Title as="h2" className="flex items-center gap-3"><Mail className="w-6 h-6 text-matcha-600" /> Article 6 - Contact</Card.Title></Card.Header>
               <div className="text-tea-700 space-y-2">
                 <p>Pour toute question relative au jeu-concours :</p>
                 <p>Email : <a href="mailto:concours@thetiptop.fr" className="text-matcha-600 hover:underline">concours@thetiptop.fr</a></p>
