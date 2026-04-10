@@ -3,7 +3,7 @@ import { Gift, Trophy, Star, Sparkles, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import { prizesDisplay } from '../data/prizesDisplay';
+import { PRIZES } from '../data/prizes';
 
 export default function PrizesPage() {
   return (
@@ -24,22 +24,27 @@ export default function PrizesPage() {
       <section className="section bg-cream-50">
         <div className="container-wide">
           <div className="space-y-8">
-            {prizesDisplay.map((prize, index) => (
+            {PRIZES.map((prize, index) => (
               <motion.div key={prize.id} initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
                 <Card hover className="overflow-hidden">
                   <div className="flex flex-col md:flex-row items-center gap-8">
-                    <div className="w-full max-w-[280px] md:w-48 md:h-48 md:max-w-none aspect-square rounded-2xl overflow-hidden bg-tea-100 ring-1 ring-tea-200/80 flex-shrink-0 shadow-lg">
+                    <div
+                      className={`flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br p-2 shadow-lg md:h-44 md:w-44 ${prize.color}`}
+                    >
                       <img
                         src={prize.image}
-                        alt={`Lot : ${prize.name}`}
-                        className="w-full h-full object-cover"
+                        alt={prize.name}
+                        className="max-h-full max-w-full object-contain"
+                        width={176}
+                        height={176}
                         loading="lazy"
                         decoding="async"
                       />
                     </div>
                     <div className="flex-1 text-center md:text-left">
                       <h3 className="text-2xl font-display font-bold text-tea-900 mb-2">{prize.name}</h3>
-                      <p className="text-tea-600 mb-4 leading-relaxed">{prize.descriptionLong}</p>
+                      <p className="text-tea-700 font-medium mb-2">{prize.description}</p>
+                      <p className="text-tea-600 mb-4 leading-relaxed">{prize.detail}</p>
                       <div className="flex flex-wrap justify-center md:justify-start gap-3">
                         <span className="badge badge-success flex items-center gap-1"><Star className="w-3 h-3" /> Probabilité : {prize.probability}</span>
                         <span className="badge badge-warning flex items-center gap-1"><Sparkles className="w-3 h-3" /> Valeur : {prize.value}</span>
