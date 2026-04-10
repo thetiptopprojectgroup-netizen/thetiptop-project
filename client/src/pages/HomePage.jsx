@@ -77,17 +77,18 @@ export default function HomePage() {
                   <div className="text-2xl sm:text-3xl font-display font-bold text-white drop-shadow-md">30</div>
                   <div className="text-cream-300/90 text-xs sm:text-sm">Jours de jeu</div>
                 </div>
-                <div>
+                {/* <div>
                   <div className="text-2xl sm:text-3xl font-display font-bold text-white drop-shadow-md">360€</div>
                   <div className="text-cream-300/90 text-xs sm:text-sm">Gros lot final</div>
-                </div>
+                </div> */}
               </div>
             </motion.div>
           </div>
         </div>
 
         <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1440 120" fill="none"><path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H0V120Z" fill="#fefdfb"/></svg>
+          <hr className="border-t-2 border-cream-50/90" />
+          {/* <svg viewBox="0 0 1440 120" fill="none"><path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H0V120Z" fill="#fefdfb"/></svg> */}
         </div>
       </section>
 
