@@ -85,6 +85,7 @@ export default {
         'fade-in': 'fadeIn 0.5s ease-out',
         'scale-in': 'scaleIn 0.3s ease-out',
         'spin-slow': 'spin 3s linear infinite',
+        'cta-sway': 'ctaSway 2.2s ease-in-out infinite',
       },
       keyframes: {
         float: {
@@ -125,6 +126,10 @@ export default {
         scaleIn: {
           '0%': { transform: 'scale(0.9)', opacity: 0 },
           '100%': { transform: 'scale(1)', opacity: 1 },
+        },
+        ctaSway: {
+          '0%, 100%': { transform: 'rotate(-3deg)' },
+          '50%': { transform: 'rotate(3deg)' },
         },
       },
       boxShadow: {

@@ -53,7 +53,10 @@ export default function HomePage() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-10">
-                <Link to="/register">
+                <Link
+                  to="/register"
+                  className="inline-flex origin-bottom animate-cta-sway motion-reduce:animate-none"
+                >
                   <Button variant="gold" size="lg" rightIcon={<ArrowRight className="w-5 h-5" />}>
                     Participer maintenant
                   </Button>
