@@ -3,14 +3,7 @@ import { motion } from 'framer-motion';
 import { Gift, Leaf, Star, Trophy, Clock, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
-
-const prizes = [
-  { icon: '🍵', name: 'Infuseur à thé', description: 'Élégant infuseur en acier inoxydable', probability: '60%', value: '10€' },
-  { icon: '🌿', name: 'Thé détox 100g', description: 'Thé bio détox ou infusion', probability: '20%', value: '15€' },
-  { icon: '✨', name: 'Thé signature 100g', description: 'Notre mélange signature exclusif', probability: '10%', value: '25€' },
-  { icon: '🎁', name: 'Coffret découverte', description: 'Assortiment premium 39€', probability: '6%', value: '39€' },
-  { icon: '👑', name: 'Coffret prestige', description: 'Collection prestige 69€', probability: '4%', value: '69€' },
-];
+import { PRIZES_DISPLAY } from '../data/prizesDisplay';
 
 const steps = [
   { icon: <Gift className="w-6 h-6" />, title: 'Achetez pour 49€', description: 'Faites un achat de 49€ ou plus en boutique ou en ligne' },
@@ -113,10 +106,20 @@ export default function HomePage() {
           </motion.div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            {prizes.map((prize, index) => (
-              <motion.div key={prize.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
-                <Card hover className="h-full text-center">
-                  <div className="text-5xl mb-4">{prize.icon}</div>
+            {PRIZES_DISPLAY.map((prize, index) => (
+              <motion.div key={prize.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
+                <Card hover className="h-full text-center overflow-hidden">
+                  <div className="mb-4 -mx-6 -mt-6 rounded-t-xl overflow-hidden bg-cream-100 aspect-[4/3]">
+                    <img
+                      src={prize.image}
+                      alt={prize.imageAlt}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      width={400}
+                      height={300}
+                    />
+                  </div>
                   <h3 className="font-display font-semibold text-tea-900 mb-2">{prize.name}</h3>
                   <p className="text-sm text-tea-600 mb-4">{prize.description}</p>
                   <div className="flex justify-center gap-2">

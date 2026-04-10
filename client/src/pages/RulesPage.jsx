@@ -60,7 +60,7 @@ export default function RulesPage() {
                 <p>500 000 tickets sont mis en jeu. 100% des tickets sont gagnants. Les lots sont répartis comme suit :</p>
                 <div className="bg-cream-50 rounded-xl p-4 space-y-2">
                   <div className="flex justify-between"><span>Infuseur à thé (10€)</span><span className="font-medium">60% - 300 000 tickets</span></div>
-                  <div className="flex justify-between"><span>Thé détox/infusion 100g (15€)</span><span className="font-medium">20% - 100 000 tickets</span></div>
+                  <div className="flex justify-between"><span>Thé détox 100g — thé bio détox ou infusion (15€)</span><span className="font-medium">20% - 100 000 tickets</span></div>
                   <div className="flex justify-between"><span>Thé signature 100g (25€)</span><span className="font-medium">10% - 50 000 tickets</span></div>
                   <div className="flex justify-between"><span>Coffret découverte (39€)</span><span className="font-medium">6% - 30 000 tickets</span></div>
                   <div className="flex justify-between"><span>Coffret prestige (69€)</span><span className="font-medium">4% - 20 000 tickets</span></div>
