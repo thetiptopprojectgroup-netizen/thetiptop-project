@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Gift, Leaf, Star, Trophy, Clock, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
-import { PRIZES_DISPLAY } from '../data/prizesDisplay';
+import { prizesDisplay } from '../data/prizesDisplay';
 
 const steps = [
   { icon: <Gift className="w-6 h-6" />, title: 'Achetez pour 49€', description: 'Faites un achat de 49€ ou plus en boutique ou en ligne' },
@@ -106,22 +106,20 @@ export default function HomePage() {
           </motion.div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            {PRIZES_DISPLAY.map((prize, index) => (
+            {prizesDisplay.map((prize, index) => (
               <motion.div key={prize.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
-                <Card hover className="h-full text-center overflow-hidden">
-                  <div className="mb-4 -mx-6 -mt-6 rounded-t-xl overflow-hidden bg-cream-100 aspect-[4/3]">
+                <Card hover className="h-full text-center">
+                  <div className="mb-4 mx-auto w-full aspect-square max-h-40 rounded-xl overflow-hidden bg-tea-100 ring-1 ring-tea-200/80">
                     <img
                       src={prize.image}
-                      alt={prize.imageAlt}
+                      alt={`Lot : ${prize.name}`}
                       className="w-full h-full object-cover"
                       loading="lazy"
                       decoding="async"
-                      width={400}
-                      height={300}
                     />
                   </div>
                   <h3 className="font-display font-semibold text-tea-900 mb-2">{prize.name}</h3>
-                  <p className="text-sm text-tea-600 mb-4">{prize.description}</p>
+                  <p className="text-sm text-tea-600 mb-4">{prize.descriptionShort}</p>
                   <div className="flex justify-center gap-2">
                     <span className="badge badge-success">{prize.probability}</span>
                     <span className="badge badge-warning">{prize.value}</span>
