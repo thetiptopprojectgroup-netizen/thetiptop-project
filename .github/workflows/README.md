@@ -4,9 +4,9 @@
 
 Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manuels** :
 
-1. **`ci.yml` — CI — Monorepo (server + client)** : seul workflow CI déclenché automatiquement sur push/PR pour **`vdev`**, **`vpreprod`**, **`vprod`**. Ordre des jobs : **1** qualité backend · **1** qualité frontend (parallèle) → **2** image `api` · **2** image `client` + Harbor/Trivy (parallèle) → **3** commentaire PR / PR de promotion.
-2. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push sur la branche correspondante (ou `workflow_run` / manuel selon le fichier).
-3. **Create promotion PR (manual)** : secours si la PR automatique n’a pas été créée (`vdev` → `vpreprod`, `vpreprod` → `vprod`).
+1. **`ci.yml` — CI — Monorepo (server + client)** : seul workflow CI déclenché automatiquement sur push/PR pour **`vdev`**, **`vpreprod`**, **`vprod`**. Ordre des jobs : qualité → tests → build → package (images Docker Harbor si configuré) → commentaire sur PR.
+2. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push sur la branche correspondante (ou manuel). **PR de promotion** (`vdev` → `vpreprod`, `vpreprod` → `vprod`) : uniquement **après** le job de déploiement VPS réussi dans le workflow CD (pas à la fin de la seule CI).
+3. **`create-promotion-pr.yml`** : secours manuel si la PR automatique (post-CD) n’a pas été créée.
 
 **Harbor (CI)** : secret **`HARBOR_REGISTRY_BASE`**, projets **`vdev` / `vpreprod` / `vprod`**, images **`api`** et **`client`** taguées par le SHA du commit.
 
@@ -26,7 +26,7 @@ Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manue
 
 **Pipeline** : **`CI — Monorepo`** — lint/tests complets (si scripts présents), build client, puis images Docker `api` + `client`.
 
-**Résultat** : si tout est vert → **PR automatique** `vdev` → `vpreprod` (non brouillon).
+**Résultat** : CI verte, puis **CD / vdev** (déploiement). Si le CD est vert → **PR brouillon** `vdev` → `vpreprod` (job final du workflow CD, pas la CI seule).
 
 ---
 
@@ -36,7 +36,7 @@ Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manue
 
 **Pipeline** : suite qualité **allégée** (lint/tests complets surtout sur `vdev`), build + images Docker.
 
-**Résultat** : si tout est vert → **PR automatique** `vpreprod` → `vprod` (**brouillon**).
+**Résultat** : CI puis **CD / vpreprod** ; si le CD est vert → **PR brouillon** `vpreprod` → `vprod`.
 
 ---
 
@@ -57,13 +57,8 @@ Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manue
 | `server-docker` | Build/push **`{HARBOR_REGISTRY_BASE}/{projet}/api:SHA`**, scan Harbor |
 | `client-docker` | Build/push **`…/client:SHA`** avec URLs Vite alignées CD |
 | `notify-pr` | Commentaire de synthèse sur les PR |
-| `create-promotion-pr` | PR `vdev→vpreprod`, `vpreprod→vprod` |
 
----
-
-## Promotion automatique
-
-Un seul job **`create-promotion-pr`** dans **`ci.yml`**, après succès des jobs qualité + Docker.
+**PR de promotion** : jobs **`promotion-pr`** dans **`deploy-vdev.yml`** et **`deploy-vpreprod.yml`** (après **`deploy-vps`**), pas dans `ci.yml`.
 
 ---
 
@@ -95,7 +90,7 @@ git checkout vdev
 git pull
 git commit -am "feat: …"
 git push origin vdev
-# → CI Monorepo ; si vert : PR vdev → vpreprod
+# → CI puis CD vdev ; si CD vert : PR brouillon vdev → vpreprod
 ```
 
 ### Promotion vers `vpreprod` puis `vprod`
