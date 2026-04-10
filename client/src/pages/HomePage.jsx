@@ -31,7 +31,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-t from-matcha-950/70 via-transparent to-matcha-950/30" />
 
         <div className="container-wide relative z-10 pt-24 pb-20 md:pt-28 md:pb-24">
-          <div className="max-w-2xl ml-0 lg:ml-0">
+          <div className="max-w-xl lg:max-w-2xl">
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
               <div className="flex flex-wrap gap-2 mb-5">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-white/10 backdrop-blur-md rounded-full text-cream-100 text-xs md:text-sm shadow-lg">
