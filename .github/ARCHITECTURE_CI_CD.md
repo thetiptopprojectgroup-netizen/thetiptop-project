@@ -7,23 +7,22 @@
 ```
 push sur vdev / vpreprod / vprod
             │
-            ▼
-   ┌────────────────────────────┐
-   │  CI — Monorepo (ci.yml)    │
-   │  · qualité server + client │
-   │  · images api + client      │
-   │     (Harbor)                │
-   └─────────────┬──────────────┘
-                 │ succès (push)
-                 ▼
-   ┌────────────────────────────┐
-   │  create-promotion-pr        │
-   │  vdev→vpreprod, vpreprod→vprod │
-   └────────────────────────────┘
-
-Déploiement VPS : deploy-vdev.yml, deploy-vpreprod.yml, deploy-vprod.yml
-(se déclenchent sur la branche correspondante selon chaque fichier).
+            ├──────────────────────────┐
+            ▼                          ▼
+   ┌────────────────────┐     ┌─────────────────────────────┐
+   │ CI — Monorepo      │     │ CD — deploy-vdev /          │
+   │ (ci.yml)           │     │     deploy-vpreprod / vprod │
+   │ qualité + images   │     │ gate → build → deploy-vps   │
+   └────────────────────┘     └──────────────┬──────────────┘
+                                             │ succès
+                                             ▼
+                              ┌──────────────────────────────┐
+                              │ PR promotion (brouillon)      │
+                              │ vdev→vpreprod ou vpreprod→vprod│
+                              └──────────────────────────────┘
 ```
+
+Les PR de promotion sont créées **uniquement après** un déploiement CD réussi, pas à la seule fin de la CI.
 
 ## Fichiers principaux
 
@@ -36,7 +35,7 @@ Déploiement VPS : deploy-vdev.yml, deploy-vpreprod.yml, deploy-vprod.yml
 ## Principes
 
 1. **Qualité complète** surtout sur **`vdev`** (lint, tests) ; jobs allégés sur `vpreprod` / `vprod` selon `RUN_FULL_QUALITY` dans `ci.yml`.
-2. **Une** PR de promotion automatique dans `ci.yml` après succès des jobs qualité + Docker.
+2. **PR de promotion** : jobs `promotion-pr` dans les workflows **CD** (`deploy-vdev.yml`, `deploy-vpreprod.yml`), après **`deploy-vps`**.
 
 ## Permissions
 
