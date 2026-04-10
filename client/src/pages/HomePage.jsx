@@ -15,13 +15,13 @@ export default function HomePage() {
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <section className="relative h-[85vh] min-h-[600px] max-h-[900px] flex items-end overflow-hidden bg-matcha-950">
+      <section className="relative min-h-screen lg:aspect-video lg:min-h-0 lg:max-h-screen flex items-end overflow-hidden bg-matcha-950">
         {/* GIF background — loops natively */}
         <img
           src="/images/imagesite/Design sans titre (3).gif"
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover object-center"
+          className="absolute inset-0 w-full h-full object-cover object-right-top md:object-center"
           loading="eager"
           decoding="async"
         />
