@@ -15,7 +15,7 @@ export default function HomePage() {
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <section className="relative flex min-h-screen flex-col justify-end overflow-hidden bg-matcha-950">
+      <section className="relative min-h-screen overflow-hidden bg-matcha-950">
         {/* GIF background — PC: stretched full width+height / Mobile: cropped left part, no stretch */}
         <img
           src="/images/imagesite/Design sans titre (3).gif"
@@ -30,7 +30,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-matcha-950/85 via-matcha-950/60 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-matcha-950/70 via-transparent to-matcha-950/30" />
 
-        <div className="container-wide relative z-10 w-full pb-20 pt-[calc(5rem+10px)] md:pb-24">
+        <div className="container-wide relative z-10 w-full pb-16 pt-[calc(5rem+10px)] md:pb-20 lg:pb-24">
           <div className="max-w-xl lg:max-w-2xl">
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
               <div className="flex flex-wrap gap-2 mb-5">
