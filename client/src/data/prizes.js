@@ -2,6 +2,7 @@
  * Lots du jeu — ordre d’affichage (images 1 → 5) :
  * 1 Coffret prestige · 2 Coffret découverte · 3 Thé signature · 4 Thé détox · 5 Infuseur
  */
+
 export const PRIZES = [
   {
     id: 'coffret_prestige',
