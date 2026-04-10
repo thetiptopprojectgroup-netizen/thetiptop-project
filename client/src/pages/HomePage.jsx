@@ -15,13 +15,13 @@ export default function HomePage() {
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center overflow-hidden bg-matcha-950">
+      <section className="relative h-[85vh] min-h-[600px] max-h-[900px] flex items-end overflow-hidden bg-matcha-950">
         {/* GIF background — loops natively */}
         <img
           src="/images/imagesite/Design sans titre (3).gif"
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-contain object-right-bottom lg:object-cover"
+          className="absolute inset-0 w-full h-full object-cover object-center"
           loading="eager"
           decoding="async"
         />
@@ -30,7 +30,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-matcha-950/90 via-matcha-900/75 to-matcha-950/50 lg:to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-matcha-950/80 via-transparent to-matcha-950/40" />
 
-        <div className="container-wide relative z-10 pt-28 pb-24 md:pt-36 md:pb-28">
+        <div className="container-wide relative z-10 pt-24 pb-20 md:pt-28 md:pb-24">
           <div className="max-w-2xl">
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
               <div className="flex flex-wrap gap-2 mb-5">
