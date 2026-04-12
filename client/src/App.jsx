@@ -20,6 +20,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import CookieConsent from './components/common/CookieConsent';
+import GoogleAnalytics from './components/analytics/GoogleAnalytics';
 import InstallPrompt from './components/common/InstallPrompt';
 import SeoHead from './components/seo/SeoHead';
 import NewsletterUnsubscribePage from './pages/NewsletterUnsubscribePage';
@@ -101,6 +102,7 @@ function App() {
       />
 
       <CookieConsent />
+      <GoogleAnalytics />
       <InstallPrompt />
 
       <Routes>
