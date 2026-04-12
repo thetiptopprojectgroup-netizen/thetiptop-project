@@ -20,6 +20,10 @@ ENV VITE_API_URL=${VITE_API_URL}
 ARG VITE_GOOGLE_CLIENT_ID=
 ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
 
+# Google Analytics 4 — ID de mesure (injecté par la CI via secret, ex. secrets.VITE_GA_MEASUREMENT_ID)
+ARG VITE_GA_MEASUREMENT_ID=
+ENV VITE_GA_MEASUREMENT_ID=${VITE_GA_MEASUREMENT_ID}
+
 # URL publique du site (sitemap + robots + Vite VITE_SITE_URL pour canonical SEO dans le bundle)
 ARG SITE_URL=https://dsp5-archi-o22a-15m-g3.fr
 ENV SITE_URL=${SITE_URL}

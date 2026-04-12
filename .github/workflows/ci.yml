@@ -248,6 +248,8 @@ jobs:
         run: npm ci
 
       - name: Build frontend
+        env:
+          VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID || secrets.VITE_GA_MEASUREMENT_ID }}
         run: npm run build
 
   backend-build:
@@ -411,6 +413,7 @@ jobs:
         if: steps.harbor.outputs.configured == 'true'
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID || secrets.VITE_GA_MEASUREMENT_ID }}
         run: |
           IMAGE="${{ steps.harbor-project.outputs.image }}"
           LASTMOD_DATE="$(git log -1 --format=%cs)"
@@ -419,6 +422,7 @@ jobs:
             --build-arg SITE_URL="${{ steps.harbor-project.outputs.site_url }}" \
             --build-arg LASTMOD_DATE="${LASTMOD_DATE}" \
             --build-arg VITE_GOOGLE_CLIENT_ID="${VITE_GOOGLE_CLIENT_ID}" \
+            --build-arg VITE_GA_MEASUREMENT_ID="${VITE_GA_MEASUREMENT_ID}" \
             -t "$IMAGE" client
           docker push "$IMAGE"
 
