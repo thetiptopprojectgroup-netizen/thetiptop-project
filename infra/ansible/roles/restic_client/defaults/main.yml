@@ -6,6 +6,19 @@ restic_aws_default_region: us-east-1
 restic_repositories: []
 restic_repository: ""
 
+# --- Surveillance MongoDB + export à la moindre évolution ---
+# Si true : un cron par environnement exécute /opt/thetiptop/restic/backup-repo.sh avec ON_CHANGE_ONLY=1
+# (empreinte db.stats : collections, objects, dataSize, indexes). Tant que l’empreinte est identique au dernier
+# passage, aucun mongodump ni restic. Sinon : mongodump dans /opt/thetiptop/backup/mongodb/<env_name>/ puis
+# restic backup (sans forget/prune agressif — SKIP_FORGET_PRUNE=1).
+# Désactiver : mongo_watch_enabled: false dans group_vars.
+mongo_watch_enabled: true
+# Minutes cron (syntaxe Vixie). Liste alignée sur repo_index 0,1,2 — décalées pour ne pas frapper les 3 Mongo en même temps.
+mongo_watch_cron_minute_by_index:
+  - "0-59/5"
+  - "1-59/5"
+  - "2-59/5"
+
 # Crons : un dépôt par créneau. repo_index = position dans restic_repositories (0=vdev-restic, 1=vpreprod, 2=vprod).
 # env_file sert à charger COMPOSE_PROJECT_NAME / MONGO_USER / MONGO_PASSWORD pour générer un mongodump avant restic.
 # Fuseau = horloge du VPS (timedatectl).
