@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { COOKIE_CONSENT_UPDATED_EVENT } from '../../analytics/gtag';
 import Button from './Button';
 
 export default function CookieConsent() {
@@ -13,19 +14,22 @@ export default function CookieConsent() {
     }
   }, []);
 
-  const handleAccept = () => {
-    localStorage.setItem('cookie-consent', JSON.stringify({ marketing: true, analytics: true, date: new Date().toISOString() }));
+  const persistConsent = (payload) => {
+    localStorage.setItem('cookie-consent', JSON.stringify({ ...payload, date: new Date().toISOString() }));
+    window.dispatchEvent(new Event(COOKIE_CONSENT_UPDATED_EVENT));
     setIsVisible(false);
+  };
+
+  const handleAccept = () => {
+    persistConsent({ marketing: true, analytics: true });
   };
 
   const handleReject = () => {
-    localStorage.setItem('cookie-consent', JSON.stringify({ marketing: false, analytics: false, date: new Date().toISOString() }));
-    setIsVisible(false);
+    persistConsent({ marketing: false, analytics: false });
   };
 
   const handleEssentialOnly = () => {
-    localStorage.setItem('cookie-consent', JSON.stringify({ marketing: false, analytics: false, date: new Date().toISOString() }));
-    setIsVisible(false);
+    persistConsent({ marketing: false, analytics: false });
   };
 
   return (
