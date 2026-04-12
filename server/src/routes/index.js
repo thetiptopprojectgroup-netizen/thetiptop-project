@@ -4,6 +4,7 @@ import ticketRoutes from './ticketRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import newsletterRoutes from './newsletterRoutes.js';
 import telemetryRoutes from './telemetryRoutes.js';
+import reviewRoutes from './reviewRoutes.js';
 import { getContestDates } from '../utils/contestConfig.js';
 import Code from '../models/Ticket.js';
 
@@ -15,6 +16,7 @@ router.use('/tickets', ticketRoutes);
 router.use('/admin', adminRoutes);
 router.use('/newsletter', newsletterRoutes);
 router.use('/telemetry', telemetryRoutes);
+router.use('/reviews', reviewRoutes);
 
 // Route de santé
 router.get('/health', (req, res) => {

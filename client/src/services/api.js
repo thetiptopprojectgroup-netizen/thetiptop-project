@@ -144,6 +144,13 @@ export const contestService = {
   getHealth: () => publicApi.get('/health'),
 };
 
+/** Avis sur le jeu (public + authentifié) */
+export const reviewService = {
+  getRecent: () => publicApi.get('/reviews/recent'),
+  getMine: () => api.get('/reviews/mine'),
+  create: (payload) => api.post('/reviews', payload),
+};
+
 export const telemetryService = {
   trackPlayButton: (payload) => api.post('/telemetry/play-button', payload),
   trackEvent: (payload) => api.post('/telemetry/event', payload),

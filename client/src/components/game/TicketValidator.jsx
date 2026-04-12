@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, Sparkles, PartyPopper, Ticket } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -6,7 +6,9 @@ import toast from 'react-hot-toast';
 import Button from '../common/Button';
 import useGameStore from '../../store/gameStore';
 import Confetti from './Confetti';
-import { telemetryService } from '../../services/api';
+import { telemetryService, reviewService } from '../../services/api';
+import useAuthStore from '../../store/authStore';
+import GameReviewForm from '../reviews/GameReviewForm';
 
 export default function TicketValidator() {
   const [code, setCode] = useState('');
@@ -20,6 +22,32 @@ export default function TicketValidator() {
     clearCurrentWin,
     claimMyPrizeOnline,
   } = useGameStore();
+  const fetchUser = useAuthStore((s) => s.fetchUser);
+  const [reviewPrompt, setReviewPrompt] = useState(null);
+
+  useEffect(() => {
+    if (step !== 'won') {
+      setReviewPrompt(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await reviewService.getMine();
+        if (cancelled) return;
+        const d = data.data;
+        setReviewPrompt({
+          show: Boolean(d.hasParticipated && !d.hasReview),
+          pseudo: d.pseudo || '',
+        });
+      } catch {
+        if (!cancelled) setReviewPrompt({ show: false, pseudo: '' });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
 
   const handleCodeChange = (e) => {
     // Format: majuscules, max 10 caractères, alphanumériques uniquement
@@ -276,6 +304,16 @@ export default function TicketValidator() {
                   Mes gains
                 </Button>
               </div>
+
+              {reviewPrompt && reviewPrompt.show && (
+                <GameReviewForm
+                  initialPseudo={reviewPrompt.pseudo}
+                  onSuccess={async () => {
+                    await fetchUser();
+                    setReviewPrompt((prev) => ({ ...prev, show: false }));
+                  }}
+                />
+              )}
             </motion.div>
           </motion.div>
         )}
