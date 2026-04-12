@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { MessageCircleQuote, Star } from 'lucide-react';
+import { MessageSquareQuote, Star } from 'lucide-react';
 import { reviewService } from '../../services/api';
 
 function StarsRow({ rating }) {
@@ -62,7 +62,7 @@ export default function GameReviewsSection() {
       <div className="container-wide">
         <div className="mb-8 text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-matcha-100 px-4 py-2 text-sm font-medium text-matcha-800">
-            <MessageCircleQuote className="h-4 w-4" />
+            <MessageSquareQuote className="h-4 w-4" />
             Avis des joueurs
           </span>
           <h2 className="mt-4 font-display text-2xl font-bold text-tea-900 sm:text-3xl">
