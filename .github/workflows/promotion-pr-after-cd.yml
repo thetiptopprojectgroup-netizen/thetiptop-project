@@ -1,5 +1,7 @@
 # PRs [Promotion] vdev→vpreprod et vpreprod→vprod : **hors** du run « CD » au push.
 # Se déclenche quand le workflow CD concerné est **terminé avec succès** (push uniquement).
+# N’ouvre une PR de promotion **que si** le commit déployé est le merge d’une **PR fusionnée**
+# vers vdev / vpreprod (merge, squash ou rebase GitHub) — pas sur push direct ni sync sans merge.
 # À avoir sur la branche **par défaut** du dépôt pour que GitHub l’exécute.
 # -----------------------------------------------------------------------------
 name: Promotion PR après CD
@@ -62,6 +64,43 @@ jobs:
               core.setFailed('Paramètres workflow_run manquants (SHA ou CD run id).');
               return;
             }
+
+            const targetBase = mode === 'vdev' ? 'vdev' : 'vpreprod';
+            let pullsForCommit = [];
+            try {
+              const resp = await github.request('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', {
+                owner,
+                repo,
+                commit_sha: shaFull,
+                headers: { accept: 'application/vnd.github+json' },
+              });
+              pullsForCommit = Array.isArray(resp.data) ? resp.data : [];
+            } catch (e) {
+              core.setFailed(
+                `Impossible de vérifier les PRs liées au commit (API commits/…/pulls) : ${e.message}`
+              );
+              return;
+            }
+
+            const mergedIntoBase = pullsForCommit.filter(
+              (p) =>
+                p.merged_at &&
+                p.base &&
+                p.base.ref === targetBase &&
+                p.merge_commit_sha === shaFull
+            );
+
+            if (mergedIntoBase.length === 0) {
+              core.info(
+                `Aucune PR fusionnée vers « ${targetBase} » pour le commit ${shaFull.slice(0, 7)} ` +
+                  `(merge_commit_sha) — pas d’ouverture automatique de PR de promotion. ` +
+                  `Attendu après merge d’une PR vers ${targetBase}, pas sur push direct ou sync sans merge.`
+              );
+              return;
+            }
+            core.info(
+              `Commit issu d’une fusion de PR vers ${targetBase} : #${mergedIntoBase.map((p) => p.number).join(', ')}`
+            );
 
             let prBase;
             let prHead;
