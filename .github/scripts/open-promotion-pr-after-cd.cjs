@@ -1,7 +1,14 @@
 /**
  * Appelé par github-script depuis deploy-vdev / deploy-vpreprod (dernier job).
- * Ouvre une PR de promotion seulement si le commit est le merge_commit_sha d’une PR fusionnée.
+ * Ouvre une PR de promotion seulement si le commit correspond à une PR fusionnée vers la branche
+ * (merge / squash / rebase). La comparaison stricte merge_commit_sha seule échoue souvent
+ * (API partielle, casse, merge_commit_sha null) : on recharge la PR, on normalise les SHA, puis
+ * on vérifie le message du commit (squash « (#n) », « Merge pull request #n »).
  */
+function normalizeSha(s) {
+  return String(s || '').toLowerCase();
+}
+
 module.exports = async function openPromotionPr({ github, core, context }) {
   const { owner, repo } = context.repo;
   const mode = process.env.PROMOTION_MODE;
@@ -22,6 +29,8 @@ module.exports = async function openPromotionPr({ github, core, context }) {
   }
 
   const targetBase = mode === 'vdev' ? 'vdev' : 'vpreprod';
+  const shaNorm = normalizeSha(shaFull);
+
   let pullsForCommit = [];
   try {
     const resp = await github.request('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', {
@@ -38,19 +47,119 @@ module.exports = async function openPromotionPr({ github, core, context }) {
     return;
   }
 
-  const mergedIntoBase = pullsForCommit.filter(
-    (p) =>
-      p.merged_at &&
-      p.base &&
-      p.base.ref === targetBase &&
-      p.merge_commit_sha === shaFull
+  const candidates = pullsForCommit.filter(
+    (p) => p.merged_at && p.base && p.base.ref === targetBase
   );
+
+  let commitMsgData = null;
+  try {
+    const c = await github.rest.repos.getCommit({
+      owner,
+      repo,
+      ref: shaFull,
+    });
+    commitMsgData = c.data;
+  } catch (e) {
+    core.warning(`getCommit(${shaFull.slice(0, 7)}) : ${e.message}`);
+  }
+  const commitMessage = commitMsgData?.commit?.message || '';
+
+  const mergedIntoBase = [];
+  const seen = new Set();
+
+  async function tryAcceptPr(prFull) {
+    if (!prFull.merged_at || prFull.base?.ref !== targetBase) return;
+    if (seen.has(prFull.number)) return;
+
+    const mcs = prFull.merge_commit_sha;
+    if (mcs && normalizeSha(mcs) === shaNorm) {
+      mergedIntoBase.push(prFull);
+      seen.add(prFull.number);
+      core.info(`PR #${prFull.number} : merge_commit_sha (API) = commit déployé.`);
+      return;
+    }
+
+    const firstLine = (commitMessage.split('\n')[0] || '').trim();
+    const mergeLine = commitMessage.match(/Merge pull request #(\d+)/);
+    const squashSubject = firstLine.match(/\(#(\d+)\)\s*$/);
+    const hashSubject = firstLine.match(/\s#(\d+)\s*$/);
+    const nFromMsg = mergeLine
+      ? parseInt(mergeLine[1], 10)
+      : squashSubject
+        ? parseInt(squashSubject[1], 10)
+        : hashSubject
+          ? parseInt(hashSubject[1], 10)
+          : null;
+
+    if (nFromMsg === prFull.number) {
+      mergedIntoBase.push(prFull);
+      seen.add(prFull.number);
+      core.info(
+        `PR #${prFull.number} : reconnu via le message du commit (squash/merge) — merge_commit_sha API = ${
+          mcs ? mcs.slice(0, 7) : 'null'
+        }.`
+      );
+    }
+  }
+
+  for (const c of candidates) {
+    try {
+      const { data: prFull } = await github.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: c.number,
+      });
+      await tryAcceptPr(prFull);
+    } catch (e) {
+      core.warning(`pulls.get #${c.number} : ${e.message}`);
+    }
+  }
+
+  // Si l’API « commits/…/pulls » n’a rien renvoyé, tenter le numéro dans le message (squash / merge).
+  if (mergedIntoBase.length === 0 && commitMessage && candidates.length === 0) {
+    const firstLine = (commitMessage.split('\n')[0] || '').trim();
+    const mergeLine = commitMessage.match(/Merge pull request #(\d+)/);
+    const squashSubject = firstLine.match(/\(#(\d+)\)\s*$/);
+    const hashSubject = firstLine.match(/\s#(\d+)\s*$/);
+    const n = mergeLine
+      ? parseInt(mergeLine[1], 10)
+      : squashSubject
+        ? parseInt(squashSubject[1], 10)
+        : hashSubject
+          ? parseInt(hashSubject[1], 10)
+          : null;
+    if (n) {
+      try {
+        const { data: prFull } = await github.rest.pulls.get({
+          owner,
+          repo,
+          pull_number: n,
+        });
+        const mcs = prFull.merge_commit_sha;
+        const shaOk = mcs && normalizeSha(mcs) === shaNorm;
+        if (
+          prFull.merged_at &&
+          prFull.base?.ref === targetBase &&
+          !seen.has(prFull.number) &&
+          (shaOk || !mcs)
+        ) {
+          mergedIntoBase.push(prFull);
+          seen.add(prFull.number);
+          core.info(
+            `PR #${n} : reconnu via message (aucune entrée commits/…/pulls ; merge_commit_sha = ${mcs || 'null'}).`
+          );
+        }
+      } catch (e) {
+        core.warning(`Fallback PR #${n} : ${e.message}`);
+      }
+    }
+  }
 
   if (mergedIntoBase.length === 0) {
     core.info(
-      `Aucune PR fusionnée vers « ${targetBase} » pour le commit ${shaFull.slice(0, 7)} ` +
-        `(merge_commit_sha) — pas d’ouverture automatique de PR de promotion. ` +
-        `Attendu après merge d’une PR vers ${targetBase}, pas sur push direct ou sync sans merge.`
+      `Aucune PR fusionnée vers « ${targetBase} » identifiée pour le commit ${shaFull.slice(0, 7)} ` +
+        `— pas d’ouverture automatique de PR de promotion. ` +
+        `Attendu après merge GitHub d’une PR vers ${targetBase} (ou message de commit avec (#numéro) / Merge pull request #…).`
     );
     return;
   }
