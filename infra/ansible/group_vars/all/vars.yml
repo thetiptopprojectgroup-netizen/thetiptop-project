@@ -67,6 +67,7 @@ harbor_external_url: ""
 
 # --- Restic (bucket MinIO + préfixe S3) ---
 # Planning : voir roles/restic_client/defaults — mercredis vdev 15h20, vpreprod 15h40, vprod 16h00 (fuseau VPS).
+# Export Mongo « à chaque mouvement » : crons watchdog (ON_CHANGE_ONLY) + dossiers /opt/thetiptop/backup/mongodb/{vdev,vpreprod,vprod}/ — voir defaults restic_client (mongo_watch_*).
 # Les heures suivent le fuseau du VPS (voir timedatectl) ; surcharger restic_cron_schedule dans ce fichier si besoin.
 restic_install: true
 restic_version: "0.16.4"

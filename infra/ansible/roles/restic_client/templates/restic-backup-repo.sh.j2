@@ -52,6 +52,7 @@ DUMP_BASENAME="mongodump-${TS}.archive.gz"
 
 mkdir -p "${BACKUP_ROOT}"
 
+# Empreinte stable (collections / objects / indexes) — moins de variation fantôme que dataSize/storageSize.
 DB_SIGNATURE="$(
   docker run --rm \
     --network "${COMPOSE_PROJECT_NAME}_internal" \
@@ -62,19 +63,26 @@ DB_SIGNATURE="$(
       --password "${MONGO_PASSWORD}" \
       --authenticationDatabase "${MONGO_AUTH_DB}" \
       "${MONGO_DB}" \
-      --eval "const s=db.stats(); print([s.objects,s.dataSize,s.storageSize,s.indexSize].join(':'))" \
+      --eval "const s=db.stats(); const c=s.collections!=null?s.collections:0; const i=s.indexes!=null?s.indexes:0; print([c,s.objects||0,i].join(':'))" \
     2>/dev/null || true
 )"
+DB_SIGNATURE="$(printf '%s' "${DB_SIGNATURE}" | tr -d '\r\n' | sed 's/[[:space:]]*$//')"
 
-if [[ "${ON_CHANGE_ONLY}" == "1" && -f "${SIG_FILE}" ]]; then
-  LAST_SIG="$(cat "${SIG_FILE}" || true)"
-  if [[ -n "${DB_SIGNATURE}" && "${DB_SIGNATURE}" == "${LAST_SIG}" ]]; then
-    log "No DB change detected, skipping backup."
-    exit 0
+if [[ "${ON_CHANGE_ONLY}" == "1" ]]; then
+  if [[ -z "${DB_SIGNATURE}" ]]; then
+    log "ERROR: empreinte Mongo vide — mongosh indisponible ou mauvais identifiants/réseau (host=${MONGO_HOST}, projet=${COMPOSE_PROJECT_NAME}). Pas de dump pour éviter une boucle sans fichier."
+    exit 1
+  fi
+  if [[ -f "${SIG_FILE}" ]]; then
+    LAST_SIG="$(tr -d '\r\n' < "${SIG_FILE}" || true)"
+    if [[ "${DB_SIGNATURE}" == "${LAST_SIG}" ]]; then
+      log "No DB change detected, skipping backup."
+      exit 0
+    fi
   fi
 fi
 
-log "Create mongodump: ${BACKUP_ROOT}/${DUMP_BASENAME}"
+DUMP_PATH="${BACKUP_ROOT}/${DUMP_BASENAME}"
 docker run --rm \
   --user 0:0 \
   --network "${COMPOSE_PROJECT_NAME}_internal" \
@@ -89,11 +97,18 @@ docker run --rm \
     --archive="/backup/${DUMP_BASENAME}" \
     --gzip
 
-# Keep last 30 dumps per environment.
-ls -1t "${BACKUP_ROOT}"/mongodump-*.archive.gz 2>/dev/null | tail -n +31 | xargs -r rm -f
-if [[ -n "${DB_SIGNATURE}" ]]; then
-  printf "%s\n" "${DB_SIGNATURE}" > "${SIG_FILE}"
+if [[ ! -f "${DUMP_PATH}" ]]; then
+  log "ERROR: mongodump terminé mais fichier absent : ${DUMP_PATH}"
+  exit 1
 fi
+log "mongodump OK ($(du -h "${DUMP_PATH}" | awk '{print $1}')) : ${DUMP_PATH}"
+
+# Garder les 30 derniers dumps (ne pas appeler ls sans fichier : avec nullglob, ls seul listerait le cwd).
+if compgen -G "${BACKUP_ROOT}/mongodump-*.archive.gz" >/dev/null 2>&1; then
+  ls -1t "${BACKUP_ROOT}"/mongodump-*.archive.gz | tail -n +31 | xargs -r rm -f
+fi
+
+printf '%s\n' "${DB_SIGNATURE}" > "${SIG_FILE}"
 
 if ! /usr/local/bin/restic snapshots >/dev/null 2>&1; then
   log "Init Restic repository."
