@@ -5,6 +5,7 @@
  * (API partielle, casse, merge_commit_sha null) : on recharge la PR, on normalise les SHA, puis
  * on vérifie le message du commit (squash « (#n) », « Merge pull request #n »).
  * Enfin : liste des PR fermées vers la base avec merge_commit_sha == commit (messages personnalisés sans #).
+ * Priorité : GraphQL Commit.associatedPullRequests (meilleur lien commit ↔ PR fusionnée).
  */
 function normalizeSha(s) {
   return String(s || '').toLowerCase();
@@ -48,43 +49,87 @@ module.exports = async function openPromotionPr({ github, core, context }) {
   const targetBase = mode === 'vdev' ? 'vdev' : 'vpreprod';
   const shaNorm = normalizeSha(shaFull);
 
-  let pullsForCommit = [];
-  try {
-    const resp = await github.request('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', {
-      owner,
-      repo,
-      commit_sha: shaFull,
-      headers: { accept: 'application/vnd.github+json' },
-    });
-    pullsForCommit = Array.isArray(resp.data) ? resp.data : [];
-  } catch (e) {
-    core.setFailed(
-      `Impossible de vérifier les PRs liées au commit (API commits/…/pulls) : ${e.message}`
-    );
-    return;
-  }
-
-  const candidates = pullsForCommit.filter(
-    (p) => p.merged_at && p.base && p.base.ref === targetBase
-  );
-
-  let commitMsgData = null;
-  try {
-    const c = await github.rest.repos.getCommit({
-      owner,
-      repo,
-      ref: shaFull,
-    });
-    commitMsgData = c.data;
-  } catch (e) {
-    core.warning(`getCommit(${shaFull.slice(0, 7)}) : ${e.message}`);
-  }
-  const commitMessage = (commitMsgData?.commit?.message || '').replace(/\r/g, '');
-
   const mergedIntoBase = [];
   const seen = new Set();
 
-  async function tryAcceptPr(prFull) {
+  try {
+    const gqlData = await github.graphql(
+      `query ($owner: String!, $name: String!, $exp: String!) {
+        repository(owner: $owner, name: $name) {
+          object(expression: $exp) {
+            ... on Commit {
+              oid
+              associatedPullRequests(first: 25) {
+                nodes {
+                  number
+                  merged
+                  baseRefName
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { owner, name: repo, exp: shaFull }
+    );
+    const nodes = gqlData?.repository?.object?.associatedPullRequests?.nodes || [];
+    for (const gn of nodes) {
+      if (!gn.merged || gn.baseRefName !== targetBase) continue;
+      if (seen.has(gn.number)) continue;
+      try {
+        const { data: prFull } = await github.rest.pulls.get({
+          owner,
+          repo,
+          pull_number: gn.number,
+        });
+        mergedIntoBase.push(prFull);
+        seen.add(gn.number);
+        core.info(`PR #${gn.number} : GraphQL associatedPullRequests → merge vers « ${targetBase} ».`);
+      } catch (e) {
+        core.warning(`pulls.get #${gn.number} (GraphQL) : ${e.message}`);
+      }
+    }
+  } catch (e) {
+    core.warning(`GraphQL associatedPullRequests : ${e.message}`);
+  }
+
+  let pullsForCommit = [];
+  let commitMessage = '';
+
+  if (mergedIntoBase.length === 0) {
+    try {
+      const resp = await github.request('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', {
+        owner,
+        repo,
+        commit_sha: shaFull,
+        headers: { accept: 'application/vnd.github+json' },
+      });
+      pullsForCommit = Array.isArray(resp.data) ? resp.data : [];
+    } catch (e) {
+      core.setFailed(
+        `Impossible de vérifier les PRs liées au commit (API commits/…/pulls) : ${e.message}`
+      );
+      return;
+    }
+
+    const candidates = pullsForCommit.filter(
+      (p) => p.merged_at && p.base && p.base.ref === targetBase
+    );
+
+    let commitMsgData = null;
+    try {
+      const c = await github.rest.repos.getCommit({
+        owner,
+        repo,
+        ref: shaFull,
+      });
+      commitMsgData = c.data;
+    } catch (e) {
+      core.warning(`getCommit(${shaFull.slice(0, 7)}) : ${e.message}`);
+    }
+    commitMessage = (commitMsgData?.commit?.message || '').replace(/\r/g, '');
+
+    async function tryAcceptPr(prFull) {
     if (!prFull.merged_at || prFull.base?.ref !== targetBase) return;
     if (seen.has(prFull.number)) return;
 
@@ -213,6 +258,7 @@ module.exports = async function openPromotionPr({ github, core, context }) {
     } catch (e) {
       core.warning(`Recherche dans les PR fermées (merge_commit_sha) : ${e.message}`);
     }
+  }
   }
 
   if (mergedIntoBase.length === 0) {
