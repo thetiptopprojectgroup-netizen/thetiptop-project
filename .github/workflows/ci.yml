@@ -475,7 +475,6 @@ jobs:
               body,
             });
 
-  # Promotion vdev → vpreprod / vpreprod → vprod : uniquement après **CI verte**
-  # (job « gate » dans CD qui attend ce workflow) **et** **CD réussi** (`deploy-vps`),
-  # sur **push** uniquement — voir deploy-vdev.yml / deploy-vpreprod.yml (job « PR promotion »).
-  # Sinon : workflow « Create promotion PR (manual) » dans Actions.
+  # Promotion vdev→vpreprod / vpreprod→vprod : push uniquement ; le CD attend une CI verte (gate),
+  # puis le job « PR promotion » contrôle **chaque job** du run CI (API) + jobs CD 0–3 avant d’ouvrir la PR.
+  # Sinon : workflow « Create promotion PR (manual) ».

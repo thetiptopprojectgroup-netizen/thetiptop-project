@@ -269,9 +269,116 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     steps:
+      - name: Vérifier que tous les jobs CI et CD sont OK pour ce commit
+        uses: actions/github-script@v8
+        env:
+          COMMIT_FULL: ${{ needs.deploy-vps.outputs.sha }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const shaFull = process.env.COMMIT_FULL || '';
+            if (!shaFull) {
+              core.setFailed('SHA de déploiement indisponible.');
+              return;
+            }
+            const ciWorkflowName = 'CI — Monorepo (server + client)';
+            const headBranch = 'vpreprod';
+
+            async function fetchAllRunJobs(runId) {
+              const jobs = [];
+              for (let page = 1; page <= 15; page++) {
+                const { data } = await github.rest.actions.listJobsForWorkflowRun({
+                  owner,
+                  repo,
+                  run_id: runId,
+                  per_page: 100,
+                  page,
+                });
+                jobs.push(...data.jobs);
+                if (data.jobs.length < 100) break;
+              }
+              return jobs;
+            }
+
+            function assertJobsOk(jobs, label) {
+              const bad = jobs.filter(
+                (j) =>
+                  j.status === 'completed' &&
+                  j.conclusion &&
+                  !['success', 'skipped'].includes(j.conclusion)
+              );
+              if (bad.length) {
+                core.setFailed(
+                  `${label} — échec ou annulation : ${bad.map((j) => `${j.name}=${j.conclusion}`).join(', ')}`
+                );
+                return false;
+              }
+              const pending = jobs.filter((j) => j.status !== 'completed');
+              if (pending.length) {
+                core.setFailed(
+                  `${label} — jobs non terminés : ${pending.map((j) => `${j.name}=${j.status}`).join(', ')}`
+                );
+                return false;
+              }
+              return true;
+            }
+
+            const { data: runsPayload } = await github.rest.actions.listWorkflowRunsForRepo({
+              owner,
+              repo,
+              head_sha: shaFull,
+              per_page: 50,
+            });
+            const ciSuccessRuns = (runsPayload.workflow_runs || [])
+              .filter(
+                (w) =>
+                  w.name === ciWorkflowName &&
+                  w.head_branch === headBranch &&
+                  w.event === 'push' &&
+                  w.conclusion === 'success'
+              )
+              .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            if (ciSuccessRuns.length === 0) {
+              core.setFailed(
+                `Aucun run « ${ciWorkflowName} » (push/${headBranch}) en succès pour le commit ${shaFull.slice(0, 7)}.`
+              );
+              return;
+            }
+            const ciRun = ciSuccessRuns[0];
+            core.info(`CI run validé : #${ciRun.id} (${ciRun.html_url})`);
+            const ciJobs = await fetchAllRunJobs(ciRun.id);
+            core.info(`CI : ${ciJobs.length} job(s) listé(s).`);
+            if (!assertJobsOk(ciJobs, 'CI Monorepo')) return;
+
+            const cdRunId = context.runId;
+            const cdJobs = await fetchAllRunJobs(cdRunId);
+            const cdRequired = [
+              '0 · CI Monorepo verte sur ce commit (ou manuel)',
+              '1 · Harbor — projet vpreprod',
+              '2 · Registry — build & push images',
+              '3 · VPS — rsync & docker compose',
+            ];
+            for (const name of cdRequired) {
+              const j = cdJobs.find((x) => x.name === name);
+              if (!j) {
+                core.setFailed(`Job CD introuvable : « ${name} »`);
+                return;
+              }
+              if (j.conclusion !== 'success' && j.conclusion !== 'skipped') {
+                core.setFailed(`Job CD « ${name} » : ${j.conclusion || j.status}`);
+                return;
+              }
+              if (j.status !== 'completed') {
+                core.setFailed(`Job CD « ${name} » non terminé : ${j.status}`);
+                return;
+              }
+            }
+            core.info('Tous les jobs CI (run associé au commit) et CD (étapes 0–3) sont OK — ouverture PR de promotion autorisée.');
+
       - name: Ouvrir PR vpreprod → vprod si absente
         uses: actions/github-script@v8
         env:
