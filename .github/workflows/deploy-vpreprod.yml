@@ -259,7 +259,7 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
 
   open-promotion-pr:
-    name: "4 · PR promotion (merge vers la branche)"
+    name: "4 · PR promotion (brouillon)"
     needs: [deploy-vps]
     if: success() && github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -271,7 +271,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-      - name: Vérifier CI + merge puis ouvrir PR de promotion si besoin
+      - name: Vérifier CI + CD puis ouvrir PR [Promotion] (brouillon)
         uses: actions/github-script@v8
         env:
           PROMOTION_MODE: vpreprod
