@@ -258,12 +258,14 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
 
   # ---------------------------------------------------------------------------
-  # Stage 4 — Ouvre une PR vpreprod → vprod (brouillon) après CD vert.
-  # Aucun merge automatique : validation sur GitHub comme pour vdev → vpreprod.
+  # Stage 4 — Ouvre une PR vpreprod → vprod (brouillon) uniquement si :
+  #   • **push** sur `vpreprod` (pas sur CD manuel) ;
+  #   • `gate` : CI Monorepo verte + `deploy-vps` OK (même logique que vdev).
   # ---------------------------------------------------------------------------
   promotion-pr:
     name: "4 · PR promotion → vprod"
     needs: [deploy-vps]
+    if: success() && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
