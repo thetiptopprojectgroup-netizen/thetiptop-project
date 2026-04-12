@@ -4,6 +4,7 @@
  * (merge / squash / rebase). La comparaison stricte merge_commit_sha seule échoue souvent
  * (API partielle, casse, merge_commit_sha null) : on recharge la PR, on normalise les SHA, puis
  * on vérifie le message du commit (squash « (#n) », « Merge pull request #n »).
+ * Enfin : liste des PR fermées vers la base avec merge_commit_sha == commit (messages personnalisés sans #).
  */
 function normalizeSha(s) {
   return String(s || '').toLowerCase();
@@ -171,6 +172,46 @@ module.exports = async function openPromotionPr({ github, core, context }) {
       } catch (e) {
         core.warning(`Fallback message PR #${n} : ${e.message}`);
       }
+    }
+  }
+
+  // Message de merge/squash personnalisé sans « #numéro » : GitHub enregistre quand même merge_commit_sha sur la PR fermée.
+  if (mergedIntoBase.length === 0) {
+    try {
+      for (let page = 1; page <= 5; page++) {
+        const { data: closed } = await github.rest.pulls.list({
+          owner,
+          repo,
+          state: 'closed',
+          base: targetBase,
+          sort: 'updated',
+          direction: 'desc',
+          per_page: 100,
+          page,
+        });
+        const hit = closed.find(
+          (p) =>
+            p.merged_at &&
+            p.merge_commit_sha &&
+            normalizeSha(p.merge_commit_sha) === shaNorm
+        );
+        if (hit) {
+          const { data: prFull } = await github.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: hit.number,
+          });
+          mergedIntoBase.push(prFull);
+          seen.add(prFull.number);
+          core.info(
+            `PR #${hit.number} : PR fermée vers « ${targetBase} » avec merge_commit_sha = commit déployé (titre de merge personnalisé OK).`
+          );
+          break;
+        }
+        if (closed.length < 100) break;
+      }
+    } catch (e) {
+      core.warning(`Recherche dans les PR fermées (merge_commit_sha) : ${e.message}`);
     }
   }
 
