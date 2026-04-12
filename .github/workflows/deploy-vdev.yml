@@ -62,7 +62,10 @@ jobs:
               core.setOutput('ok', 'false');
               return;
             }
-            core.info(`Attente CI « ${ciName} » verte pour ${sha.slice(0, 7)}…`);
+            // Uniquement le run CI déclenché par le **push** (même événement que ce CD).
+            // Ne pas mélanger avec un run `pull_request` (ex. PR vdev→vpreprod) : il peut être vert
+            // alors que le run `push` est encore en cours ou en échec → CD ne doit pas partir.
+            core.info(`Attente CI « ${ciName} » (event=push) verte pour ${sha.slice(0, 7)}…`);
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const maxAttempts = 90;
@@ -78,17 +81,17 @@ jobs:
                 (w) =>
                   w.name === ciName &&
                   w.head_branch === target &&
-                  (w.event === 'push' || w.event === 'pull_request')
+                  w.event === 'push'
               );
               if (relevant.length === 0) {
-                core.info(`Run CI pas encore visible (tentative ${i + 1}/${maxAttempts})`);
+                core.info(`Run CI push pas encore visible (tentative ${i + 1}/${maxAttempts})`);
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
               }
               const pending = relevant.filter((w) => w.status !== 'completed');
               if (pending.length > 0) {
                 core.info(
-                  `CI en cours : ${pending.map((p) => `${p.event}:${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`
+                  `CI push en cours : ${pending.map((p) => `${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`
                 );
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
@@ -97,17 +100,18 @@ jobs:
               if (okRun) {
                 core.setOutput('sha', sha);
                 core.setOutput('ok', 'true');
+                core.info(`CI push validée : run #${okRun.id}`);
                 return;
               }
               const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
               core.setOutput('sha', sha);
               core.setOutput('ok', 'false');
-              core.setFailed(`CI Monorepo en échec (${worst.conclusion}) — déploiement annulé.`);
+              core.setFailed(`CI Monorepo (push) en échec (${worst.conclusion}) — déploiement annulé.`);
               return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
-            core.setFailed('Timeout : la CI Monorepo n’a pas fini à temps — déploiement annulé.');
+            core.setFailed('Timeout : la CI Monorepo (push) n’a pas fini à temps — déploiement annulé.');
 
   # ---------------------------------------------------------------------------
   # Stage 1 — Projet Harbor (API admin, idempotent)
@@ -277,120 +281,29 @@ jobs:
           VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
 
-  # ---------------------------------------------------------------------------
-  # Stage 4 — Ouvre une PR vdev → vpreprod (brouillon) après CD vert.
-  # Aucun merge automatique : vous validez sur GitHub (« Ready for review » puis Merge).
-  # Même principe que la PR vpreprod → vprod dans deploy-vpreprod.yml.
-  # ---------------------------------------------------------------------------
-  promotion-pr:
-    name: "4 · PR promotion → vpreprod"
+  # PR [Promotion] vdev→vpreprod : brouillon après CI+CD verts (push direct sur vdev autorisé).
+  open-promotion-pr:
+    name: "4 · PR promotion (brouillon)"
     needs: [deploy-vps]
+    if: success() && github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     steps:
-      - name: Ouvrir PR vdev → vpreprod si absente
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Vérifier CI + CD puis ouvrir PR [Promotion] (brouillon)
         uses: actions/github-script@v8
         env:
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          COMMIT_SHORT: ${{ needs.deploy-vps.outputs.sha }}
+          PROMOTION_MODE: vdev
+          COMMIT_FULL: ${{ needs.deploy-vps.outputs.sha }}
+          CD_RUN_ID: ${{ github.run_id }}
+          CD_HTML_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
           script: |
-            const { owner, repo } = context.repo;
-            const base = 'vpreprod';
-            const headBranch = 'vdev';
-            const runUrl = process.env.RUN_URL;
-            const sha = (process.env.COMMIT_SHORT || '').slice(0, 7);
-
-            // Branche de base obligatoire sur GitHub (sinon API : field base invalid)
-            try {
-              await github.rest.repos.getBranch({ owner, repo, branch: base });
-            } catch (e) {
-              if (e.status !== 404) throw e;
-              const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
-              const def = repoInfo.default_branch;
-              if (def === headBranch) {
-                core.setFailed(
-                  `La branche « ${base} » n’existe pas sur le dépôt. Crée-la une fois sur GitHub ` +
-                    `(onglet Code → branche « ${def} » → déroulant des branches → New branch → nom « ${base} »), ` +
-                    `puis relance ce job ou pousse à nouveau sur « ${headBranch} ».`
-                );
-                return;
-              }
-              const { data: refData } = await github.rest.git.getRef({
-                owner, repo,
-                ref: `heads/${def}`,
-              });
-              await github.rest.git.createRef({
-                owner, repo,
-                ref: `refs/heads/${base}`,
-                sha: refData.object.sha,
-              });
-              core.info(`Branche « ${base} » créée (même pointeur que « ${def} »).`);
-            }
-
-            const { data: open } = await github.rest.pulls.list({
-              owner, repo, state: 'open', base, per_page: 100,
-            });
-            const exists = open.some(
-              (p) => p.head.ref === headBranch && p.base.ref === base
-            );
-            if (exists) {
-              const pr = open.find((p) => p.head.ref === headBranch);
-              core.info(`PR déjà ouverte${pr ? ` (#${pr.number})` : ''}.`);
-              return;
-            }
-
-            const body = [
-              '## Promotion vers vpreprod',
-              '',
-              'Cette PR est en **brouillon** : cliquez **Ready for review** quand vous validez, puis **Merge**.',
-              '',
-              '1. Vérifier sur **vdev** si besoin.',
-              '2. **Merge** → lance le CD **vpreprod**.',
-              '',
-              '---',
-              '',
-              '**Ouverture automatique de la PR** seulement (après déploiement vdev réussi) — **pas de fusion automatique**.',
-              '',
-              `- Run : [CD / vdev](${runUrl})`,
-              `- Commit : \`${sha}\``,
-            ].join('\n');
-
-            try {
-              const { data: created } = await github.rest.pulls.create({
-                owner, repo,
-                head: headBranch,
-                base,
-                title: '[Promotion] vdev → vpreprod',
-                body,
-                draft: true,
-              });
-              core.info(`PR créée : #${created.number}`);
-            } catch (err) {
-              if (err.status !== 422) throw err;
-              const raw = err.response?.data || {};
-              const msg = JSON.stringify(raw).toLowerCase();
-              const errors = Array.isArray(raw.errors) ? raw.errors : [];
-              const errText = errors.map((e) => (e.message || e.code || '')).join(' ').toLowerCase();
-              const combined = `${msg} ${errText}`;
-              // API GitHub : ex. « No commits between vpreprod and vdev » quand les deux branches sont au même commit
-              if (
-                combined.includes('no commits') ||
-                combined.includes('nothing to compare')
-              ) {
-                core.info(
-                  'Aucune PR à ouvrir : pas de différence entre vdev et vpreprod (souvent le même commit). ' +
-                    'C’est attendu après un merge de promotion ou si vpreprod a été alignée sur vdev.'
-                );
-                return;
-              }
-              if (combined.includes('already exists') || combined.includes('pull request already')) {
-                core.info('Une PR existe déjà pour ce couple de branches (réponse API 422).');
-                return;
-              }
-              core.error(`GitHub API 422 : ${JSON.stringify(raw)}`);
-              throw err;
-            }
+            const path = require('path');
+            const main = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/open-promotion-pr-after-cd.cjs'));
+            await main({ github, core, context });
