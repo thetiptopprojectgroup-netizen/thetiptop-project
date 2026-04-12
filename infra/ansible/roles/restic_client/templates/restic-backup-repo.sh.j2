@@ -51,6 +51,9 @@ TS="$(date +%Y%m%d-%H%M%S)"
 DUMP_BASENAME="mongodump-${TS}.archive.gz"
 
 mkdir -p "${BACKUP_ROOT}"
+# Bind mount : en Docker rootless, l’UID 0 du conteneur n’est pas root sur l’hôte — sans ça, « permission denied » sur /backup/….
+# SELinux (CentOS/RHEL) : le label :z permet l’écriture depuis le conteneur.
+chmod 0777 "${BACKUP_ROOT}" 2>/dev/null || true
 
 # Empreinte stable (collections / objects / indexes) — moins de variation fantôme que dataSize/storageSize.
 DB_SIGNATURE="$(
@@ -86,7 +89,7 @@ DUMP_PATH="${BACKUP_ROOT}/${DUMP_BASENAME}"
 docker run --rm \
   --user 0:0 \
   --network "${COMPOSE_PROJECT_NAME}_internal" \
-  -v "${BACKUP_ROOT}:/backup" \
+  -v "${BACKUP_ROOT}:/backup:rw,z" \
   mongo:7.0 mongodump \
     --host "${MONGO_HOST}" \
     --port 27017 \
