@@ -5,7 +5,7 @@
 Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manuels** :
 
 1. **`ci.yml` — CI — Monorepo (server + client)** : seul workflow CI déclenché automatiquement sur push/PR pour **`vdev`**, **`vpreprod`**, **`vprod`**. Ordre des jobs : qualité → tests → build → package (images Docker Harbor si configuré) → commentaire sur PR.
-2. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push sur la branche correspondante (ou manuel). **PR de promotion** (`vdev` → `vpreprod`, `vpreprod` → `vprod`) : uniquement **après** le job de déploiement VPS réussi dans le workflow CD (pas à la fin de la seule CI).
+2. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push sur la branche correspondante (ou manuel). Le job **`gate`** n’attend que le run CI **`event: push`** (pas un run `pull_request` sur une PR ouverte), pour éviter un CD alors que le run **push** est encore rouge. **PR de promotion** : après déploiement VPS réussi + contrôle des jobs CI/CD (voir workflows).
 3. **`create-promotion-pr.yml`** : secours manuel si la PR automatique (post-CD) n’a pas été créée.
 
 **Harbor (CI)** : secret **`HARBOR_REGISTRY_BASE`**, projets **`vdev` / `vpreprod` / `vprod`**, images **`api`** et **`client`** taguées par le SHA du commit.

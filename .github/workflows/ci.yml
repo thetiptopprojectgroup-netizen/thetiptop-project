@@ -475,6 +475,5 @@ jobs:
               body,
             });
 
-  # Promotion vdev→vpreprod / vpreprod→vprod : push uniquement ; le CD attend une CI verte (gate),
-  # puis le job « PR promotion » contrôle **chaque job** du run CI (API) + jobs CD 0–3 avant d’ouvrir la PR.
-  # Sinon : workflow « Create promotion PR (manual) ».
+  # Promotion : le gate CD n’utilise que le run CI **push** (évite de confondre avec un run PR vert).
+  # Job « PR promotion » : vérifie les jobs du run CI + CD 0–3 ; secours manuel « Create promotion PR ».

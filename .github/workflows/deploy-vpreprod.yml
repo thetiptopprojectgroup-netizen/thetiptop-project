@@ -31,6 +31,7 @@ jobs:
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
       ok: ${{ steps.gate.outputs.ok }}
+      ci_run_id: ${{ steps.gate.outputs.ci_run_id }}
     steps:
       - name: Vérifier / attendre la CI
         id: gate
@@ -43,6 +44,7 @@ jobs:
             if (context.eventName === 'workflow_dispatch') {
               core.setOutput('sha', context.sha);
               core.setOutput('ok', 'true');
+              core.setOutput('ci_run_id', '');
               core.info('Déploiement manuel : pas d’attente CI.');
               return;
             }
@@ -51,9 +53,10 @@ jobs:
             if (branch !== target) {
               core.setOutput('sha', '');
               core.setOutput('ok', 'false');
+              core.setOutput('ci_run_id', '');
               return;
             }
-            core.info(`Attente CI « ${ciName} » verte pour ${sha.slice(0, 7)}…`);
+            core.info(`Attente CI « ${ciName} » (event=push) verte pour ${sha.slice(0, 7)}…`);
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const maxAttempts = 90;
@@ -69,17 +72,17 @@ jobs:
                 (w) =>
                   w.name === ciName &&
                   w.head_branch === target &&
-                  (w.event === 'push' || w.event === 'pull_request')
+                  w.event === 'push'
               );
               if (relevant.length === 0) {
-                core.info(`Run CI pas encore visible (tentative ${i + 1}/${maxAttempts})`);
+                core.info(`Run CI push pas encore visible (tentative ${i + 1}/${maxAttempts})`);
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
               }
               const pending = relevant.filter((w) => w.status !== 'completed');
               if (pending.length > 0) {
                 core.info(
-                  `CI en cours : ${pending.map((p) => `${p.event}:${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`
+                  `CI push en cours : ${pending.map((p) => `${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`
                 );
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
@@ -88,17 +91,21 @@ jobs:
               if (okRun) {
                 core.setOutput('sha', sha);
                 core.setOutput('ok', 'true');
+                core.setOutput('ci_run_id', String(okRun.id));
+                core.info(`CI push validée : run #${okRun.id}`);
                 return;
               }
               const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
               core.setOutput('sha', sha);
               core.setOutput('ok', 'false');
-              core.setFailed(`CI Monorepo en échec (${worst.conclusion}) — déploiement annulé.`);
+              core.setOutput('ci_run_id', '');
+              core.setFailed(`CI Monorepo (push) en échec (${worst.conclusion}) — déploiement annulé.`);
               return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
-            core.setFailed('Timeout : la CI Monorepo n’a pas fini à temps — déploiement annulé.');
+            core.setOutput('ci_run_id', '');
+            core.setFailed('Timeout : la CI Monorepo (push) n’a pas fini à temps — déploiement annulé.');
 
   harbor-project:
     name: "1 · Harbor — projet vpreprod"
@@ -108,6 +115,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       sha: ${{ needs.gate.outputs.sha }}
+      ci_run_id: ${{ needs.gate.outputs.ci_run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -129,6 +137,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       sha: ${{ needs.harbor-project.outputs.sha }}
+      ci_run_id: ${{ needs.harbor-project.outputs.ci_run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -175,6 +184,7 @@ jobs:
     timeout-minutes: 25
     outputs:
       sha: ${{ needs.build-and-push.outputs.sha }}
+      ci_run_id: ${{ needs.build-and-push.outputs.ci_run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -277,10 +287,12 @@ jobs:
         uses: actions/github-script@v8
         env:
           COMMIT_FULL: ${{ needs.deploy-vps.outputs.sha }}
+          CI_RUN_ID: ${{ needs.deploy-vps.outputs.ci_run_id }}
         with:
           script: |
             const { owner, repo } = context.repo;
             const shaFull = process.env.COMMIT_FULL || '';
+            const ciRunIdFromGate = (process.env.CI_RUN_ID || '').trim();
             if (!shaFull) {
               core.setFailed('SHA de déploiement indisponible.');
               return;
@@ -327,29 +339,50 @@ jobs:
               return true;
             }
 
-            const { data: runsPayload } = await github.rest.actions.listWorkflowRunsForRepo({
-              owner,
-              repo,
-              head_sha: shaFull,
-              per_page: 50,
-            });
-            const ciSuccessRuns = (runsPayload.workflow_runs || [])
-              .filter(
-                (w) =>
-                  w.name === ciWorkflowName &&
-                  w.head_branch === headBranch &&
-                  w.event === 'push' &&
-                  w.conclusion === 'success'
-              )
-              .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-            if (ciSuccessRuns.length === 0) {
-              core.setFailed(
-                `Aucun run « ${ciWorkflowName} » (push/${headBranch}) en succès pour le commit ${shaFull.slice(0, 7)}.`
-              );
-              return;
+            let ciRun;
+            if (ciRunIdFromGate) {
+              const { data: runFetched } = await github.rest.actions.getWorkflowRun({
+                owner,
+                repo,
+                run_id: parseInt(ciRunIdFromGate, 10),
+              });
+              if (runFetched.head_sha !== shaFull) {
+                core.setFailed(
+                  `Incohérence CI run #${ciRunIdFromGate} / commit déployé (${shaFull.slice(0, 7)}).`
+                );
+                return;
+              }
+              if (runFetched.conclusion !== 'success') {
+                core.setFailed(`Le run CI #${ciRunIdFromGate} n’est pas en succès (${runFetched.conclusion}).`);
+                return;
+              }
+              ciRun = runFetched;
+              core.info(`CI run (même que le gate) : #${ciRun.id} (${ciRun.html_url})`);
+            } else {
+              const { data: runsPayload } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                head_sha: shaFull,
+                per_page: 50,
+              });
+              const ciSuccessRuns = (runsPayload.workflow_runs || [])
+                .filter(
+                  (w) =>
+                    w.name === ciWorkflowName &&
+                    w.head_branch === headBranch &&
+                    w.event === 'push' &&
+                    w.conclusion === 'success'
+                )
+                .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+              if (ciSuccessRuns.length === 0) {
+                core.setFailed(
+                  `Aucun run « ${ciWorkflowName} » (push/${headBranch}) en succès pour le commit ${shaFull.slice(0, 7)}.`
+                );
+                return;
+              }
+              ciRun = ciSuccessRuns[0];
+              core.info(`CI run validé : #${ciRun.id} (${ciRun.html_url})`);
             }
-            const ciRun = ciSuccessRuns[0];
-            core.info(`CI run validé : #${ciRun.id} (${ciRun.html_url})`);
             const ciJobs = await fetchAllRunJobs(ciRun.id);
             core.info(`CI : ${ciJobs.length} job(s) listé(s).`);
             if (!assertJobsOk(ciJobs, 'CI Monorepo')) return;
