@@ -3,6 +3,8 @@
   ansible.builtin.apt:
     name:
       - bzip2
+      # Fuseaux (Europe/Paris) pour l’heure dans le nom des fichiers mongodump — sans ça, date + TZ peut rester en UTC.
+      - tzdata
     state: present
   when: restic_install | default(true)
 

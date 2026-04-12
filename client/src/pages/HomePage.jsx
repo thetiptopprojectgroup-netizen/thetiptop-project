@@ -1,8 +1,11 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Gift, Star, Trophy, Clock, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
+import HeroContestCountdown from '../components/home/HeroContestCountdown';
+import useGameStore from '../store/gameStore';
 import { PRIZES } from '../data/prizes';
 
 const steps = [
@@ -12,6 +15,29 @@ const steps = [
 ];
 
 export default function HomePage() {
+  const { contestInfo, fetchContestInfo } = useGameStore();
+  const [contestLoaded, setContestLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchContestInfo().finally(() => {
+      if (!cancelled) setContestLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchContestInfo]);
+
+  // Rafraîchir le nombre de joueurs (temps réel côté serveur, polling léger)
+  useEffect(() => {
+    if (!contestLoaded) return undefined;
+    const id = setInterval(() => fetchContestInfo(), 20000);
+    return () => clearInterval(id);
+  }, [contestLoaded, fetchContestInfo]);
+
+  const endDate = contestInfo?.dates?.end;
+  const contestStatus = contestInfo?.status;
+
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
@@ -51,6 +77,13 @@ export default function HomePage() {
                 Célébrez l&apos;ouverture de notre 10ème boutique à Nice !
                 Participez et remportez des lots exceptionnels parmi nos thés d&apos;exception.
               </p>
+
+              <HeroContestCountdown
+                endDateIso={endDate}
+                status={contestStatus}
+                isLoading={!contestLoaded}
+                playersCount={contestInfo?.playersCount}
+              />
 
               <div className="flex flex-col sm:flex-row gap-3 mb-10">
                 <Link
