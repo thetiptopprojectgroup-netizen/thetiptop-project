@@ -31,7 +31,6 @@ jobs:
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
       ok: ${{ steps.gate.outputs.ok }}
-      ci_run_id: ${{ steps.gate.outputs.ci_run_id }}
     steps:
       - name: Vérifier / attendre la CI
         id: gate
@@ -44,7 +43,6 @@ jobs:
             if (context.eventName === 'workflow_dispatch') {
               core.setOutput('sha', context.sha);
               core.setOutput('ok', 'true');
-              core.setOutput('ci_run_id', '');
               core.info('Déploiement manuel : pas d’attente CI.');
               return;
             }
@@ -53,7 +51,6 @@ jobs:
             if (branch !== target) {
               core.setOutput('sha', '');
               core.setOutput('ok', 'false');
-              core.setOutput('ci_run_id', '');
               return;
             }
             core.info(`Attente CI « ${ciName} » (event=push) verte pour ${sha.slice(0, 7)}…`);
@@ -91,20 +88,17 @@ jobs:
               if (okRun) {
                 core.setOutput('sha', sha);
                 core.setOutput('ok', 'true');
-                core.setOutput('ci_run_id', String(okRun.id));
                 core.info(`CI push validée : run #${okRun.id}`);
                 return;
               }
               const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
               core.setOutput('sha', sha);
               core.setOutput('ok', 'false');
-              core.setOutput('ci_run_id', '');
               core.setFailed(`CI Monorepo (push) en échec (${worst.conclusion}) — déploiement annulé.`);
               return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
-            core.setOutput('ci_run_id', '');
             core.setFailed('Timeout : la CI Monorepo (push) n’a pas fini à temps — déploiement annulé.');
 
   harbor-project:
@@ -115,7 +109,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       sha: ${{ needs.gate.outputs.sha }}
-      ci_run_id: ${{ needs.gate.outputs.ci_run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -137,7 +130,6 @@ jobs:
     timeout-minutes: 30
     outputs:
       sha: ${{ needs.harbor-project.outputs.sha }}
-      ci_run_id: ${{ needs.harbor-project.outputs.ci_run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -184,7 +176,6 @@ jobs:
     timeout-minutes: 25
     outputs:
       sha: ${{ needs.build-and-push.outputs.sha }}
-      ci_run_id: ${{ needs.build-and-push.outputs.ci_run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -267,245 +258,4 @@ jobs:
           VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
 
-  # ---------------------------------------------------------------------------
-  # Stage 4 — Ouvre une PR vpreprod → vprod (brouillon) uniquement si :
-  #   • **push** sur `vpreprod` (pas sur CD manuel) ;
-  #   • `gate` : CI Monorepo verte + `deploy-vps` OK (même logique que vdev).
-  # ---------------------------------------------------------------------------
-  promotion-pr:
-    name: "4 · PR promotion → vprod"
-    needs: [deploy-vps]
-    if: success() && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      actions: read
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Vérifier que tous les jobs CI et CD sont OK pour ce commit
-        uses: actions/github-script@v8
-        env:
-          COMMIT_FULL: ${{ needs.deploy-vps.outputs.sha }}
-          CI_RUN_ID: ${{ needs.deploy-vps.outputs.ci_run_id }}
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const shaFull = process.env.COMMIT_FULL || '';
-            const ciRunIdFromGate = (process.env.CI_RUN_ID || '').trim();
-            if (!shaFull) {
-              core.setFailed('SHA de déploiement indisponible.');
-              return;
-            }
-            const ciWorkflowName = 'CI — Monorepo (server + client)';
-            const headBranch = 'vpreprod';
-
-            async function fetchAllRunJobs(runId) {
-              const jobs = [];
-              for (let page = 1; page <= 15; page++) {
-                const { data } = await github.rest.actions.listJobsForWorkflowRun({
-                  owner,
-                  repo,
-                  run_id: runId,
-                  per_page: 100,
-                  page,
-                });
-                jobs.push(...data.jobs);
-                if (data.jobs.length < 100) break;
-              }
-              return jobs;
-            }
-
-            function assertJobsOk(jobs, label) {
-              const bad = jobs.filter(
-                (j) =>
-                  j.status === 'completed' &&
-                  j.conclusion &&
-                  !['success', 'skipped'].includes(j.conclusion)
-              );
-              if (bad.length) {
-                core.setFailed(
-                  `${label} — échec ou annulation : ${bad.map((j) => `${j.name}=${j.conclusion}`).join(', ')}`
-                );
-                return false;
-              }
-              const pending = jobs.filter((j) => j.status !== 'completed');
-              if (pending.length) {
-                core.setFailed(
-                  `${label} — jobs non terminés : ${pending.map((j) => `${j.name}=${j.status}`).join(', ')}`
-                );
-                return false;
-              }
-              return true;
-            }
-
-            let ciRun;
-            if (ciRunIdFromGate) {
-              const { data: runFetched } = await github.rest.actions.getWorkflowRun({
-                owner,
-                repo,
-                run_id: parseInt(ciRunIdFromGate, 10),
-              });
-              if (runFetched.head_sha !== shaFull) {
-                core.setFailed(
-                  `Incohérence CI run #${ciRunIdFromGate} / commit déployé (${shaFull.slice(0, 7)}).`
-                );
-                return;
-              }
-              if (runFetched.conclusion !== 'success') {
-                core.setFailed(`Le run CI #${ciRunIdFromGate} n’est pas en succès (${runFetched.conclusion}).`);
-                return;
-              }
-              ciRun = runFetched;
-              core.info(`CI run (même que le gate) : #${ciRun.id} (${ciRun.html_url})`);
-            } else {
-              const { data: runsPayload } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner,
-                repo,
-                head_sha: shaFull,
-                per_page: 50,
-              });
-              const ciSuccessRuns = (runsPayload.workflow_runs || [])
-                .filter(
-                  (w) =>
-                    w.name === ciWorkflowName &&
-                    w.head_branch === headBranch &&
-                    w.event === 'push' &&
-                    w.conclusion === 'success'
-                )
-                .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-              if (ciSuccessRuns.length === 0) {
-                core.setFailed(
-                  `Aucun run « ${ciWorkflowName} » (push/${headBranch}) en succès pour le commit ${shaFull.slice(0, 7)}.`
-                );
-                return;
-              }
-              ciRun = ciSuccessRuns[0];
-              core.info(`CI run validé : #${ciRun.id} (${ciRun.html_url})`);
-            }
-            const ciJobs = await fetchAllRunJobs(ciRun.id);
-            core.info(`CI : ${ciJobs.length} job(s) listé(s).`);
-            if (!assertJobsOk(ciJobs, 'CI Monorepo')) return;
-
-            const cdRunId = context.runId;
-            const cdJobs = await fetchAllRunJobs(cdRunId);
-            const cdRequired = [
-              '0 · CI Monorepo verte sur ce commit (ou manuel)',
-              '1 · Harbor — projet vpreprod',
-              '2 · Registry — build & push images',
-              '3 · VPS — rsync & docker compose',
-            ];
-            for (const name of cdRequired) {
-              const j = cdJobs.find((x) => x.name === name);
-              if (!j) {
-                core.setFailed(`Job CD introuvable : « ${name} »`);
-                return;
-              }
-              if (j.conclusion !== 'success' && j.conclusion !== 'skipped') {
-                core.setFailed(`Job CD « ${name} » : ${j.conclusion || j.status}`);
-                return;
-              }
-              if (j.status !== 'completed') {
-                core.setFailed(`Job CD « ${name} » non terminé : ${j.status}`);
-                return;
-              }
-            }
-            core.info('Tous les jobs CI (run associé au commit) et CD (étapes 0–3) sont OK — ouverture PR de promotion autorisée.');
-
-      - name: Ouvrir PR vpreprod → vprod si absente
-        uses: actions/github-script@v8
-        env:
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          COMMIT_SHORT: ${{ needs.deploy-vps.outputs.sha }}
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const base = 'vprod';
-            const headBranch = 'vpreprod';
-            const runUrl = process.env.RUN_URL;
-            const sha = (process.env.COMMIT_SHORT || '').slice(0, 7);
-
-            try {
-              await github.rest.repos.getBranch({ owner, repo, branch: base });
-            } catch (e) {
-              if (e.status !== 404) throw e;
-              const { data: repoInfo } = await github.rest.repos.get({ owner, repo });
-              const def = repoInfo.default_branch;
-              if (def === headBranch) {
-                core.setFailed(
-                  `La branche « ${base} » n’existe pas. Crée-la une fois sur GitHub ` +
-                    `(Code → New branch « ${base} » depuis une branche adaptée), puis relance ce job ou repousse sur « ${headBranch} ».`
-                );
-                return;
-              }
-              const { data: refData } = await github.rest.git.getRef({
-                owner, repo,
-                ref: `heads/${def}`,
-              });
-              await github.rest.git.createRef({
-                owner, repo,
-                ref: `refs/heads/${base}`,
-                sha: refData.object.sha,
-              });
-              core.info(`Branche « ${base} » créée (même pointeur que « ${def} »).`);
-            }
-
-            const { data: open } = await github.rest.pulls.list({
-              owner, repo, state: 'open', base, per_page: 100,
-            });
-            const exists = open.some(
-              (p) => p.head.ref === headBranch && p.base.ref === base
-            );
-            if (exists) {
-              const pr = open.find((p) => p.head.ref === headBranch);
-              core.info(`PR déjà ouverte (#${pr.number}).`);
-              return;
-            }
-
-            const body = [
-              '## Promotion vers la production (vprod)',
-              '',
-              'Cette PR est en **brouillon** : cliquez **Ready for review** quand vous validez, puis **Merge**.',
-              '',
-              '1. Vérifier sur **vpreprod** si besoin.',
-              '2. **Merge** → lance le CD **production**.',
-              '',
-              '---',
-              '',
-              '**Ouverture automatique de la PR** seulement (après déploiement vpreprod réussi) — **pas de fusion automatique**.',
-              '',
-              `- Run : [CD / vpreprod](${runUrl})`,
-              `- Commit : \`${sha}\``,
-            ].join('\n');
-
-            try {
-              const { data: created } = await github.rest.pulls.create({
-                owner, repo,
-                head: headBranch,
-                base,
-                title: '[Promotion] vpreprod → vprod',
-                body,
-                draft: true,
-              });
-              core.info(`PR créée : #${created.number}`);
-            } catch (err) {
-              if (err.status !== 422) throw err;
-              const raw = err.response?.data || {};
-              const msg = JSON.stringify(raw).toLowerCase();
-              const errors = Array.isArray(raw.errors) ? raw.errors : [];
-              const errText = errors.map((e) => (e.message || e.code || '')).join(' ').toLowerCase();
-              const combined = `${msg} ${errText}`;
-              if (combined.includes('no commits') || combined.includes('nothing to compare')) {
-                core.info(
-                  'Aucune PR à ouvrir : pas de différence entre vpreprod et vprod (souvent le même commit). ' +
-                    'C’est attendu après un merge de promotion ou si vprod a été alignée sur vpreprod.'
-                );
-                return;
-              }
-              if (combined.includes('already exists') || combined.includes('pull request already')) {
-                core.info('Une PR existe déjà pour ce couple de branches (réponse API 422).');
-                return;
-              }
-              core.error(`GitHub API 422 : ${JSON.stringify(raw)}`);
-              throw err;
-            }
+  # PR [Promotion] vpreprod → vprod : workflow « Promotion PR après CD » (voir promotion-pr-after-cd.yml).

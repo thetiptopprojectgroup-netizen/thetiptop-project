@@ -475,5 +475,4 @@ jobs:
               body,
             });
 
-  # Promotion : le gate CD n’utilise que le run CI **push** (évite de confondre avec un run PR vert).
-  # Job « PR promotion » : vérifie les jobs du run CI + CD 0–3 ; secours manuel « Create promotion PR ».
+  # Promotion : gate CD = run CI **push** uniquement. PRs [Promotion] : workflow « Promotion PR après CD ».
