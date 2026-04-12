@@ -1,0 +1,199 @@
+{
+  "_meta": {
+    "format": "Ancienne vue simplifiée (obsolète — préférer trello-import-soutenance.json)",
+    "project": "Thé Tip Top — thetiptop-project",
+    "generated": "2026-04-03",
+    "trelloPowerUpImportFile": "trello-import-soutenance.json",
+    "note": "Le fichier trello-import-soutenance.json suit le schéma imbriqué (name, desc, labels, lists[].cards[]) pour le Power-Up « Import to Board (JSON) for Trello ». Régénération : node docs/generate-trello-import-json.mjs"
+  },
+  "board": {
+    "name": "Thé Tip Top — Planning projet",
+    "desc": "Jeu-concours web, déploiement multi-env (vdev / vpreprod / vprod), observabilité sur VPS. Ce tableau regroupe les réalisations majeures à ce jour."
+  },
+  "labels": [
+    { "id": "lbl_infra", "name": "Infra", "color": "green" },
+    { "id": "lbl_front", "name": "Frontend", "color": "blue" },
+    { "id": "lbl_back", "name": "Backend", "color": "purple" },
+    { "id": "lbl_ci", "name": "CI/CD", "color": "orange" },
+    { "id": "lbl_obs", "name": "Observabilité", "color": "sky" },
+    { "id": "lbl_done", "name": "Terminé", "color": "lime" }
+  ],
+  "lists": [
+    {
+      "id": "list_app",
+      "name": "Réalisé — Application (client & API)",
+      "pos": 1
+    },
+    {
+      "id": "list_deploy",
+      "name": "Réalisé — Déploiement & secrets",
+      "pos": 2
+    },
+    {
+      "id": "list_obs",
+      "name": "Réalisé — Monitoring & logs (VPS)",
+      "pos": 3
+    },
+    {
+      "id": "list_ux",
+      "name": "Réalisé — UX, contenu & charte",
+      "pos": 4
+    },
+    {
+      "id": "list_future",
+      "name": "Piste / à suivre (optionnel)",
+      "pos": 5
+    }
+  ],
+  "cards": [
+    {
+      "id": "card_001",
+      "idList": "list_app",
+      "name": "Stack frontend : React 18 + Vite + Tailwind + React Router",
+      "desc": "SPA avec pages publiques (accueil, lots, règlement, FAQ, légal), formulaires, animations Framer Motion.",
+      "idLabels": ["lbl_front", "lbl_done"],
+      "checklists": [
+        {
+          "name": "Livrables",
+          "items": [
+            { "name": "Composants réutilisables (Card, Button, Layout, Header, Footer)", "checked": true },
+            { "name": "SEO : seo.js, generate-seo.js, sitemap", "checked": true }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "card_002",
+      "idList": "list_app",
+      "name": "Authentification : JWT + OAuth Google & Facebook (Passport)",
+      "desc": "Inscription / connexion locale et sociale ; callbacks configurés via variables d’environnement (CLIENT_URL, BACKEND_URL).",
+      "idLabels": ["lbl_back", "lbl_front", "lbl_done"]
+    },
+    {
+      "id": "card_003",
+      "idList": "list_app",
+      "name": "Jeu : validation codes tickets & attribution des lots",
+      "desc": "Flux participant (TicketValidator), API tickets, règles métier côté serveur (Mongoose, contrôleurs).",
+      "idLabels": ["lbl_back", "lbl_front", "lbl_done"]
+    },
+    {
+      "id": "card_004",
+      "idList": "list_app",
+      "name": "Espaces Employé & Admin (dashboard, stats, tirage, exports)",
+      "desc": "Pages dédiées rôles ; gestion utilisateurs, lots, sessions de jeu selon périmètre du projet.",
+      "idLabels": ["lbl_front", "lbl_back", "lbl_done"]
+    },
+    {
+      "id": "card_005",
+      "idList": "list_app",
+      "name": "API Express : sécurité (Helmet, CORS, rate limit), métriques Prometheus",
+      "desc": "prom-client exposé pour intégration monitoring ; tests Jest côté serveur.",
+      "idLabels": ["lbl_back", "lbl_done"]
+    },
+    {
+      "id": "card_010",
+      "idList": "list_deploy",
+      "name": "Déploiement Docker : 3 stacks (vdev, vpreprod, vprod) sur un VPS",
+      "desc": "infra/deploy/docker-compose.stack.yml — MongoDB, API et client en images Harbor ; réseau Traefik ; labels routing HTTPS.",
+      "idLabels": ["lbl_infra", "lbl_ci", "lbl_done"]
+    },
+    {
+      "id": "card_011",
+      "idList": "list_deploy",
+      "name": "CI/CD GitHub Actions : build → Harbor → rsync → compose up",
+      "desc": "Workflows deploy-vdev, deploy-vpreprod, deploy-vprod ; attente CI verte (gate) ; secrets VPS, Harbor, fichiers env.",
+      "idLabels": ["lbl_ci", "lbl_done"]
+    },
+    {
+      "id": "card_012",
+      "idList": "list_deploy",
+      "name": "Secrets monitoring & logging poussés depuis GitHub (sans SSH manuel)",
+      "desc": "ci-write-remote-monitoring-env.sh et ci-write-remote-logging-env.sh ; exclusion rsync infra/monitoring/.env et infra/logging/.env.",
+      "idLabels": ["lbl_ci", "lbl_obs", "lbl_done"]
+    },
+    {
+      "id": "card_013",
+      "idList": "list_deploy",
+      "name": "Traefik : routes dynamiques (MinIO, monitoring fichier), réseau docker « traefik »",
+      "desc": "apply-traefik-minio-from-app.sh ; dynamic/*.yml copiés sur le VPS ; Traefik 3.6 + certresolver le.",
+      "idLabels": ["lbl_infra", "lbl_done"]
+    },
+    {
+      "id": "card_020",
+      "idList": "list_obs",
+      "name": "Stack monitoring : Prometheus + Grafana + node-exporter + cAdvisor",
+      "desc": "infra/monitoring/docker-compose.yml ; datasource Grafana ; dashboard overview ; apply-monitoring-from-app.sh après chaque déploiement.",
+      "idLabels": ["lbl_obs", "lbl_infra", "lbl_done"]
+    },
+    {
+      "id": "card_021",
+      "idList": "list_obs",
+      "name": "Stack logs : Elasticsearch + Kibana + Filebeat",
+      "desc": "infra/logging/ ; indexation logs conteneurs ; routage Kibana via labels Traefik (réseau traefik) ; secrets LOGGING_ELASTIC_PASSWORD.",
+      "idLabels": ["lbl_obs", "lbl_infra", "lbl_done"]
+    },
+    {
+      "id": "card_022",
+      "idList": "list_obs",
+      "name": "DNS & accès : sous-domaines Grafana, Prometheus, Kibana (ex. dsp5…)",
+      "desc": "Fichiers dynamic/monitoring.yml ; alignement Host / .env ; Let’s Encrypt via Traefik.",
+      "idLabels": ["lbl_obs", "lbl_done"]
+    },
+    {
+      "id": "card_030",
+      "idList": "list_ux",
+      "name": "Lots : données centralisées (PRIZES) + images + ordre d’affichage 1→5",
+      "desc": "client/src/data/prizes.js ; visuels dans public/images/prizes/ ; pages Accueil et Lots alignées.",
+      "idLabels": ["lbl_front", "lbl_done"]
+    },
+    {
+      "id": "card_031",
+      "idList": "list_ux",
+      "name": "Footer : liens réseaux officiels (Facebook, Instagram, X)",
+      "desc": "Footer.jsx — URLs Thé Tip Top.",
+      "idLabels": ["lbl_front", "lbl_done"]
+    },
+    {
+      "id": "card_032",
+      "idList": "list_ux",
+      "name": "Charte typo & ambiance « jeu-concours »",
+      "desc": "Google Fonts Poppins ; fond global site-playful-bg (dégradés or/vert, texture) ; hero renforcé (badges, CTA, halos).",
+      "idLabels": ["lbl_front", "lbl_done"]
+    },
+    {
+      "id": "card_033",
+      "idList": "list_ux",
+      "name": "Palette couleurs Tailwind (tea, matcha, gold, cream) documentée en hex",
+      "desc": "tailwind.config.js — référence pour charte graphique et supports print.",
+      "idLabels": ["lbl_front", "lbl_done"]
+    },
+    {
+      "id": "card_040",
+      "idList": "list_future",
+      "name": "Renommer le GIF hero si besoin (éviter espaces dans l’URL)",
+      "desc": "Ex. hero-animation.gif à la place de « Design sans titre (3).gif » puis mise à jour HomePage.jsx.",
+      "idLabels": ["lbl_front"]
+    },
+    {
+      "id": "card_041",
+      "idList": "list_future",
+      "name": "Alerting Prometheus / Alertmanager (optionnel)",
+      "desc": "Notifications si conteneurs down ou disque plein.",
+      "idLabels": ["lbl_obs"]
+    },
+    {
+      "id": "card_042",
+      "idList": "list_future",
+      "name": "Métriques applicatives fines (routes API, erreurs 5xx)",
+      "desc": "Enrichir dashboards Grafana au-delà de cAdvisor.",
+      "idLabels": ["lbl_obs", "lbl_back"]
+    },
+    {
+      "id": "card_043",
+      "idList": "list_future",
+      "name": "Aligner README (Nginx vs Traefik) si doc publique",
+      "desc": "Cohérence avec l’architecture réelle sur VPS.",
+      "idLabels": ["lbl_ci"]
+    }
+  ]
+}

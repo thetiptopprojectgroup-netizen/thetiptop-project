@@ -17,9 +17,9 @@ export RESTIC_PROGRESS_FPS=0
 
 log() { echo "$(date -Is) ${RESTIC_REPOSITORY} - $*"; }
 
-# Jour de la semaine en français (date +%u : 1=lundi … 7=dimanche).
+# Jour de la semaine en français (date +%u : 1=lundi … 7=dimanche), fuseau BACKUP_DUMP_TZ.
 jour_semaine_fr() {
-  case "$(date +%u)" in
+  case "$(TZ="${BACKUP_DUMP_TZ:-Europe/Paris}" date +%u)" in
     1) printf '%s' "lundi" ;;
     2) printf '%s' "mardi" ;;
     3) printf '%s' "mercredi" ;;
@@ -61,9 +61,10 @@ MONGO_HOST="${COMPOSE_PROJECT_NAME}-mongodb-1"
 
 BACKUP_ROOT="/opt/thetiptop/backup/mongodb/${ENV_NAME}"
 SIG_FILE="${BACKUP_ROOT}/.last-db-signature"
-# Ex. mongodump_dimanche_12_04_2026_13_45_08_48291.gz
-DUMP_DATE="$(date +%d_%m_%Y)"
-DUMP_TIME="$(date +%H_%M_%S)"
+# Ex. mongodump_dimanche_12_04_2026_13_45_08_48291.gz — date/heure en Europe/Paris (pas l’UTC du serveur).
+BACKUP_DUMP_TZ="Europe/Paris"
+DUMP_DATE="$(TZ="${BACKUP_DUMP_TZ}" date +%d_%m_%Y)"
+DUMP_TIME="$(TZ="${BACKUP_DUMP_TZ}" date +%H_%M_%S)"
 RAND5="$(printf '%05d' "$(( (RANDOM * 32768 + RANDOM) % 100000 ))")"
 DUMP_BASENAME="mongodump_$(jour_semaine_fr)_${DUMP_DATE}_${DUMP_TIME}_${RAND5}.gz"
 
