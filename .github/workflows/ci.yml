@@ -475,4 +475,4 @@ jobs:
               body,
             });
 
-  # Promotion : gate CD = run CI **push** uniquement. PRs [Promotion] : workflow « Promotion PR après CD ».
+  # Promotion : gate CD = run CI **push** uniquement. PRs [Promotion] : job « 4 · PR promotion » dans CD / vdev|vpreprod.

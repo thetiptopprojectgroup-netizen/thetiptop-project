@@ -258,4 +258,28 @@ jobs:
           VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
 
-  # PR [Promotion] vpreprod → vprod : workflow « Promotion PR après CD » (voir promotion-pr-after-cd.yml).
+  open-promotion-pr:
+    name: "4 · PR promotion (merge vers la branche)"
+    needs: [deploy-vps]
+    if: success() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Vérifier CI + merge puis ouvrir PR de promotion si besoin
+        uses: actions/github-script@v8
+        env:
+          PROMOTION_MODE: vpreprod
+          COMMIT_FULL: ${{ needs.deploy-vps.outputs.sha }}
+          CD_RUN_ID: ${{ github.run_id }}
+          CD_HTML_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const path = require('path');
+            const main = require(path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/open-promotion-pr-after-cd.cjs'));
+            await main({ github, core, context });
