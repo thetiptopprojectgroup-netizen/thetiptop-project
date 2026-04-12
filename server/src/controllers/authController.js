@@ -127,6 +127,7 @@ export const updateProfile = async (req, res, next) => {
       'prenom', 'nom', 'telephone', 'date_naissance', 'sexe',
       'adresse', 'code_postal', 'ville', 'pays',
       'consentement_marketing', 'consentement_cookies',
+      'pseudo',
       // backward compat
       'firstName', 'lastName', 'phone', 'dateOfBirth', 'gender', 'address',
     ];

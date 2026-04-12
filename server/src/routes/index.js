@@ -4,7 +4,9 @@ import ticketRoutes from './ticketRoutes.js';
 import adminRoutes from './adminRoutes.js';
 import newsletterRoutes from './newsletterRoutes.js';
 import telemetryRoutes from './telemetryRoutes.js';
+import reviewRoutes from './reviewRoutes.js';
 import { getContestDates } from '../utils/contestConfig.js';
+import Code from '../models/Ticket.js';
 
 const router = express.Router();
 
@@ -14,6 +16,7 @@ router.use('/tickets', ticketRoutes);
 router.use('/admin', adminRoutes);
 router.use('/newsletter', newsletterRoutes);
 router.use('/telemetry', telemetryRoutes);
+router.use('/reviews', reviewRoutes);
 
 // Route de santé
 router.get('/health', (req, res) => {
@@ -40,6 +43,16 @@ router.get('/contest-info', async (req, res, next) => {
       status = 'ended';
     }
 
+    // Tickets déjà validés (codes joués / lots attribués) — aligné sur les stats admin
+    let validatedTicketsCount = 0;
+    try {
+      validatedTicketsCount = await Code.countDocuments({
+        etat: { $in: ['utilise', 'reclame'] },
+      });
+    } catch (err) {
+      console.error('contest-info validatedTicketsCount:', err);
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -50,6 +63,7 @@ router.get('/contest-info', async (req, res, next) => {
           claimEnd: claim_end_date,
         },
         maxTickets: parseInt(process.env.MAX_TICKETS) || 500000,
+        validatedTicketsCount,
       },
     });
   } catch (error) {

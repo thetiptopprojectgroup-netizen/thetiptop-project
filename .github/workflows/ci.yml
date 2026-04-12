@@ -475,6 +475,4 @@ jobs:
               body,
             });
 
-  # Promotion vdev → vpreprod (et vpreprod → vprod) : uniquement après CD réussi — voir
-  # deploy-vdev.yml / deploy-vpreprod.yml (job « PR promotion » après deploy-vps).
-  # Déclenchement manuel si besoin : workflow « Create promotion PR (manual) ».
+  # Promotion : PRs [Promotion] en brouillon via job « 4 · PR promotion » dans CD / vdev|vpreprod (après CI+CD verts sur push).

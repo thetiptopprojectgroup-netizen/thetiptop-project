@@ -1,8 +1,12 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Gift, Star, Trophy, Clock, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
+import HeroContestCountdown from '../components/home/HeroContestCountdown';
+import useGameStore from '../store/gameStore';
+import { toContestEndIso } from '../utils/contestDates';
 import { PRIZES } from '../data/prizes';
 
 const steps = [
@@ -12,6 +16,29 @@ const steps = [
 ];
 
 export default function HomePage() {
+  const { contestInfo, fetchContestInfo } = useGameStore();
+  const [contestLoaded, setContestLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchContestInfo().finally(() => {
+      if (!cancelled) setContestLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchContestInfo]);
+
+  // Rafraîchir le nombre de tickets validés (temps réel côté serveur, polling léger)
+  useEffect(() => {
+    if (!contestLoaded) return undefined;
+    const id = setInterval(() => fetchContestInfo(), 20000);
+    return () => clearInterval(id);
+  }, [contestLoaded, fetchContestInfo]);
+
+  const endDate = toContestEndIso(contestInfo?.dates?.end);
+  const contestStatus = contestInfo?.status;
+
   return (
     <div className="overflow-hidden">
       {/* Hero Section */}
@@ -21,7 +48,7 @@ export default function HomePage() {
           src="/images/imagesite/Design sans titre (3).gif"
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover object-[81%_center] md:object-center lg:object-fill"
+          className="absolute inset-0 w-full h-full object-cover object-[81%_center] md:object-center"
           loading="eager"
           decoding="async"
         />
@@ -30,29 +57,36 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-matcha-950/85 via-matcha-950/60 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-matcha-950/70 via-transparent to-matcha-950/30" />
 
-        <div className="container-wide relative z-10 w-full pb-16 pt-[calc(5rem+10px)] md:pb-20 lg:pb-24">
+        <div className="container-wide relative z-10 w-full pb-12 pt-[calc(4rem+6px)] sm:pb-16 sm:pt-[calc(5rem+10px)] md:pb-20 lg:pb-24">
           <div className="max-w-xl lg:max-w-2xl">
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-              <div className="flex flex-wrap gap-2 mb-5">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-white/10 backdrop-blur-md rounded-full text-cream-100 text-xs md:text-sm shadow-lg">
-                  <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-gold-400 shrink-0" />
+              <div className="flex flex-wrap gap-2 mb-3 sm:mb-5">
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2 bg-white/10 backdrop-blur-md rounded-full text-cream-100 text-[0.7rem] sm:text-xs md:text-sm shadow-lg">
+                  <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-gold-400 shrink-0" />
                   Grand jeu-concours Thé Tip Top
                 </div>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white leading-[1.1] mb-5 drop-shadow-lg">
+              <h1 className="text-2xl leading-[1.12] sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-white mb-3 sm:mb-5 drop-shadow-lg">
                 100% des tickets<br />sont{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-gold-300 to-amber-400">
                   gagnants
                 </span>
               </h1>
 
-              <p className="text-sm sm:text-base md:text-lg text-cream-100/90 mb-7 max-w-lg leading-relaxed drop-shadow-md">
+              <p className="text-xs sm:text-base md:text-lg text-cream-100/90 mb-4 sm:mb-6 max-w-lg leading-snug sm:leading-relaxed drop-shadow-md">
                 Célébrez l&apos;ouverture de notre 10ème boutique à Nice !
                 Participez et remportez des lots exceptionnels parmi nos thés d&apos;exception.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 mb-10">
+              <HeroContestCountdown
+                endDateIso={endDate}
+                status={contestStatus}
+                isLoading={!contestLoaded}
+                validatedTicketsCount={contestInfo?.validatedTicketsCount}
+              />
+
+              <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mb-6 sm:mb-10">
                 <Link
                   to="/register"
                   className="inline-flex origin-bottom animate-cta-sway motion-reduce:animate-none"

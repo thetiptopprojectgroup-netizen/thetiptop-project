@@ -138,10 +138,17 @@ export const adminService = {
   deleteEmployee: (id) => api.delete(`/admin/employees/${id}`),
 };
 
-// Service d'informations du concours
+// Informations du concours : publicApi (pas de Bearer) pour éviter tout effet de bord avec un JWT expiré côté page d'accueil
 export const contestService = {
-  getInfo: () => api.get('/contest-info'),
-  getHealth: () => api.get('/health'),
+  getInfo: () => publicApi.get('/contest-info'),
+  getHealth: () => publicApi.get('/health'),
+};
+
+/** Avis sur le jeu (public + authentifié) */
+export const reviewService = {
+  getRecent: () => publicApi.get('/reviews/recent'),
+  getMine: () => api.get('/reviews/mine'),
+  create: (payload) => api.post('/reviews', payload),
 };
 
 export const telemetryService = {

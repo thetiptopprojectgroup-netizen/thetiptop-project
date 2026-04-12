@@ -17,9 +17,10 @@ export RESTIC_PROGRESS_FPS=0
 
 log() { echo "$(date -Is) ${RESTIC_REPOSITORY} - $*"; }
 
-# Jour de la semaine en français (date +%u : 1=lundi … 7=dimanche), fuseau BACKUP_DUMP_TZ.
+# Jour de la semaine en français (date +%u : 1=lundi … 7=dimanche).
+# Appeler uniquement pendant export TZ=Europe/Paris (voir plus bas).
 jour_semaine_fr() {
-  case "$(TZ="${BACKUP_DUMP_TZ:-Europe/Paris}" date +%u)" in
+  case "$(date +%u)" in
     1) printf '%s' "lundi" ;;
     2) printf '%s' "mardi" ;;
     3) printf '%s' "mercredi" ;;
@@ -61,12 +62,15 @@ MONGO_HOST="${COMPOSE_PROJECT_NAME}-mongodb-1"
 
 BACKUP_ROOT="/opt/thetiptop/backup/mongodb/${ENV_NAME}"
 SIG_FILE="${BACKUP_ROOT}/.last-db-signature"
-# Ex. mongodump_dimanche_12_04_2026_13_45_08_48291.gz — date/heure en Europe/Paris (pas l’UTC du serveur).
+# Ex. mongodump_dimanche_12_04_2026_13_45_08_48291.gz — heure de Paris (Europe/Paris).
+# Sans paquet tzdata sur le VPS, TZ peut être ignoré → heure UTC dans le nom ; le rôle Ansible installe tzdata.
 BACKUP_DUMP_TZ="Europe/Paris"
-DUMP_DATE="$(TZ="${BACKUP_DUMP_TZ}" date +%d_%m_%Y)"
-DUMP_TIME="$(TZ="${BACKUP_DUMP_TZ}" date +%H_%M_%S)"
+export TZ="${BACKUP_DUMP_TZ}"
+DUMP_DATE="$(date +%d_%m_%Y)"
+DUMP_TIME="$(date +%H_%M_%S)"
 RAND5="$(printf '%05d' "$(( (RANDOM * 32768 + RANDOM) % 100000 ))")"
 DUMP_BASENAME="mongodump_$(jour_semaine_fr)_${DUMP_DATE}_${DUMP_TIME}_${RAND5}.gz"
+unset TZ
 
 mkdir -p "${BACKUP_ROOT}"
 # Bind mount : en Docker rootless, l’UID 0 du conteneur n’est pas root sur l’hôte — sans ça, « permission denied » sur /backup/….

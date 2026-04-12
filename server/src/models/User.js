@@ -98,6 +98,13 @@ const userSchema = new mongoose.Schema(
     googleId: String,
     facebookId: String,
     avatar: String,
+    /** Pseudo affiché sur les avis jeu (optionnel ; saisi à la 1re publication d’avis sinon) */
+    pseudo: {
+      type: String,
+      trim: true,
+      maxlength: [32, 'Le pseudo ne peut pas dépasser 32 caractères'],
+      default: '',
+    },
     isEmailVerified: {
       type: Boolean,
       default: false,
@@ -176,6 +183,7 @@ userSchema.methods.toPublicJSON = function () {
     consentement_cookies: this.consentement_cookies,
     date_inscription: this.date_inscription,
     createdAt: this.createdAt,
+    pseudo: this.pseudo || '',
   };
 };
 

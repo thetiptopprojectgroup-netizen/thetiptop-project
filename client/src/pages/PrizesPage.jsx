@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Gift, Trophy, Star, Sparkles, ArrowRight } from 'lucide-react';
+import { Gift, Star, Sparkles, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -60,15 +60,31 @@ export default function PrizesPage() {
           </div>
 
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-16">
-            <Card className="bg-gradient-to-r from-gold-50 to-gold-100 border-2 border-gold-300">
-              <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gold-500 mb-6 shadow-gold">
-                  <Trophy className="w-12 h-12 text-white" />
+            <Card className="overflow-hidden bg-gradient-to-r from-gold-50 to-gold-100 border-2 border-gold-300">
+              <div className="flex flex-col items-center gap-8 p-6 md:flex-row md:items-stretch md:p-8 md:gap-10">
+                <div className="w-full shrink-0 overflow-hidden rounded-2xl border border-gold-200/80 shadow-lg md:w-[min(100%,420px)] md:max-w-[45%]">
+                  <img
+                    src="/images/imagesite/Design sans titre (3).gif"
+                    alt="Visuel du gros lot final — jeu-concours Thé Tip Top"
+                    className="aspect-[4/3] w-full object-cover object-center md:aspect-auto md:min-h-[260px] md:object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </div>
-                <h2 className="text-3xl font-display font-bold text-tea-900 mb-2">Gros lot final</h2>
-                <p className="text-xl text-gold-700 font-medium mb-2">1 an de thé d'une valeur de 360€</p>
-                <p className="text-tea-600 max-w-xl mx-auto mb-8">Tirage au sort parmi tous les participants, supervisé par Maître Arnaud Rick, huissier de justice.</p>
-                <Link to="/register"><Button variant="gold" size="lg" rightIcon={<ArrowRight className="w-5 h-5" />}>Participer maintenant</Button></Link>
+                <div className="flex flex-1 flex-col justify-center text-center md:text-left">
+                  <h2 className="text-3xl font-display font-bold text-tea-900 mb-2">Gros lot final</h2>
+                  <p className="text-xl text-gold-700 font-medium mb-3">1 an de thé d&apos;une valeur de 360€</p>
+                  <p className="text-tea-600 mb-8 leading-relaxed">
+                    Tirage au sort parmi tous les participants, supervisé par Maître Arnaud Rick, huissier de justice.
+                  </p>
+                  <div className="flex justify-center md:justify-start">
+                    <Link to="/register">
+                      <Button variant="gold" size="lg" rightIcon={<ArrowRight className="w-5 h-5" />}>
+                        Participer maintenant
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
               </div>
             </Card>
           </motion.div>

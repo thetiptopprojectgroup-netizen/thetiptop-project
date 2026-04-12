@@ -44,7 +44,7 @@ Les PR de promotion sont créées **uniquement après** un déploiement CD réus
 
 ## Bonnes pratiques
 
-- Flux de promotion : **PR** `vdev` → `vpreprod` → `vprod` plutôt que push direct sur `vpreprod` / `vprod` si l’équipe impose les revues.
+- Flux de promotion : après CD sur `vdev` / `vpreprod`, une PR **[Promotion]** (brouillon) propose le merge vers l’étape suivante ; éviter le push direct sur `vpreprod` / `vprod` si l’équipe impose les revues sur ces branches.
 - Aligner la **branche par défaut** du dépôt avec les workflows attendus pour les `workflow_run` éventuels.
 
 ---
