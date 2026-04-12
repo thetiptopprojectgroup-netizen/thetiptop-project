@@ -79,6 +79,7 @@ Secrets utilisés par **`deploy-vdev.yml`** (noms exacts) :
 | Nom | Description |
 |-----|-------------|
 | `VITE_GOOGLE_CLIENT_ID` | Même valeur que `GOOGLE_CLIENT_ID` dans `vdev.env` (connexion Google côté navigateur) |
+| `VITE_GA_MEASUREMENT_ID` | *(optionnel)* ID de mesure GA4 (`G-…`) — secret ou variable ; laisser vide pour désactiver l’analytics |
 
 - [ ] Tous les secrets / variables ci-dessus renseignés pour votre environnement (Google + EmailJS si soutenance)
 - [ ] `VDEV_ENV_FILE` sans **CRLF** (fin de ligne LF) pour ne pas casser les règles Traefik — voir commentaire dans le workflow
