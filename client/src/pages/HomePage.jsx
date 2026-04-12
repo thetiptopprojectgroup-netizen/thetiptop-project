@@ -6,6 +6,7 @@ import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import HeroContestCountdown from '../components/home/HeroContestCountdown';
 import useGameStore from '../store/gameStore';
+import { toContestEndIso } from '../utils/contestDates';
 import { PRIZES } from '../data/prizes';
 
 const steps = [
@@ -28,14 +29,14 @@ export default function HomePage() {
     };
   }, [fetchContestInfo]);
 
-  // Rafraîchir le nombre de joueurs (temps réel côté serveur, polling léger)
+  // Rafraîchir le nombre de tickets validés (temps réel côté serveur, polling léger)
   useEffect(() => {
     if (!contestLoaded) return undefined;
     const id = setInterval(() => fetchContestInfo(), 20000);
     return () => clearInterval(id);
   }, [contestLoaded, fetchContestInfo]);
 
-  const endDate = contestInfo?.dates?.end;
+  const endDate = toContestEndIso(contestInfo?.dates?.end);
   const contestStatus = contestInfo?.status;
 
   return (
@@ -47,7 +48,7 @@ export default function HomePage() {
           src="/images/imagesite/Design sans titre (3).gif"
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover object-[81%_center] md:object-center lg:object-fill"
+          className="absolute inset-0 w-full h-full object-cover object-[81%_center] md:object-center"
           loading="eager"
           decoding="async"
         />
@@ -82,7 +83,7 @@ export default function HomePage() {
                 endDateIso={endDate}
                 status={contestStatus}
                 isLoading={!contestLoaded}
-                playersCount={contestInfo?.playersCount}
+                validatedTicketsCount={contestInfo?.validatedTicketsCount}
               />
 
               <div className="flex flex-col sm:flex-row gap-3 mb-10">

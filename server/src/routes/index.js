@@ -5,7 +5,7 @@ import adminRoutes from './adminRoutes.js';
 import newsletterRoutes from './newsletterRoutes.js';
 import telemetryRoutes from './telemetryRoutes.js';
 import { getContestDates } from '../utils/contestConfig.js';
-import Participation from '../models/Participation.js';
+import Code from '../models/Ticket.js';
 
 const router = express.Router();
 
@@ -41,8 +41,15 @@ router.get('/contest-info', async (req, res, next) => {
       status = 'ended';
     }
 
-    // Personnes distinctes ayant au moins validé un ticket (participation)
-    const playersCount = await Participation.distinct('user').then((ids) => ids.length);
+    // Tickets déjà validés (codes joués / lots attribués) — aligné sur les stats admin
+    let validatedTicketsCount = 0;
+    try {
+      validatedTicketsCount = await Code.countDocuments({
+        etat: { $in: ['utilise', 'reclame'] },
+      });
+    } catch (err) {
+      console.error('contest-info validatedTicketsCount:', err);
+    }
 
     res.status(200).json({
       success: true,
@@ -54,7 +61,7 @@ router.get('/contest-info', async (req, res, next) => {
           claimEnd: claim_end_date,
         },
         maxTickets: parseInt(process.env.MAX_TICKETS) || 500000,
-        playersCount,
+        validatedTicketsCount,
       },
     });
   } catch (error) {
