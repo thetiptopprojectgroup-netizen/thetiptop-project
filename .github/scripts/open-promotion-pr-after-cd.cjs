@@ -9,6 +9,22 @@ function normalizeSha(s) {
   return String(s || '').toLowerCase();
 }
 
+/** Numéro de PR GitHub dans le message de merge / squash (1ʳᵉ ligne surtout). */
+function parsePrNumberFromCommitMessage(raw) {
+  if (!raw) return null;
+  const msg = raw.replace(/\r/g, '');
+  const mergeLine = msg.match(/Merge pull request #(\d+)/);
+  if (mergeLine) return parseInt(mergeLine[1], 10);
+  const firstLine = (msg.split('\n')[0] || '').trim();
+  const paren = firstLine.match(/\(#(\d+)\)/);
+  if (paren) return parseInt(paren[1], 10);
+  const endHash = firstLine.match(/\s#(\d+)\s*$/);
+  if (endHash) return parseInt(endHash[1], 10);
+  const anyHash = firstLine.match(/#(\d+)/);
+  if (anyHash) return parseInt(anyHash[1], 10);
+  return null;
+}
+
 module.exports = async function openPromotionPr({ github, core, context }) {
   const { owner, repo } = context.repo;
   const mode = process.env.PROMOTION_MODE;
@@ -62,7 +78,7 @@ module.exports = async function openPromotionPr({ github, core, context }) {
   } catch (e) {
     core.warning(`getCommit(${shaFull.slice(0, 7)}) : ${e.message}`);
   }
-  const commitMessage = commitMsgData?.commit?.message || '';
+  const commitMessage = (commitMsgData?.commit?.message || '').replace(/\r/g, '');
 
   const mergedIntoBase = [];
   const seen = new Set();
@@ -79,17 +95,7 @@ module.exports = async function openPromotionPr({ github, core, context }) {
       return;
     }
 
-    const firstLine = (commitMessage.split('\n')[0] || '').trim();
-    const mergeLine = commitMessage.match(/Merge pull request #(\d+)/);
-    const squashSubject = firstLine.match(/\(#(\d+)\)\s*$/);
-    const hashSubject = firstLine.match(/\s#(\d+)\s*$/);
-    const nFromMsg = mergeLine
-      ? parseInt(mergeLine[1], 10)
-      : squashSubject
-        ? parseInt(squashSubject[1], 10)
-        : hashSubject
-          ? parseInt(hashSubject[1], 10)
-          : null;
+    const nFromMsg = parsePrNumberFromCommitMessage(commitMessage);
 
     if (nFromMsg === prFull.number) {
       mergedIntoBase.push(prFull);
@@ -115,20 +121,33 @@ module.exports = async function openPromotionPr({ github, core, context }) {
     }
   }
 
-  // Si l’API « commits/…/pulls » n’a rien renvoyé, tenter le numéro dans le message (squash / merge).
-  if (mergedIntoBase.length === 0 && commitMessage && candidates.length === 0) {
-    const firstLine = (commitMessage.split('\n')[0] || '').trim();
-    const mergeLine = commitMessage.match(/Merge pull request #(\d+)/);
-    const squashSubject = firstLine.match(/\(#(\d+)\)\s*$/);
-    const hashSubject = firstLine.match(/\s#(\d+)\s*$/);
-    const n = mergeLine
-      ? parseInt(mergeLine[1], 10)
-      : squashSubject
-        ? parseInt(squashSubject[1], 10)
-        : hashSubject
-          ? parseInt(hashSubject[1], 10)
-          : null;
-    if (n) {
+  // GitHub lie ce commit à ces PR : si merge vers la base cible, on fait confiance même si merge_commit_sha diverge (bug API).
+  if (mergedIntoBase.length === 0 && candidates.length > 0) {
+    for (const c of candidates) {
+      try {
+        const { data: prFull } = await github.rest.pulls.get({
+          owner,
+          repo,
+          pull_number: c.number,
+        });
+        if (prFull.merged_at && prFull.base?.ref === targetBase && !seen.has(prFull.number)) {
+          mergedIntoBase.push(prFull);
+          seen.add(prFull.number);
+          core.info(
+            `PR #${c.number} : associée au commit par l’API (commits/…/pulls) — promotion autorisée malgré éventuelle divergence merge_commit_sha.`
+          );
+          break;
+        }
+      } catch (e) {
+        core.warning(`Association PR #${c.number} : ${e.message}`);
+      }
+    }
+  }
+
+  // Dernier recours : numéro dans le message seul (API commits/…/pulls vide ou incomplète).
+  if (mergedIntoBase.length === 0 && commitMessage) {
+    const n = parsePrNumberFromCommitMessage(commitMessage);
+    if (n != null) {
       try {
         const { data: prFull } = await github.rest.pulls.get({
           owner,
@@ -146,20 +165,21 @@ module.exports = async function openPromotionPr({ github, core, context }) {
           mergedIntoBase.push(prFull);
           seen.add(prFull.number);
           core.info(
-            `PR #${n} : reconnu via message (aucune entrée commits/…/pulls ; merge_commit_sha = ${mcs || 'null'}).`
+            `PR #${n} : reconnu via message seul (merge_commit_sha = ${mcs || 'null'}).`
           );
         }
       } catch (e) {
-        core.warning(`Fallback PR #${n} : ${e.message}`);
+        core.warning(`Fallback message PR #${n} : ${e.message}`);
       }
     }
   }
 
   if (mergedIntoBase.length === 0) {
+    const preview = (commitMessage.split('\n')[0] || '').slice(0, 120);
     core.info(
       `Aucune PR fusionnée vers « ${targetBase} » identifiée pour le commit ${shaFull.slice(0, 7)} ` +
         `— pas d’ouverture automatique de PR de promotion. ` +
-        `Attendu après merge GitHub d’une PR vers ${targetBase} (ou message de commit avec (#numéro) / Merge pull request #…).`
+        `Sujet du commit (extrait) : ${preview || '(vide)'}`
     );
     return;
   }
@@ -325,7 +345,7 @@ module.exports = async function openPromotionPr({ github, core, context }) {
   const body = [
     mdIntro,
     '',
-    'Cette PR est en **brouillon** : cliquez **Ready for review** quand vous validez, puis **Merge**.',
+    'Vérifiez les changements, puis **Merge** quand c’est bon.',
     '',
     mdMergeHint,
     '',
@@ -345,7 +365,7 @@ module.exports = async function openPromotionPr({ github, core, context }) {
       base: prBase,
       title: prTitle,
       body,
-      draft: true,
+      draft: false,
     });
     core.info(`PR créée : #${created.number} ${created.html_url}`);
   } catch (err) {
