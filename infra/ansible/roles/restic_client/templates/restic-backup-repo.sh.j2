@@ -17,6 +17,20 @@ export RESTIC_PROGRESS_FPS=0
 
 log() { echo "$(date -Is) ${RESTIC_REPOSITORY} - $*"; }
 
+# Jour de la semaine en français (date +%u : 1=lundi … 7=dimanche).
+jour_semaine_fr() {
+  case "$(date +%u)" in
+    1) printf '%s' "lundi" ;;
+    2) printf '%s' "mardi" ;;
+    3) printf '%s' "mercredi" ;;
+    4) printf '%s' "jeudi" ;;
+    5) printf '%s' "vendredi" ;;
+    6) printf '%s' "samedi" ;;
+    7) printf '%s' "dimanche" ;;
+    *) printf '%s' "inconnu" ;;
+  esac
+}
+
 if [[ ! -f "${ENV_FILE}" ]]; then
   log "ERROR: env file not found: ${ENV_FILE}"
   exit 1
@@ -47,8 +61,11 @@ MONGO_HOST="${COMPOSE_PROJECT_NAME}-mongodb-1"
 
 BACKUP_ROOT="/opt/thetiptop/backup/mongodb/${ENV_NAME}"
 SIG_FILE="${BACKUP_ROOT}/.last-db-signature"
-TS="$(date +%Y%m%d-%H%M%S)"
-DUMP_BASENAME="mongodump-${TS}.archive.gz"
+# Ex. mongodump_dimanche_12_04_2026_13_45_08_48291.gz
+DUMP_DATE="$(date +%d_%m_%Y)"
+DUMP_TIME="$(date +%H_%M_%S)"
+RAND5="$(printf '%05d' "$(( (RANDOM * 32768 + RANDOM) % 100000 ))")"
+DUMP_BASENAME="mongodump_$(jour_semaine_fr)_${DUMP_DATE}_${DUMP_TIME}_${RAND5}.gz"
 
 mkdir -p "${BACKUP_ROOT}"
 # Bind mount : en Docker rootless, l’UID 0 du conteneur n’est pas root sur l’hôte — sans ça, « permission denied » sur /backup/….
@@ -107,8 +124,8 @@ fi
 log "mongodump OK ($(du -h "${DUMP_PATH}" | awk '{print $1}')) : ${DUMP_PATH}"
 
 # Garder les 30 derniers dumps (ne pas appeler ls sans fichier : avec nullglob, ls seul listerait le cwd).
-if compgen -G "${BACKUP_ROOT}/mongodump-*.archive.gz" >/dev/null 2>&1; then
-  ls -1t "${BACKUP_ROOT}"/mongodump-*.archive.gz | tail -n +31 | xargs -r rm -f
+if compgen -G "${BACKUP_ROOT}/mongodump_*.gz" >/dev/null 2>&1; then
+  ls -1t "${BACKUP_ROOT}"/mongodump_*.gz | tail -n +31 | xargs -r rm -f
 fi
 
 printf '%s\n' "${DB_SIGNATURE}" > "${SIG_FILE}"
