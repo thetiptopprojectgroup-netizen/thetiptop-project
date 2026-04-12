@@ -35,11 +35,11 @@ export default function HeroContestCountdown({ endDateIso, status, isLoading, va
 
   if (isLoading) {
     return (
-      <div className="mb-6 rounded-xl border border-white/15 bg-white/5 px-3 py-4 backdrop-blur-md md:px-4 md:py-5">
-        <div className="h-6 w-40 animate-pulse rounded-lg bg-white/10" />
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-2.5">
+      <div className="mb-3 rounded-lg border border-white/15 bg-white/5 px-2.5 py-2.5 backdrop-blur-md sm:mb-4 sm:rounded-xl sm:px-3 sm:py-3.5">
+        <div className="h-4 w-32 animate-pulse rounded bg-white/10 sm:h-5 sm:w-40" />
+        <div className="mt-2 grid grid-cols-4 gap-1.5 sm:mt-2.5 sm:gap-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-lg bg-white/10 sm:h-[4.25rem]" />
+            <div key={i} className="h-12 animate-pulse rounded-md bg-white/10 sm:h-14" />
           ))}
         </div>
       </div>
@@ -49,8 +49,8 @@ export default function HeroContestCountdown({ endDateIso, status, isLoading, va
   /* Pas de date de fin exploitable après chargement : éviter le « trou » visuel (souvent API ou parsing) */
   if (endMs == null) {
     return (
-      <div className="mb-8 max-w-3xl rounded-2xl border border-amber-400/30 bg-amber-950/30 px-4 py-4 text-center backdrop-blur-md md:text-left">
-        <p className="text-sm text-amber-100/95">
+      <div className="mb-3 max-w-3xl rounded-xl border border-amber-400/30 bg-amber-950/30 px-3 py-2.5 text-center backdrop-blur-md sm:mb-4 sm:px-4 sm:py-3 md:text-left">
+        <p className="text-xs text-amber-100/95 sm:text-sm">
           Compte à rebours indisponible : les dates du concours n&apos;ont pas pu être chargées. Vérifiez votre
           connexion ou que l&apos;API répond <code className="rounded bg-black/20 px-1">/api/contest-info</code>.
         </p>
@@ -79,7 +79,7 @@ export default function HeroContestCountdown({ endDateIso, status, isLoading, va
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-6 rounded-xl border border-white/20 bg-white/10 px-4 py-4 text-center backdrop-blur-md md:px-6 md:py-5"
+        className="mb-3 rounded-lg border border-white/20 bg-white/10 px-3 py-3 text-center backdrop-blur-md sm:mb-4 sm:rounded-xl sm:px-4 sm:py-4 md:px-6"
       >
         <div className="flex items-center justify-center gap-2 text-cream-100">
           <Timer className="h-5 w-5 text-gold-400" />
@@ -101,24 +101,24 @@ export default function HeroContestCountdown({ endDateIso, status, isLoading, va
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="mb-6 w-full max-w-xl"
+      className="mb-3 w-full max-w-md sm:mb-4"
     >
-      <p className="mb-2.5 text-center text-xs font-semibold uppercase tracking-[0.18em] text-gold-300/95 drop-shadow md:text-left sm:text-sm">
+      <p className="mb-1.5 text-center text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-gold-300/95 drop-shadow sm:mb-2 sm:text-xs md:text-left">
         Fin du jeu dans
       </p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-2.5">
+      <div className="grid grid-cols-4 gap-1 sm:gap-1.5 md:gap-2">
         {units.map(({ label, value }) => (
           <div
             key={label}
-            className="flex flex-col items-center justify-center rounded-xl border border-white/20 bg-matcha-950/40 px-1.5 py-2.5 shadow-lg backdrop-blur-md sm:py-3"
+            className="flex flex-col items-center justify-center rounded-lg border border-white/20 bg-matcha-950/40 px-0.5 py-1.5 shadow-md backdrop-blur-md sm:rounded-xl sm:px-1 sm:py-2"
           >
             <span
-              className="font-display text-2xl font-bold tabular-nums tracking-tight text-white drop-shadow-md sm:text-3xl md:text-4xl"
+              className="font-display text-lg font-bold tabular-nums tracking-tight text-white drop-shadow-md sm:text-xl md:text-2xl"
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
               {value}
             </span>
-            <span className="mt-1 text-center text-[0.6rem] font-medium uppercase tracking-wide text-cream-200/90 sm:text-[0.65rem]">
+            <span className="mt-0.5 text-center text-[0.5rem] font-medium uppercase leading-tight tracking-wide text-cream-200/90 sm:text-[0.55rem]">
               {label}
             </span>
           </div>
@@ -129,13 +129,11 @@ export default function HeroContestCountdown({ endDateIso, status, isLoading, va
           key={validatedTicketsCount}
           initial={{ opacity: 0.85 }}
           animate={{ opacity: 1 }}
-          className="mt-3 flex flex-col items-center gap-0.5 border-t border-white/15 pt-3 sm:flex-row sm:justify-center sm:gap-2 md:justify-start"
+          className="mt-2 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0 border-t border-white/15 pt-2 text-cream-100 sm:mt-2.5 sm:justify-start sm:gap-2 sm:pt-2.5"
         >
-          <div className="flex items-center gap-1.5 text-cream-100">
-            <Ticket className="h-4 w-4 shrink-0 text-gold-400" aria-hidden />
-            <p className="text-center text-sm font-semibold md:text-left md:text-base">{ticketsLine}</p>
-          </div>
-          <span className="text-[0.65rem] text-cream-300/80">(temps réel)</span>
+          <Ticket className="h-3.5 w-3.5 shrink-0 text-gold-400 sm:h-4 sm:w-4" aria-hidden />
+          <p className="text-center text-[0.7rem] font-semibold leading-tight sm:text-left sm:text-sm md:text-base">{ticketsLine}</p>
+          <span className="hidden text-[0.6rem] text-cream-300/80 sm:inline">(temps réel)</span>
         </motion.div>
       )}
     </motion.div>
