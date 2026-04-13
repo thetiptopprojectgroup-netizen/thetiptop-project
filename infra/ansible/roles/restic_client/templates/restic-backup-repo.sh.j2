@@ -128,9 +128,9 @@ if [[ ! -f "${DUMP_PATH}" ]]; then
 fi
 log "mongodump OK ($(du -h "${DUMP_PATH}" | awk '{print $1}')) : ${DUMP_PATH}"
 
-# Garder les 30 derniers dumps (ne pas appeler ls sans fichier : avec nullglob, ls seul listerait le cwd).
-if compgen -G "${BACKUP_ROOT}/mongodump_*.gz" >/dev/null 2>&1; then
-  ls -1t "${BACKUP_ROOT}"/mongodump_*.gz | tail -n +31 | xargs -r rm -f
+# Ne garder que les 5 derniers dumps (mongodump_*.gz courants + mongodump-*.archive.gz / autres mongodump*.gz).
+if compgen -G "${BACKUP_ROOT}/mongodump*.gz" >/dev/null 2>&1; then
+  ls -1t "${BACKUP_ROOT}"/mongodump*.gz | tail -n +6 | xargs -r rm -f
 fi
 
 printf '%s\n' "${DB_SIGNATURE}" > "${SIG_FILE}"
