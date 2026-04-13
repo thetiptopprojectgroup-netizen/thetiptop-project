@@ -258,6 +258,13 @@ jobs:
           VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
 
+      - name: Rétention dumps Mongo (5 fichiers max par env)
+        run: bash infra/deploy/run-remote-prune-mongodb-dumps.sh
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+
   open-promotion-pr:
     name: "4 · PR promotion (brouillon)"
     needs: [deploy-vps]
