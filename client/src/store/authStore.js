@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { authService } from '../services/api';
 
 const useAuthStore = create(
@@ -157,6 +157,20 @@ const useAuthStore = create(
     }),
     {
       name: 'auth-storage',
+      storage: createJSONStorage(() =>
+        typeof window !== 'undefined'
+          ? localStorage
+          : {
+              getItem: () => null,
+              setItem: () => {},
+              removeItem: () => {},
+              clear: () => {},
+              get length() {
+                return 0;
+              },
+              key: () => null,
+            }
+      ),
       partialize: (state) => ({
         token: state.token,
         user: state.user,

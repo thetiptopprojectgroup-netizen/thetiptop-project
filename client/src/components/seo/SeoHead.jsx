@@ -1,37 +1,16 @@
-import { useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
 import { getSeoForPath, getSiteUrl, SITE_NAME, shouldNoIndexPath } from '../../config/seo';
 
-function setMeta(name, content, isProperty = false) {
-  const attr = isProperty ? 'property' : 'name';
-  let el = document.querySelector(`meta[${attr}="${name}"]`);
-  if (!el) {
-    el = document.createElement('meta');
-    el.setAttribute(attr, name);
-    document.head.appendChild(el);
-  }
-  el.setAttribute('content', content);
-}
-
-function setLink(rel, href) {
-  let el = document.querySelector(`link[rel="${rel}"]`);
-  if (!el) {
-    el = document.createElement('link');
-    el.setAttribute('rel', rel);
-    document.head.appendChild(el);
-  }
-  el.setAttribute('href', href);
-}
-
-/**
- * Met à jour title, meta description, keywords, Open Graph, Twitter et canonical selon la route.
- */
 const PRIVATE_SEO = {
   title: `${SITE_NAME} — Espace personnel`,
   description: 'Accès sécurisé à votre compte Thé Tip Top (jeu-concours).',
   keywords: '',
 };
 
+/**
+ * Titres, meta description, Open Graph, Twitter et canonical par route — rendus dans le HTML (SSR + Helmet).
+ */
 export default function SeoHead() {
   const { pathname } = useLocation();
   const noIndex = shouldNoIndexPath(pathname);
@@ -42,32 +21,28 @@ export default function SeoHead() {
   const canonical = `${base}${pathname === '/' ? '' : pathname}`;
   const ogImage = `${base}/images/logo/logo.png`;
 
-  useEffect(() => {
-    document.title = seo.title;
-    setMeta('description', seo.description);
-    if (seo.keywords) setMeta('keywords', seo.keywords);
-    if (noIndex) {
-      setMeta('robots', 'noindex, nofollow');
-    } else {
-      setMeta('robots', 'index, follow');
-    }
+  return (
+    <Helmet prioritizeSeoTags>
+      <title>{seo.title}</title>
+      <meta name="description" content={seo.description} />
+      {seo.keywords ? <meta name="keywords" content={seo.keywords} /> : null}
+      <meta name="robots" content={noIndex ? 'noindex, nofollow' : 'index, follow'} />
+      <meta name="googlebot" content={noIndex ? 'noindex, nofollow' : 'index, follow'} />
+      <link rel="canonical" href={canonical} />
 
-    setMeta('og:type', 'website', true);
-    setMeta('og:url', canonical, true);
-    setMeta('og:title', seo.title, true);
-    setMeta('og:description', seo.description, true);
-    setMeta('og:locale', 'fr_FR', true);
-    setMeta('og:image', ogImage, true);
-    setMeta('og:image:alt', `${SITE_NAME} — logo du jeu-concours thé`, true);
+      <meta property="og:type" content="website" />
+      <meta property="og:url" content={canonical} />
+      <meta property="og:title" content={seo.title} />
+      <meta property="og:description" content={seo.description} />
+      <meta property="og:locale" content="fr_FR" />
+      <meta property="og:image" content={ogImage} />
+      <meta property="og:image:alt" content={`${SITE_NAME} — logo du jeu-concours thé`} />
 
-    setMeta('twitter:card', 'summary_large_image', true);
-    setMeta('twitter:url', canonical, true);
-    setMeta('twitter:title', seo.title, true);
-    setMeta('twitter:description', seo.description, true);
-    setMeta('twitter:image', ogImage, true);
-
-    setLink('canonical', canonical);
-  }, [pathname, seo, canonical, noIndex, ogImage]);
-
-  return null;
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:url" content={canonical} />
+      <meta name="twitter:title" content={seo.title} />
+      <meta name="twitter:description" content={seo.description} />
+      <meta name="twitter:image" content={ogImage} />
+    </Helmet>
+  );
 }

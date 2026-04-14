@@ -19,7 +19,10 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: 'dist/client',
     sourcemap: true,
+  },
+  ssr: {
+    noExternal: ['react-helmet-async'],
   },
 });
