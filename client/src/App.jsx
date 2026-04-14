@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
@@ -84,7 +84,7 @@ function App() {
   }, [fetchUser]);
 
   return (
-    <BrowserRouter>
+    <>
       <SeoHead />
       <Toaster
         position="top-center"
@@ -140,7 +140,7 @@ function App() {
         {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-    </BrowserRouter>
+    </>
   );
 }
 
