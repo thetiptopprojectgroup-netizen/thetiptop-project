@@ -252,8 +252,8 @@ L'application est optimisée pour :
 
 ### Intégration continue (GitHub Actions)
 
-- **` .github/workflows/ci-backend.yml`** (+ **`ci-frontend-reusable.yml`** via `workflow_call`) — une **CI Backend** qui enchaîne les jobs serveur puis les jobs client (sans appel API inter-workflows) ; push / PR sur **`vdev`**, **`vpreprod`**, **`vprod`** ; images **`api`** / **`client`** ; PR de promotion après CD vert.
-- **` .github/workflows/deploy-vdev.yml`** (et **`deploy-vpreprod.yml`**, **`deploy-vprod.yml`**) — déploiement VPS après CI / push sur la branche cible.
+- **` .github/workflows/ci-backend.yml`**, **`ci-frontend.yml`** (+ **`ci-frontend-reusable.yml`**) — **CI — Backend** puis **CI — Frontend** (`workflow_run`, pas d’API dispatch) ; push / PR sur **`vdev`**, **`vpreprod`**, **`vprod`** ; images **`api`** / **`client`**.
+- **` .github/workflows/deploy-vdev.yml`** (et **`deploy-vpreprod.yml`**, **`deploy-vprod.yml`**) — déploiement VPS après un run **vert** de **CI — Frontend** sur la branche cible ; PR de promotion après CD vert.
 - **` .github/workflows/create-promotion-pr.yml`** — création manuelle d’une PR de promotion si besoin.
 
 Détails : **` .github/workflows/README.md`**.

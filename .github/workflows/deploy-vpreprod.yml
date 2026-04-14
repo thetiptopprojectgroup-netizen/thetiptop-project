@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# CD — Branche vpreprod — push `vpreprod` + attente CI Backend verte (client inclus dans le run), ou manuel.
+# CD — Branche vpreprod — après **CI — Frontend** verte sur `vpreprod`, ou manuel.
 # Secret multiligne : VPREPROD_ENV_FILE (contenu de infra/deploy/env/vpreprod.env)
 # Monitoring (partagé VPS) : MONITORING_GRAFANA_ADMIN_PASSWORD ou MONITORING_ENV_FILE / _B64
 # Logs (Kibana) : LOGGING_ELASTIC_PASSWORD ou LOGGING_ENV_FILE / _B64
@@ -7,7 +7,9 @@
 name: CD / vpreprod
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI — Frontend"]
+    types: [completed]
     branches: [vpreprod]
   workflow_dispatch:
 
@@ -26,19 +28,18 @@ env:
 
 jobs:
   gate:
-    name: "0 · CI Backend verte sur ce commit (Backend + client inclus, ou manuel)"
+    name: "0 · CI Backend + CI Frontend vertes sur ce commit (ou manuel)"
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
       ok: ${{ steps.gate.outputs.ok }}
     steps:
-      - name: Vérifier / attendre la CI
+      - name: Vérifier le déclencheur et le SHA
         id: gate
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const ciName = 'CI — Backend';
             const target = 'vpreprod';
             if (context.eventName === 'workflow_dispatch') {
               core.setOutput('sha', context.sha);
@@ -46,57 +47,27 @@ jobs:
               core.info('Déploiement manuel : pas d’attente CI.');
               return;
             }
-            const sha = context.sha;
-            const branch = context.ref.replace(/^refs\/heads\//, '');
-            if (branch !== target) {
-              core.setOutput('sha', '');
-              core.setOutput('ok', 'false');
-              return;
-            }
-            core.info(`Attente « ${ciName} » (push, inclut le frontend) pour ${sha.slice(0, 7)}…`);
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const maxAttempts = 90;
-            const delayMs = 10000;
-            for (let i = 0; i < maxAttempts; i++) {
-              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner,
-                repo,
-                head_sha: sha,
-                per_page: 100,
-              });
-              const relevant = (data.workflow_runs || []).filter(
-                (w) => w.name === ciName && w.head_branch === target && w.event === 'push'
-              );
-              if (relevant.length === 0) {
-                core.info(`Run CI pas encore visible (tentative ${i + 1}/${maxAttempts})`);
-                await new Promise((r) => setTimeout(r, delayMs));
-                continue;
-              }
-              const pending = relevant.filter((w) => w.status !== 'completed');
-              if (pending.length > 0) {
-                core.info(`CI en cours : ${pending.map((p) => `${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`);
-                await new Promise((r) => setTimeout(r, delayMs));
-                continue;
-              }
-              const okRun = relevant.sort(
-                (a, b) => new Date(b.created_at) - new Date(a.created_at)
-              ).find((w) => w.conclusion === 'success');
-              if (okRun) {
-                core.setOutput('sha', sha);
-                core.setOutput('ok', 'true');
-                core.info(`CI validée : run #${okRun.id}`);
+            if (context.eventName === 'workflow_run') {
+              const wr = context.payload.workflow_run;
+              if (wr.conclusion !== 'success') {
+                core.setOutput('sha', '');
+                core.setOutput('ok', 'false');
+                core.setFailed(`CI — Frontend non verte (${wr.conclusion}) — déploiement annulé.`);
                 return;
               }
-              const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
-              core.setOutput('sha', sha);
-              core.setOutput('ok', 'false');
-              core.setFailed(`CI en échec (${worst.conclusion}) — déploiement annulé.`);
+              if (wr.head_branch !== target) {
+                core.setOutput('sha', '');
+                core.setOutput('ok', 'false');
+                return;
+              }
+              core.setOutput('sha', wr.head_sha);
+              core.setOutput('ok', 'true');
+              core.info(`CI — Frontend OK : run #${wr.id} — SHA ${wr.head_sha.slice(0, 7)}`);
               return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
-            core.setFailed('Timeout : la CI n’a pas fini à temps — déploiement annulé.');
+            core.setFailed('Événement non pris en charge.');
 
   harbor-project:
     name: "1 · Harbor — projet vpreprod"
@@ -265,7 +236,7 @@ jobs:
   open-promotion-pr:
     name: "4 · PR promotion (brouillon)"
     needs: [deploy-vps]
-    if: success() && github.event_name == 'push'
+    if: success() && github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

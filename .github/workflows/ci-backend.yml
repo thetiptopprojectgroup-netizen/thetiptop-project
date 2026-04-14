@@ -9,8 +9,6 @@ on:
 permissions:
   contents: read
   actions: read
-  pull-requests: write
-  issues: write
 
 concurrency:
   group: ci-backend-${{ github.repository }}-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
@@ -200,18 +198,3 @@ jobs:
           IMAGE="${{ steps.harbor-project.outputs.image }}"
           docker build -f server/Dockerfile -t "$IMAGE" server
           docker push "$IMAGE"
-
-  # Client : workflow réutilisable (pas d’API createWorkflowDispatch — évite le 404 tant que le YAML n’est pas sur la branche par défaut).
-  frontend-ci:
-    name: "7 · CI Frontend"
-    needs: [backend-build, backend-package]
-    if: |
-      always() &&
-      needs.backend-build.result == 'success' &&
-      (needs.backend-package.result == 'success' || needs.backend-package.result == 'skipped')
-    uses: ./.github/workflows/ci-frontend-reusable.yml
-    secrets: inherit
-    with:
-      commit_sha: ${{ github.sha }}
-      source_event: ${{ github.event_name }}
-      pr_number: ${{ github.event.pull_request && github.event.pull_request.number || '' }}

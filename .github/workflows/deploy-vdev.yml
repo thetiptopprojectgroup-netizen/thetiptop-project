@@ -1,9 +1,8 @@
 # -----------------------------------------------------------------------------
 # CD — Branche vdev : Harbor → images → VPS
-# Déclenchement : **push** sur `vdev` puis attente que **CI — Backend** soit verte (le client est inclus
-# dans ce run via `workflow_call` → `ci-frontend-reusable.yml`).
-# `workflow_dispatch` : déploiement manuel. (On n’utilise pas `workflow_run` seul : il exige
-# que ce fichier soit sur la **branche par défaut** GitHub, sinon le CD ne part jamais.)
+# Déclenchement : après un run **réussi** de **CI — Frontend** sur `vdev` (lui-même après CI — Backend),
+# ou `workflow_dispatch` manuel. Même contrainte GitHub : ce fichier doit être sur la branche par défaut
+# pour que `workflow_run` fonctionne.
 # Secrets : HARBOR_REGISTRY_BASE, HARBOR_ADMIN_PASSWORD, HARBOR_USERNAME/PASSWORD,
 #           VPS_HOST, VPS_SSH_USER, VPS_SSH_KEY,
 #           VDEV_ENV_FILE (ou alias VDEV_ENV) — contenu multiligne de vdev.env ; optionnel : VDEV_ENV_FILE_B64
@@ -15,7 +14,9 @@
 name: CD / vdev
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI — Frontend"]
+    types: [completed]
     branches: [vdev]
   workflow_dispatch:
 
@@ -35,19 +36,18 @@ env:
 
 jobs:
   gate:
-    name: "0 · CI Backend verte sur ce commit (Backend + client inclus, ou manuel)"
+    name: "0 · CI Backend + CI Frontend vertes sur ce commit (ou manuel)"
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
       ok: ${{ steps.gate.outputs.ok }}
     steps:
-      - name: Vérifier / attendre la CI
+      - name: Vérifier le déclencheur et le SHA
         id: gate
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const ciName = 'CI — Backend';
             const target = 'vdev';
             if (context.eventName === 'workflow_dispatch') {
               core.setOutput('sha', context.sha);
@@ -55,57 +55,27 @@ jobs:
               core.info('Déploiement manuel : pas d’attente CI.');
               return;
             }
-            const sha = context.sha;
-            const branch = context.ref.replace(/^refs\/heads\//, '');
-            if (branch !== target) {
-              core.setOutput('sha', '');
-              core.setOutput('ok', 'false');
-              return;
-            }
-            core.info(`Attente « ${ciName} » (push, inclut le frontend via workflow_call) pour ${sha.slice(0, 7)}…`);
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const maxAttempts = 90;
-            const delayMs = 10000;
-            for (let i = 0; i < maxAttempts; i++) {
-              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner,
-                repo,
-                head_sha: sha,
-                per_page: 100,
-              });
-              const relevant = (data.workflow_runs || []).filter(
-                (w) => w.name === ciName && w.head_branch === target && w.event === 'push'
-              );
-              if (relevant.length === 0) {
-                core.info(`Run CI pas encore visible (tentative ${i + 1}/${maxAttempts})`);
-                await new Promise((r) => setTimeout(r, delayMs));
-                continue;
-              }
-              const pending = relevant.filter((w) => w.status !== 'completed');
-              if (pending.length > 0) {
-                core.info(`CI en cours : ${pending.map((p) => `${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`);
-                await new Promise((r) => setTimeout(r, delayMs));
-                continue;
-              }
-              const okRun = relevant.sort(
-                (a, b) => new Date(b.created_at) - new Date(a.created_at)
-              ).find((w) => w.conclusion === 'success');
-              if (okRun) {
-                core.setOutput('sha', sha);
-                core.setOutput('ok', 'true');
-                core.info(`CI validée : run #${okRun.id}`);
+            if (context.eventName === 'workflow_run') {
+              const wr = context.payload.workflow_run;
+              if (wr.conclusion !== 'success') {
+                core.setOutput('sha', '');
+                core.setOutput('ok', 'false');
+                core.setFailed(`CI — Frontend non verte (${wr.conclusion}) — déploiement annulé.`);
                 return;
               }
-              const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
-              core.setOutput('sha', sha);
-              core.setOutput('ok', 'false');
-              core.setFailed(`CI en échec (${worst.conclusion}) — déploiement annulé.`);
+              if (wr.head_branch !== target) {
+                core.setOutput('sha', '');
+                core.setOutput('ok', 'false');
+                return;
+              }
+              core.setOutput('sha', wr.head_sha);
+              core.setOutput('ok', 'true');
+              core.info(`CI — Frontend OK : run #${wr.id} — SHA ${wr.head_sha.slice(0, 7)}`);
               return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
-            core.setFailed('Timeout : la CI n’a pas fini à temps — déploiement annulé.');
+            core.setFailed('Événement non pris en charge.');
 
   # ---------------------------------------------------------------------------
   # Stage 1 — Projet Harbor (API admin, idempotent)
@@ -286,7 +256,7 @@ jobs:
   open-promotion-pr:
     name: "4 · PR promotion (brouillon)"
     needs: [deploy-vps]
-    if: success() && github.event_name == 'push'
+    if: success() && github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

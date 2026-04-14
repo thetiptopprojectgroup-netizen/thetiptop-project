@@ -2,12 +2,14 @@
 
 ## Architecture globale
 
-Le projet utilise **un workflow CI principal** (`ci-backend.yml`, qui enchaîne le client via `ci-frontend-reusable.yml`) + **déploiement VPS** + **workflows manuels** :
+Le projet utilise **trois pipelines visibles** dans Actions + **workflows manuels** :
 
-1. **`ci-backend.yml` — CI — Backend** : **push / PR** (`vdev`, `vpreprod`, `vprod`). Jobs serveur puis **`7 · CI Frontend`** qui appelle **`ci-frontend-reusable.yml`** (`workflow_call`) : **pas d’API** `createWorkflowDispatch` (sinon **404** tant que le workflow cible n’est pas sur la **branche par défaut**).
-2. **`ci-frontend-reusable.yml`** : jobs client (lint → tests → build → image **`client`**) ; exécutés **dans le même run** que le Backend après les jobs API. Fichier séparé pour garder le client isolé dans le dépôt.
-3. **CD VPS** : le **`gate`** attend un run **`CI — Backend`** vert sur le commit (**le client est inclus** dans ce run).
+1. **`ci-backend.yml` — CI — Backend** : **push / PR** (`vdev`, `vpreprod`, `vprod`) — jobs serveur + image **`api`**.
+2. **`ci-frontend.yml` — CI — Frontend** : déclenché par **`workflow_run`** après une exécution **réussie** de **CI — Backend** sur la même branche ; appelle **`ci-frontend-reusable.yml`** (jobs client + image **`client`**). Si le backend échoue, le workflow frontend échoue au job « Backend requis ».
+3. **CD VPS** (`deploy-vdev.yml`, etc.) : déclenché par **`workflow_run`** après un run **réussi** de **CI — Frontend** sur la branche cible (plus de **push** parallèle à la CI).
 4. **`create-promotion-pr.yml`** : secours manuel si besoin.
+
+**Contrainte GitHub** : les workflows utilisant `workflow_run` (`ci-frontend.yml`, CD) doivent exister sur la **branche par défaut** du dépôt pour être actifs.
 
 **Harbor (CI)** : secret **`HARBOR_REGISTRY_BASE`**, projets **`vdev` / `vpreprod` / `vprod`**, images **`api`** et **`client`** taguées par le SHA du commit.
 
@@ -25,9 +27,9 @@ Le projet utilise **un workflow CI principal** (`ci-backend.yml`, qui enchaîne 
 
 **Déclenchement** : `git push origin vdev`
 
-**Pipeline** : **CI — Backend** (jobs serveur puis jobs client dans le même run) ; images Docker `api` + `client` si Harbor configuré.
+**Pipeline** : **CI — Backend** → **CI — Frontend** → **CD / vdev** (chaque étape après succès de la précédente).
 
-**Résultat** : **CI — Backend** verte, puis **CD / vdev** (déploiement). Si le CD est vert → **PR brouillon** `vdev` → `vpreprod` (job final du workflow CD).
+**Résultat** : les trois workflows verts sur le même commit ; si le **CD / vdev** est vert → **PR brouillon** `vdev` → `vpreprod` (job final du workflow CD).
 
 ---
 
@@ -35,7 +37,7 @@ Le projet utilise **un workflow CI principal** (`ci-backend.yml`, qui enchaîne 
 
 **Déclenchement** : push ou merge sur `vpreprod`
 
-**Résultat** : **CI — Backend** (client inclus) puis **CD / vpreprod** ; si le CD est vert → **PR brouillon** `vpreprod` → `vprod`.
+**Résultat** : **CI — Backend** → **CI — Frontend** → **CD / vpreprod** ; si le CD est vert → **PR brouillon** `vpreprod` → `vprod`.
 
 ---
 
@@ -43,7 +45,7 @@ Le projet utilise **un workflow CI principal** (`ci-backend.yml`, qui enchaîne 
 
 **Déclenchement** : push sur `vprod`
 
-**Résultat** : **CI — Backend** (client inclus) ; **CD / vprod** ; **aucune** PR de promotion automatique (fin du flux).
+**Résultat** : **CI — Backend** → **CI — Frontend** → **CD / vprod** ; **aucune** PR de promotion automatique (fin du flux).
 
 ---
 
@@ -52,7 +54,8 @@ Le projet utilise **un workflow CI principal** (`ci-backend.yml`, qui enchaîne 
 | Fichier | Rôle |
 |--------|------|
 | `ci-backend.yml` | `server/` : lint, tests, build, image **`api`** |
-| `ci-frontend-reusable.yml` | `client/` : lint, tests, build, image **`client`** (appelé par le Backend) |
+| `ci-frontend.yml` | Déclencheur `workflow_run` → appelle **`ci-frontend-reusable.yml`** |
+| `ci-frontend-reusable.yml` | `client/` : lint, tests, build, image **`client`** |
 
 **PR de promotion** : jobs **`open-promotion-pr`** dans **`deploy-vdev.yml`** et **`deploy-vpreprod.yml`** (après **`deploy-vps`**).
 
@@ -77,7 +80,7 @@ Dans **Settings → Actions → General → Workflow permissions** :
 
 ### Branch protection
 
-Checks requis : **`CI — Backend`** (un seul workflow ; il inclut le frontend).
+Checks requis : **`CI — Backend`** et **`CI — Frontend`**.
 
 ---
 
@@ -90,7 +93,7 @@ git checkout vdev
 git pull
 git commit -am "feat: …"
 git push origin vdev
-# → CI Backend puis CI Frontend ; CD vdev ; si CD vert : PR brouillon vdev → vpreprod
+# → CI Backend → CI Frontend → CD vdev ; si CD vert : PR brouillon vdev → vpreprod
 ```
 
 ### Promotion vers `vpreprod` puis `vprod`

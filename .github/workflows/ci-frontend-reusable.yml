@@ -1,5 +1,5 @@
-# Appelé uniquement depuis « CI — Backend » (workflow_call) : pas d’appel REST, pas d’exiger main.
-name: CI — Frontend
+# Appelé uniquement depuis `ci-frontend.yml` (`workflow_call`).
+name: Reusable — CI Frontend
 
 on:
   workflow_call:
@@ -14,6 +14,9 @@ on:
         required: false
         type: string
         default: ''
+      head_branch:
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -27,6 +30,7 @@ concurrency:
 env:
   NODE_VERSION_CLIENT: "22"
   CHECKOUT_REF: ${{ inputs.commit_sha }}
+  SOURCE_BRANCH: ${{ inputs.head_branch }}
 
 jobs:
   frontend-quality:
@@ -186,7 +190,7 @@ jobs:
         if: steps.harbor.outputs.configured == 'true'
         id: harbor-project
         run: |
-          BRANCH="${{ github.ref_name }}"
+          BRANCH="${SOURCE_BRANCH}"
           case "$BRANCH" in
             vprod)
               PROJECT="vprod"
@@ -268,7 +272,7 @@ jobs:
               return;
             }
             const body =
-              '✅ **CI Frontend** validée (après **CI Backend** verte) : quality, unit, integration, functional, build.';
+              '✅ **CI Frontend** validée (workflow **CI — Backend** verte puis ce run) : quality, unit, integration, functional, build.';
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
