@@ -2,14 +2,11 @@
 
 ## Architecture globale
 
-Le projet utilise **trois pipelines visibles** dans Actions + **workflows manuels** :
+Le projet utilise **une CI monorepo** + **déploiement VPS** + **workflows manuels** :
 
-1. **`ci-backend.yml` — CI — Backend** : **push / PR** (`vdev`, `vpreprod`, `vprod`) — jobs serveur + image **`api`**.
-2. **`ci-frontend.yml` — CI — Frontend** : déclenché par **`workflow_run`** après une exécution **réussie** de **CI — Backend** sur la même branche ; appelle **`ci-frontend-reusable.yml`** (jobs client + image **`client`**). Si le backend échoue, le workflow frontend échoue au job « Backend requis ».
-3. **CD VPS** (`deploy-vdev.yml`, etc.) : déclenché par **`workflow_run`** après un run **réussi** de **CI — Frontend** sur la branche cible (plus de **push** parallèle à la CI).
-4. **`create-promotion-pr.yml`** : secours manuel si besoin.
-
-**Contrainte GitHub** : les workflows utilisant `workflow_run` (`ci-frontend.yml`, CD) doivent exister sur la **branche par défaut** du dépôt pour être actifs.
+1. **`ci.yml` — CI — Monorepo (server + client)** : seul workflow CI déclenché automatiquement sur push/PR pour **`vdev`**, **`vpreprod`**, **`vprod`**. Ordre des jobs : qualité → tests → build → package (images Docker Harbor si configuré) → commentaire sur PR.
+2. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push (ou manuel). Le **`gate`** n’attend que la CI **`event: push`**. Les PR **[Promotion]** (brouillon) sont ouvertes par le job **`4 · PR promotion`** à la fin du CD dès que **CI + CD** sont verts sur le push (y compris push direct sur `vdev` / `vpreprod`) — `.github/scripts/open-promotion-pr-after-cd.cjs`.
+3. **`create-promotion-pr.yml`** : secours manuel si besoin.
 
 **Harbor (CI)** : secret **`HARBOR_REGISTRY_BASE`**, projets **`vdev` / `vpreprod` / `vprod`**, images **`api`** et **`client`** taguées par le SHA du commit.
 
@@ -27,9 +24,9 @@ Le projet utilise **trois pipelines visibles** dans Actions + **workflows manuel
 
 **Déclenchement** : `git push origin vdev`
 
-**Pipeline** : **CI — Backend** → **CI — Frontend** → **CD / vdev** (chaque étape après succès de la précédente).
+**Pipeline** : **`CI — Monorepo`** — lint/tests complets (si scripts présents), build client, puis images Docker `api` + `client`.
 
-**Résultat** : les trois workflows verts sur le même commit ; si le **CD / vdev** est vert → **PR brouillon** `vdev` → `vpreprod` (job final du workflow CD).
+**Résultat** : CI verte, puis **CD / vdev** (déploiement). Si le CD est vert → **PR brouillon** `vdev` → `vpreprod` (job final du workflow CD, pas la CI seule).
 
 ---
 
@@ -37,7 +34,9 @@ Le projet utilise **trois pipelines visibles** dans Actions + **workflows manuel
 
 **Déclenchement** : push ou merge sur `vpreprod`
 
-**Résultat** : **CI — Backend** → **CI — Frontend** → **CD / vpreprod** ; si le CD est vert → **PR brouillon** `vpreprod` → `vprod`.
+**Pipeline** : suite qualité **allégée** (lint/tests complets surtout sur `vdev`), build + images Docker.
+
+**Résultat** : CI puis **CD / vpreprod** ; si le CD est vert → **PR brouillon** `vpreprod` → `vprod`.
 
 ---
 
@@ -45,19 +44,21 @@ Le projet utilise **trois pipelines visibles** dans Actions + **workflows manuel
 
 **Déclenchement** : push sur `vprod`
 
-**Résultat** : **CI — Backend** → **CI — Frontend** → **CD / vprod** ; **aucune** PR de promotion automatique (fin du flux).
+**Pipeline** : même logique allégée + images ; **aucune** PR de promotion automatique (fin du flux).
 
 ---
 
-## Détail des jobs CI
+## Détail des jobs CI (`ci.yml`)
 
-| Fichier | Rôle |
-|--------|------|
-| `ci-backend.yml` | `server/` : lint, tests, build, image **`api`** |
-| `ci-frontend.yml` | Déclencheur `workflow_run` → appelle **`ci-frontend-reusable.yml`** |
-| `ci-frontend-reusable.yml` | `client/` : lint, tests, build, image **`client`** |
+| Job | Rôle |
+|-----|------|
+| `server-quality` | `npm ci`, lint (`--if-present`), Jest + couverture sur `vdev` (et PR vers `vdev`) |
+| `client-quality` | `npm ci`, lint/tests/E2E si présents, build Vite |
+| `server-docker` | Build/push **`{HARBOR_REGISTRY_BASE}/{projet}/api:SHA`**, scan Harbor |
+| `client-docker` | Build/push **`…/client:SHA`** avec URLs Vite alignées CD |
+| `notify-pr` | Commentaire de synthèse sur les PR |
 
-**PR de promotion** : jobs **`open-promotion-pr`** dans **`deploy-vdev.yml`** et **`deploy-vpreprod.yml`** (après **`deploy-vps`**).
+**PR de promotion** : jobs **`promotion-pr`** dans **`deploy-vdev.yml`** et **`deploy-vpreprod.yml`** (après **`deploy-vps`**), pas dans `ci.yml`.
 
 ---
 
@@ -78,10 +79,6 @@ Dans **Settings → Actions → General → Workflow permissions** :
 - Read and write permissions
 - Allow GitHub Actions to create and approve pull requests
 
-### Branch protection
-
-Checks requis : **`CI — Backend`** et **`CI — Frontend`**.
-
 ---
 
 ## Utilisation quotidienne
@@ -93,7 +90,7 @@ git checkout vdev
 git pull
 git commit -am "feat: …"
 git push origin vdev
-# → CI Backend → CI Frontend → CD vdev ; si CD vert : PR brouillon vdev → vpreprod
+# → CI puis CD vdev ; si CD vert : PR brouillon vdev → vpreprod
 ```
 
 ### Promotion vers `vpreprod` puis `vprod`
@@ -106,7 +103,7 @@ Merger les PR sur GitHub dans l’ordre : **vdev → vpreprod**, puis **vpreprod
 
 ### Les CD ne créent pas de PR
 
-1. Vérifier que **Backend** et **Frontend** sont verts sur le commit
+1. Vérifier que les jobs CI sont verts
 2. Permissions GitHub Actions (création de PR)
 3. Workflow manuel **Create promotion PR** si besoin
 
@@ -119,7 +116,7 @@ Les jobs Docker sont ignorés ; le reste de la CI peut rester vert.
 ## Bonnes pratiques
 
 1. Éviter les pushes directs sur `vpreprod` / `vprod` si votre équipe impose les PR.
-2. Attendre les deux CI vertes avant de merger les PR de promotion.
+2. Attendre la CI verte avant de merger les PR de promotion.
 3. Revue de code pour `vpreprod` → `vprod`.
 
 ---
