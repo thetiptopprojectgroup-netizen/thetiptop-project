@@ -1,8 +1,12 @@
-# Déploiement **manuel** seul (sans refaire la CI). Le flux push → CI → CD passe par `ci-pipeline.yml`.
+# Run **séparé** « CD / vdev », après un run **réussi** de « CI — Frontend » sur `vdev` (`workflow_run`).
 # -----------------------------------------------------------------------------
 name: CD / vdev
 
 on:
+  workflow_run:
+    workflows: ["CI — Frontend"]
+    types: [completed]
+    branches: [vdev]
   workflow_dispatch:
 
 permissions:
@@ -10,12 +14,56 @@ permissions:
   actions: read
 
 concurrency:
-  group: deploy-vdev-manual
+  group: deploy-vdev
   cancel-in-progress: false
 
 jobs:
+  gate:
+    name: "0 · CI — Frontend verte (ou manuel)"
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.gate.outputs.sha }}
+      ok: ${{ steps.gate.outputs.ok }}
+    steps:
+      - name: Déterminer le SHA à déployer
+        id: gate
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const target = 'vdev';
+            if (context.eventName === 'workflow_dispatch') {
+              core.setOutput('sha', context.sha);
+              core.setOutput('ok', 'true');
+              core.info('Déploiement manuel — SHA du ref sélectionné.');
+              return;
+            }
+            if (context.eventName === 'workflow_run') {
+              const wr = context.payload.workflow_run;
+              if (wr.conclusion !== 'success') {
+                core.setOutput('sha', '');
+                core.setOutput('ok', 'false');
+                core.setFailed(`CI — Frontend non verte (${wr.conclusion}) — déploiement annulé.`);
+                return;
+              }
+              if (wr.head_branch !== target) {
+                core.setOutput('sha', '');
+                core.setOutput('ok', 'false');
+                return;
+              }
+              core.setOutput('sha', wr.head_sha);
+              core.setOutput('ok', 'true');
+              core.info(`CI — Frontend OK — SHA ${wr.head_sha.slice(0, 7)}`);
+              return;
+            }
+            core.setOutput('sha', '');
+            core.setOutput('ok', 'false');
+            core.setFailed('Événement non pris en charge.');
+
   deploy:
+    needs: [gate]
+    if: needs.gate.outputs.ok == 'true'
     uses: ./.github/workflows/deploy-vdev-reusable.yml
     secrets: inherit
     with:
-      commit_sha: ${{ github.sha }}
+      commit_sha: ${{ needs.gate.outputs.sha }}

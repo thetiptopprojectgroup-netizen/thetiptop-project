@@ -1,0 +1,20 @@
+name: CI — Backend
+
+on:
+  push:
+    branches: [vdev, vpreprod, vprod]
+  pull_request:
+    branches: [vdev, vpreprod, vprod]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ci-backend-${{ github.repository }}-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    uses: ./.github/workflows/ci-backend-reusable.yml
+    secrets: inherit

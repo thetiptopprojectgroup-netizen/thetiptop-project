@@ -1,8 +1,12 @@
-# Déploiement **manuel** seul. Push normal : `ci-pipeline.yml`.
+# Run **séparé** « CD / vprod » après « CI — Frontend » verte sur `vprod`.
 # -----------------------------------------------------------------------------
 name: CD / vprod
 
 on:
+  workflow_run:
+    workflows: ["CI — Frontend"]
+    types: [completed]
+    branches: [vprod]
   workflow_dispatch:
 
 permissions:
@@ -11,12 +15,55 @@ permissions:
   deployments: write
 
 concurrency:
-  group: deploy-vprod-manual
+  group: deploy-vprod
   cancel-in-progress: false
 
 jobs:
+  gate:
+    name: "0 · CI — Frontend verte (ou manuel)"
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.gate.outputs.sha }}
+      ok: ${{ steps.gate.outputs.ok }}
+    steps:
+      - name: Déterminer le SHA à déployer
+        id: gate
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const target = 'vprod';
+            if (context.eventName === 'workflow_dispatch') {
+              core.setOutput('sha', context.sha);
+              core.setOutput('ok', 'true');
+              core.info('Déploiement manuel.');
+              return;
+            }
+            if (context.eventName === 'workflow_run') {
+              const wr = context.payload.workflow_run;
+              if (wr.conclusion !== 'success') {
+                core.setOutput('sha', '');
+                core.setOutput('ok', 'false');
+                core.setFailed(`CI — Frontend non verte (${wr.conclusion}) — déploiement annulé.`);
+                return;
+              }
+              if (wr.head_branch !== target) {
+                core.setOutput('sha', '');
+                core.setOutput('ok', 'false');
+                return;
+              }
+              core.setOutput('sha', wr.head_sha);
+              core.setOutput('ok', 'true');
+              return;
+            }
+            core.setOutput('sha', '');
+            core.setOutput('ok', 'false');
+            core.setFailed('Événement non pris en charge.');
+
   deploy:
+    needs: [gate]
+    if: needs.gate.outputs.ok == 'true'
     uses: ./.github/workflows/deploy-vprod-reusable.yml
     secrets: inherit
     with:
-      commit_sha: ${{ github.sha }}
+      commit_sha: ${{ needs.gate.outputs.sha }}
