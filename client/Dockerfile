@@ -33,7 +33,7 @@ ENV VITE_SITE_URL=${SITE_URL}
 ARG LASTMOD_DATE=
 ENV LASTMOD_DATE=${LASTMOD_DATE}
 
-# prebuild génère public/sitemap.xml et public/robots.txt puis vite build copie public/ → dist/
+# prebuild génère public/sitemap.xml et public/robots.txt puis vite build copie public/ → dist/client/
 RUN npm run build
 
 # Development stage (docker build --target development)
@@ -48,11 +48,21 @@ COPY . .
 EXPOSE 3000
 CMD ["npm", "run", "dev", "--", "--host"]
 
-# Production image (doit être le dernier FROM : c’est l’image par défaut sans --target)
-FROM nginx:alpine AS production
+# Production : Node sert le SSR + fichiers statiques (remplace nginx pour HTML riche côté SEO)
+FROM node:20-alpine AS production
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /app/dist /usr/share/nginx/html
+WORKDIR /app
 
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+ENV NODE_ENV=production
+ENV PORT=3000
+# Proxy /api vers le service backend dans le réseau Docker Swarm / Compose
+ENV API_PROXY_TARGET=http://api:5000
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/dist ./dist
+COPY server.mjs ./
+
+EXPOSE 3000
+CMD ["node", "server.mjs"]

@@ -16,6 +16,8 @@ module.exports = {
   collectCoverageFrom: [
     'src/components/common/**/*.{js,jsx}',
     '!src/main.jsx',
+    '!src/entry-client.jsx',
+    '!src/entry-server.jsx',
     '!src/**/*.test.{js,jsx}',
     '!src/components/common/Logo.jsx',
     '!src/components/common/Modal.jsx',

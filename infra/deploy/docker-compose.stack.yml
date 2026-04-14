@@ -85,7 +85,8 @@ services:
       - traefik.http.routers.${STACK_NAME}-web.tls.certresolver=le
       - traefik.http.routers.${STACK_NAME}-web.service=${STACK_NAME}-web
       - traefik.http.routers.${STACK_NAME}-web.priority=1
-      - traefik.http.services.${STACK_NAME}-web.loadbalancer.server.port=80
+      # Client : Node (SSR + static) — voir client/server.mjs et client/Dockerfile (PORT 3000)
+      - traefik.http.services.${STACK_NAME}-web.loadbalancer.server.port=3000
 
 networks:
   internal:
