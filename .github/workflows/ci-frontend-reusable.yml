@@ -1,22 +1,19 @@
-# Lancé uniquement par CI — Backend (job « 7 · Déclencher CI Frontend ») via workflow_dispatch.
-# (workflow_run seul exige le fichier sur la branche par défaut du dépôt — souvent main.)
+# Appelé uniquement depuis « CI — Backend » (workflow_call) : pas d’appel REST, pas d’exiger main.
 name: CI — Frontend
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       commit_sha:
-        description: 'SHA du commit à tester (fourni par CI Backend)'
         required: true
         type: string
       source_event:
-        description: 'push ou pull_request'
         required: true
         type: string
       pr_number:
-        description: 'Numéro de PR (si source_event = pull_request)'
         required: false
         type: string
+        default: ''
 
 permissions:
   contents: read
@@ -25,11 +22,11 @@ permissions:
   actions: read
 
 concurrency:
-  group: ci-frontend-${{ github.event.inputs.commit_sha }}
+  group: ci-frontend-${{ inputs.commit_sha }}
 
 env:
   NODE_VERSION_CLIENT: "22"
-  CHECKOUT_REF: ${{ github.event.inputs.commit_sha }}
+  CHECKOUT_REF: ${{ inputs.commit_sha }}
 
 jobs:
   frontend-quality:
@@ -167,7 +164,7 @@ jobs:
     name: "6 · Package Client Image"
     runs-on: ubuntu-latest
     needs: [frontend-build]
-    if: github.event.inputs.source_event == 'push'
+    if: inputs.source_event == 'push'
     env:
       HARBOR_REGISTRY_BASE: ${{ secrets.HARBOR_REGISTRY_BASE }}
       HARBOR_REGISTRY: ${{ secrets.HARBOR_REGISTRY }}
@@ -210,7 +207,7 @@ jobs:
           HOST="${{ steps.harbor.outputs.host }}"
           REGISTRY="${HOST}/${PROJECT}"
           echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
-          echo "image=${REGISTRY}/client:${{ github.event.inputs.commit_sha }}" >> "$GITHUB_OUTPUT"
+          echo "image=${REGISTRY}/client:${{ inputs.commit_sha }}" >> "$GITHUB_OUTPUT"
           echo "login_host=${REGISTRY%%/*}" >> "$GITHUB_OUTPUT"
           echo "vite_api_url=$VITE_API_URL" >> "$GITHUB_OUTPUT"
           echo "site_url=$SITE_URL" >> "$GITHUB_OUTPUT"
@@ -255,16 +252,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: [frontend-build]
     if: |
-      github.event.inputs.source_event == 'pull_request' &&
+      inputs.source_event == 'pull_request' &&
       needs.frontend-build.result == 'success' &&
-      github.event.inputs.pr_number != ''
+      inputs.pr_number != ''
     steps:
       - name: Publish PR summary
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const n = '${{ github.event.inputs.pr_number }}'.trim();
+            const n = String('${{ inputs.pr_number }}').trim();
             const issue_number = parseInt(n, 10);
             if (!issue_number) {
               core.info('pr_number vide ou invalide — commentaire ignoré.');

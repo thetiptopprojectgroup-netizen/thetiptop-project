@@ -9,6 +9,8 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: write
+  issues: write
 
 concurrency:
   group: ci-backend-${{ github.repository }}-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
@@ -199,34 +201,17 @@ jobs:
           docker build -f server/Dockerfile -t "$IMAGE" server
           docker push "$IMAGE"
 
-  # Déclenche CI — Frontend sur la même branche (workflow_dispatch) : ne dépend pas de la branche par défaut GitHub.
-  trigger-frontend-ci:
-    name: "7 · Déclencher CI Frontend"
-    runs-on: ubuntu-latest
+  # Client : workflow réutilisable (pas d’API createWorkflowDispatch — évite le 404 tant que le YAML n’est pas sur la branche par défaut).
+  frontend-ci:
+    name: "7 · CI Frontend"
     needs: [backend-build, backend-package]
     if: |
       always() &&
       needs.backend-build.result == 'success' &&
       (needs.backend-package.result == 'success' || needs.backend-package.result == 'skipped')
-    permissions:
-      contents: read
-      actions: write
-    steps:
-      - name: Lancer le workflow CI — Frontend
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const pr = context.payload.pull_request?.number;
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'ci-frontend.yml',
-              ref: '${{ github.ref_name }}',
-              inputs: {
-                commit_sha: '${{ github.sha }}',
-                source_event: '${{ github.event_name }}',
-                pr_number: pr != null && pr !== undefined ? String(pr) : '',
-              },
-            });
-            core.info(`CI Frontend dispatch : ref=${{ github.ref_name }} sha=${{ github.sha }}`);
+    uses: ./.github/workflows/ci-frontend-reusable.yml
+    secrets: inherit
+    with:
+      commit_sha: ${{ github.sha }}
+      source_event: ${{ github.event_name }}
+      pr_number: ${{ github.event.pull_request && github.event.pull_request.number || '' }}

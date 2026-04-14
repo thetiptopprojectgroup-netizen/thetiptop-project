@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# CD — Branche vpreprod — push `vpreprod` + attente CI Backend + Frontend vertes, ou manuel.
+# CD — Branche vpreprod — push `vpreprod` + attente CI Backend verte (client inclus dans le run), ou manuel.
 # Secret multiligne : VPREPROD_ENV_FILE (contenu de infra/deploy/env/vpreprod.env)
 # Monitoring (partagé VPS) : MONITORING_GRAFANA_ADMIN_PASSWORD ou MONITORING_ENV_FILE / _B64
 # Logs (Kibana) : LOGGING_ELASTIC_PASSWORD ou LOGGING_ENV_FILE / _B64
@@ -26,7 +26,7 @@ env:
 
 jobs:
   gate:
-    name: "0 · CI Backend & Frontend vertes sur ce commit (ou manuel)"
+    name: "0 · CI Backend verte sur ce commit (Backend + client inclus, ou manuel)"
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
@@ -38,8 +38,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const backendName = 'CI — Backend';
-            const frontendName = 'CI — Frontend';
+            const ciName = 'CI — Backend';
             const target = 'vpreprod';
             if (context.eventName === 'workflow_dispatch') {
               core.setOutput('sha', context.sha);
@@ -54,7 +53,7 @@ jobs:
               core.setOutput('ok', 'false');
               return;
             }
-            core.info(`Attente « ${backendName} » (push) + « ${frontendName} » (workflow_dispatch) vertes pour ${sha.slice(0, 7)}…`);
+            core.info(`Attente « ${ciName} » (push, inclut le frontend) pour ${sha.slice(0, 7)}…`);
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const maxAttempts = 90;
@@ -66,61 +65,38 @@ jobs:
                 head_sha: sha,
                 per_page: 100,
               });
-              const runs = data.workflow_runs || [];
-              const backendPush = runs.filter(
-                (w) => w.name === backendName && w.head_branch === target && w.event === 'push'
+              const relevant = (data.workflow_runs || []).filter(
+                (w) => w.name === ciName && w.head_branch === target && w.event === 'push'
               );
-              const frontendWf = runs.filter(
-                (w) => w.name === frontendName && w.head_branch === target && w.event === 'workflow_dispatch'
-              );
-              if (backendPush.length === 0) {
-                core.info(`Run CI Backend (push) pas encore visible (tentative ${i + 1}/${maxAttempts})`);
+              if (relevant.length === 0) {
+                core.info(`Run CI pas encore visible (tentative ${i + 1}/${maxAttempts})`);
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
               }
-              const backendPending = backendPush.filter((w) => w.status !== 'completed');
-              if (backendPending.length > 0) {
-                core.info(`CI Backend en cours… (${i + 1}/${maxAttempts})`);
+              const pending = relevant.filter((w) => w.status !== 'completed');
+              if (pending.length > 0) {
+                core.info(`CI en cours : ${pending.map((p) => `${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`);
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
               }
-              const backendLatest = backendPush.sort(
+              const okRun = relevant.sort(
                 (a, b) => new Date(b.created_at) - new Date(a.created_at)
-              )[0];
-              if (backendLatest.conclusion !== 'success') {
+              ).find((w) => w.conclusion === 'success');
+              if (okRun) {
                 core.setOutput('sha', sha);
-                core.setOutput('ok', 'false');
-                core.setFailed(`CI Backend en échec (${backendLatest.conclusion}) — déploiement annulé.`);
+                core.setOutput('ok', 'true');
+                core.info(`CI validée : run #${okRun.id}`);
                 return;
               }
-              if (frontendWf.length === 0) {
-                core.info(`CI Frontend pas encore démarrée… (${i + 1}/${maxAttempts})`);
-                await new Promise((r) => setTimeout(r, delayMs));
-                continue;
-              }
-              const fePending = frontendWf.filter((w) => w.status !== 'completed');
-              if (fePending.length > 0) {
-                core.info(`CI Frontend en cours… (${i + 1}/${maxAttempts})`);
-                await new Promise((r) => setTimeout(r, delayMs));
-                continue;
-              }
-              const feLatest = frontendWf.sort(
-                (a, b) => new Date(b.created_at) - new Date(a.created_at)
-              )[0];
-              if (feLatest.conclusion !== 'success') {
-                core.setOutput('sha', sha);
-                core.setOutput('ok', 'false');
-                core.setFailed(`CI Frontend en échec (${feLatest.conclusion}) — déploiement annulé.`);
-                return;
-              }
+              const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
               core.setOutput('sha', sha);
-              core.setOutput('ok', 'true');
-              core.info(`CI Backend (#${backendLatest.id}) + Frontend (#${feLatest.id}) validées.`);
+              core.setOutput('ok', 'false');
+              core.setFailed(`CI en échec (${worst.conclusion}) — déploiement annulé.`);
               return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
-            core.setFailed('Timeout : CI Backend et/ou Frontend pas terminées à temps — déploiement annulé.');
+            core.setFailed('Timeout : la CI n’a pas fini à temps — déploiement annulé.');
 
   harbor-project:
     name: "1 · Harbor — projet vpreprod"
