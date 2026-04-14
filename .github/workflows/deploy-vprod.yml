@@ -56,7 +56,7 @@ jobs:
               core.setOutput('ok', 'false');
               return;
             }
-            core.info(`Attente « ${backendName} » (push) + « ${frontendName} » (workflow_run) vertes pour ${sha.slice(0, 7)}…`);
+            core.info(`Attente « ${backendName} » (push) + « ${frontendName} » (workflow_dispatch) vertes pour ${sha.slice(0, 7)}…`);
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const maxAttempts = 90;
@@ -73,7 +73,7 @@ jobs:
                 (w) => w.name === backendName && w.head_branch === target && w.event === 'push'
               );
               const frontendWf = runs.filter(
-                (w) => w.name === frontendName && w.head_branch === target && w.event === 'workflow_run'
+                (w) => w.name === frontendName && w.head_branch === target && w.event === 'workflow_dispatch'
               );
               if (backendPush.length === 0) {
                 core.info(`Run CI Backend (push) pas encore visible (tentative ${i + 1}/${maxAttempts})`);

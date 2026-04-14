@@ -198,3 +198,35 @@ jobs:
           IMAGE="${{ steps.harbor-project.outputs.image }}"
           docker build -f server/Dockerfile -t "$IMAGE" server
           docker push "$IMAGE"
+
+  # Déclenche CI — Frontend sur la même branche (workflow_dispatch) : ne dépend pas de la branche par défaut GitHub.
+  trigger-frontend-ci:
+    name: "7 · Déclencher CI Frontend"
+    runs-on: ubuntu-latest
+    needs: [backend-build, backend-package]
+    if: |
+      always() &&
+      needs.backend-build.result == 'success' &&
+      (needs.backend-package.result == 'success' || needs.backend-package.result == 'skipped')
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Lancer le workflow CI — Frontend
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request?.number;
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci-frontend.yml',
+              ref: '${{ github.ref_name }}',
+              inputs: {
+                commit_sha: '${{ github.sha }}',
+                source_event: '${{ github.event_name }}',
+                pr_number: pr != null && pr !== undefined ? String(pr) : '',
+              },
+            });
+            core.info(`CI Frontend dispatch : ref=${{ github.ref_name }} sha=${{ github.sha }}`);

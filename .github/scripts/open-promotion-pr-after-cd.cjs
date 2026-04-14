@@ -116,7 +116,7 @@ module.exports = async function openPromotionPr({ github, core, context }) {
       (w) =>
         w.name === ciFrontendName &&
         w.head_branch === headBranch &&
-        w.event === 'workflow_run' &&
+        w.event === 'workflow_dispatch' &&
         w.conclusion === 'success'
     )
     .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));

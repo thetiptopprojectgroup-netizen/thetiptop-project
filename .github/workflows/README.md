@@ -4,9 +4,9 @@
 
 Le projet utilise **deux workflows CI** (Backend puis Frontend) + **déploiement VPS** + **workflows manuels** :
 
-1. **`ci-backend.yml` — CI — Backend** : déclenché sur **push / PR** vers **`vdev`**, **`vpreprod`**, **`vprod`**. Jobs : qualité → unit → integration → functional → build → package image **`api`** (Harbor si configuré).
-2. **`ci-frontend.yml` — CI — Frontend** : déclenché **uniquement après la fin** du workflow **`CI — Backend`** (`workflow_run`, types `completed`). Si le Backend est **vert**, enchaîne : qualité → unit → integration → functional → build → package image **`client`** ; commentaire PR en fin de chaîne si PR.
-3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push (ou manuel). Le **`gate`** attend **les deux CI vertes** sur le même commit (Backend `event: push` + Frontend `event: workflow_run`). Les PR **[Promotion]** (brouillon) : job **`4 · PR promotion`** — `.github/scripts/open-promotion-pr-after-cd.cjs`.
+1. **`ci-backend.yml` — CI — Backend** : déclenché sur **push / PR** vers **`vdev`**, **`vpreprod`**, **`vprod`**. Jobs : qualité → unit → integration → functional → build → package image **`api`** (Harbor si configuré) → **`7 · Déclencher CI Frontend`** (`workflow_dispatch` de `ci-frontend.yml` sur la même branche).
+2. **`ci-frontend.yml` — CI — Frontend** : **pas** sur `push` direct ; uniquement via **`workflow_dispatch`** émis par le Backend une fois celui-ci **vert** (évite la limitation GitHub : `workflow_run` exige le fichier sur la **branche par défaut**). Jobs : qualité → … → build → image **`client`** ; commentaire PR si besoin.
+3. **CD VPS** : `deploy-vdev.yml`, etc. Le **`gate`** attend **les deux CI vertes** sur le même commit (Backend `event: push` + Frontend `event: workflow_dispatch`).
 4. **`create-promotion-pr.yml`** : secours manuel si besoin.
 
 **Harbor (CI)** : secret **`HARBOR_REGISTRY_BASE`**, projets **`vdev` / `vpreprod` / `vprod`**, images **`api`** et **`client`** taguées par le SHA du commit.
