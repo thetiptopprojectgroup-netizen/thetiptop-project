@@ -1,0 +1,280 @@
+# Déclenché uniquement après la fin du workflow « CI — Backend » (succès ou échec).
+# Les jobs client ne s’exécutent que si le Backend a réussi (job assert-backend-success).
+name: CI — Frontend
+
+on:
+  workflow_run:
+    workflows: ["CI — Backend"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+
+concurrency:
+  group: ci-frontend-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION_CLIENT: "22"
+
+jobs:
+  assert-backend-success:
+    name: "0 · Backend CI en succès (requis)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Arrêter si CI Backend en échec
+        if: github.event.workflow_run.conclusion != 'success'
+        run: |
+          echo "::error::CI Backend terminée avec « ${{ github.event.workflow_run.conclusion }} » — CI Frontend annulée."
+          exit 1
+      - name: OK — enchaîner la CI Frontend
+        run: echo "Backend vert pour ${{ github.event.workflow_run.head_sha }} — suite des jobs client."
+
+  frontend-quality:
+    name: "1 · Frontend Quality"
+    runs-on: ubuntu-latest
+    needs: [assert-backend-success]
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION_CLIENT }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+  frontend-unit:
+    name: "2 · Frontend Unit Tests"
+    runs-on: ubuntu-latest
+    needs: [frontend-quality]
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION_CLIENT }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+  frontend-integration:
+    name: "3 · Frontend Integration Tests"
+    runs-on: ubuntu-latest
+    needs: [frontend-unit]
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION_CLIENT }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+  frontend-functional:
+    name: "4 · Frontend Functional Tests"
+    runs-on: ubuntu-latest
+    needs: [frontend-integration]
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION_CLIENT }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run functional tests
+        run: npm run test:functional
+
+  frontend-build:
+    name: "5 · Frontend Build Validation"
+    runs-on: ubuntu-latest
+    needs: [frontend-functional]
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION_CLIENT }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        env:
+          VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID || secrets.VITE_GA_MEASUREMENT_ID }}
+        run: npm run build
+
+  frontend-package:
+    name: "6 · Package Client Image"
+    runs-on: ubuntu-latest
+    needs: [frontend-build]
+    if: github.event.workflow_run.event == 'push'
+    env:
+      HARBOR_REGISTRY_BASE: ${{ secrets.HARBOR_REGISTRY_BASE }}
+      HARBOR_REGISTRY: ${{ secrets.HARBOR_REGISTRY }}
+    steps:
+      - name: Harbor configuration
+        id: harbor
+        run: |
+          BASE="${HARBOR_REGISTRY_BASE:-}"
+          LEGACY="${HARBOR_REGISTRY:-}"
+          if [ -n "$BASE" ] || [ -n "$LEGACY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "host=${BASE:-$LEGACY}" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Harbor non configuré (build image ignoré)."
+          fi
+
+      - name: Harbor project metadata
+        if: steps.harbor.outputs.configured == 'true'
+        id: harbor-project
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          case "$BRANCH" in
+            vprod)
+              PROJECT="vprod"
+              VITE_API_URL="https://dsp5-archi-o22a-15m-g3.fr/api"
+              SITE_URL="https://dsp5-archi-o22a-15m-g3.fr"
+              ;;
+            vpreprod)
+              PROJECT="vpreprod"
+              VITE_API_URL="https://vpreprod.dsp5-archi-o22a-15m-g3.fr/api"
+              SITE_URL="https://vpreprod.dsp5-archi-o22a-15m-g3.fr"
+              ;;
+            vdev|*)
+              PROJECT="vdev"
+              VITE_API_URL="https://vdev.dsp5-archi-o22a-15m-g3.fr/api"
+              SITE_URL="https://vdev.dsp5-archi-o22a-15m-g3.fr"
+              ;;
+          esac
+          HOST="${{ steps.harbor.outputs.host }}"
+          REGISTRY="${HOST}/${PROJECT}"
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "image=${REGISTRY}/client:${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          echo "login_host=${REGISTRY%%/*}" >> "$GITHUB_OUTPUT"
+          echo "vite_api_url=$VITE_API_URL" >> "$GITHUB_OUTPUT"
+          echo "site_url=$SITE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.harbor.outputs.configured == 'true'
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Docker Buildx
+        if: steps.harbor.outputs.configured == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login Harbor
+        if: steps.harbor.outputs.configured == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.harbor-project.outputs.login_host }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
+
+      - name: Build and push client image
+        if: steps.harbor.outputs.configured == 'true'
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID || secrets.VITE_GA_MEASUREMENT_ID }}
+        run: |
+          IMAGE="${{ steps.harbor-project.outputs.image }}"
+          LASTMOD_DATE="$(git log -1 --format=%cs)"
+          docker build -f client/Dockerfile --target production \
+            --build-arg VITE_API_URL="${{ steps.harbor-project.outputs.vite_api_url }}" \
+            --build-arg SITE_URL="${{ steps.harbor-project.outputs.site_url }}" \
+            --build-arg LASTMOD_DATE="${LASTMOD_DATE}" \
+            --build-arg VITE_GOOGLE_CLIENT_ID="${VITE_GOOGLE_CLIENT_ID}" \
+            --build-arg VITE_GA_MEASUREMENT_ID="${VITE_GA_MEASUREMENT_ID}" \
+            -t "$IMAGE" client
+          docker push "$IMAGE"
+
+  notify-pr:
+    name: "7 · PR Feedback"
+    runs-on: ubuntu-latest
+    needs: [frontend-build]
+    if: github.event.workflow_run.event == 'pull_request' && needs.frontend-build.result == 'success'
+    steps:
+      - name: Publish PR summary
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const wr = context.payload.workflow_run;
+            const prs = wr.pull_requests || [];
+            if (prs.length === 0) {
+              core.info('Aucune PR liée au run Backend — commentaire ignoré.');
+              return;
+            }
+            const issue_number = prs[0].number;
+            const body =
+              '✅ **CI Frontend** validée (après **CI Backend** verte) : quality, unit, integration, functional, build.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body,
+            });

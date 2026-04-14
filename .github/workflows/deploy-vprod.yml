@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# CD — Branche vprod (prod) — push `vprod` + attente CI Monorepo verte, ou manuel.
+# CD — Branche vprod (prod) — push `vprod` + attente CI Backend + Frontend vertes, ou manuel.
 # L'environnement GitHub protège le job de déploiement.
 # Secret multiligne : VPROD_ENV_FILE (contenu de infra/deploy/env/vprod.env)
 # Monitoring (partagé VPS) : MONITORING_GRAFANA_ADMIN_PASSWORD ou MONITORING_ENV_FILE / _B64
@@ -28,7 +28,7 @@ env:
 
 jobs:
   gate:
-    name: "0 · CI Monorepo verte sur ce commit (ou manuel)"
+    name: "0 · CI Backend & Frontend vertes sur ce commit (ou manuel)"
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
@@ -40,7 +40,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const ciName = 'CI — Monorepo (server + client)';
+            const backendName = 'CI — Backend';
+            const frontendName = 'CI — Frontend';
             const target = 'vprod';
             if (context.eventName === 'workflow_dispatch') {
               core.setOutput('sha', context.sha);
@@ -55,7 +56,7 @@ jobs:
               core.setOutput('ok', 'false');
               return;
             }
-            core.info(`Attente CI « ${ciName} » verte pour ${sha.slice(0, 7)}…`);
+            core.info(`Attente « ${backendName} » (push) + « ${frontendName} » (workflow_run) vertes pour ${sha.slice(0, 7)}…`);
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const maxAttempts = 90;
@@ -65,42 +66,63 @@ jobs:
                 owner,
                 repo,
                 head_sha: sha,
-                per_page: 30,
+                per_page: 100,
               });
-              const relevant = (data.workflow_runs || []).filter(
-                (w) =>
-                  w.name === ciName &&
-                  w.head_branch === target &&
-                  (w.event === 'push' || w.event === 'pull_request')
+              const runs = data.workflow_runs || [];
+              const backendPush = runs.filter(
+                (w) => w.name === backendName && w.head_branch === target && w.event === 'push'
               );
-              if (relevant.length === 0) {
-                core.info(`Run CI pas encore visible (tentative ${i + 1}/${maxAttempts})`);
+              const frontendWf = runs.filter(
+                (w) => w.name === frontendName && w.head_branch === target && w.event === 'workflow_run'
+              );
+              if (backendPush.length === 0) {
+                core.info(`Run CI Backend (push) pas encore visible (tentative ${i + 1}/${maxAttempts})`);
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
               }
-              const pending = relevant.filter((w) => w.status !== 'completed');
-              if (pending.length > 0) {
-                core.info(
-                  `CI en cours : ${pending.map((p) => `${p.event}:${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`
-                );
+              const backendPending = backendPush.filter((w) => w.status !== 'completed');
+              if (backendPending.length > 0) {
+                core.info(`CI Backend en cours… (${i + 1}/${maxAttempts})`);
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
               }
-              const okRun = relevant.find((w) => w.conclusion === 'success');
-              if (okRun) {
+              const backendLatest = backendPush.sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at)
+              )[0];
+              if (backendLatest.conclusion !== 'success') {
                 core.setOutput('sha', sha);
-                core.setOutput('ok', 'true');
+                core.setOutput('ok', 'false');
+                core.setFailed(`CI Backend en échec (${backendLatest.conclusion}) — déploiement annulé.`);
                 return;
               }
-              const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
+              if (frontendWf.length === 0) {
+                core.info(`CI Frontend pas encore démarrée… (${i + 1}/${maxAttempts})`);
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
+              }
+              const fePending = frontendWf.filter((w) => w.status !== 'completed');
+              if (fePending.length > 0) {
+                core.info(`CI Frontend en cours… (${i + 1}/${maxAttempts})`);
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
+              }
+              const feLatest = frontendWf.sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at)
+              )[0];
+              if (feLatest.conclusion !== 'success') {
+                core.setOutput('sha', sha);
+                core.setOutput('ok', 'false');
+                core.setFailed(`CI Frontend en échec (${feLatest.conclusion}) — déploiement annulé.`);
+                return;
+              }
               core.setOutput('sha', sha);
-              core.setOutput('ok', 'false');
-              core.setFailed(`CI Monorepo en échec (${worst.conclusion}) — déploiement annulé.`);
+              core.setOutput('ok', 'true');
+              core.info(`CI Backend (#${backendLatest.id}) + Frontend (#${feLatest.id}) validées.`);
               return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
-            core.setFailed('Timeout : la CI Monorepo n’a pas fini à temps — déploiement annulé.');
+            core.setFailed('Timeout : CI Backend et/ou Frontend pas terminées à temps — déploiement annulé.');
 
   harbor-project:
     name: "1 · Harbor — projet vprod"
