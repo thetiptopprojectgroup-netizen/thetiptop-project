@@ -1,0 +1,66 @@
+# Un seul run GitHub Actions : enchaînement strict **Backend → Frontend → CD** via `needs`
+# sur les jobs `workflow_call`. Le graphe affiche trois blocs nommés « CI — Backend », « CI — Frontend », « CD / … ».
+# (Les `needs` ne peuvent pas relier plusieurs *fichiers* workflow entre eux — seulement des jobs du même fichier.)
+# -----------------------------------------------------------------------------
+name: CI — Pipeline (backend → frontend → CD)
+
+on:
+  push:
+    branches: [vdev, vpreprod, vprod]
+  pull_request:
+    branches: [vdev, vpreprod, vprod]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+  issues: write
+  deployments: write
+
+concurrency:
+  group: pipeline-${{ github.repository }}-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  ci-backend:
+    name: CI — Backend
+    uses: ./.github/workflows/ci-backend-reusable.yml
+    secrets: inherit
+
+  ci-frontend:
+    name: CI — Frontend
+    needs: [ci-backend]
+    uses: ./.github/workflows/ci-frontend-reusable.yml
+    secrets: inherit
+    with:
+      commit_sha: ${{ github.sha }}
+      source_event: ${{ github.event_name }}
+      pr_number: ${{ github.event_name == 'pull_request' && format('{0}', github.event.pull_request.number) || '' }}
+      head_branch: ${{ github.ref_name }}
+
+  cd-vdev:
+    name: CD / vdev
+    needs: [ci-frontend]
+    if: github.event_name == 'push' && github.ref_name == 'vdev'
+    uses: ./.github/workflows/deploy-vdev-reusable.yml
+    secrets: inherit
+    with:
+      commit_sha: ${{ github.sha }}
+
+  cd-vpreprod:
+    name: CD / vpreprod
+    needs: [ci-frontend]
+    if: github.event_name == 'push' && github.ref_name == 'vpreprod'
+    uses: ./.github/workflows/deploy-vpreprod-reusable.yml
+    secrets: inherit
+    with:
+      commit_sha: ${{ github.sha }}
+
+  cd-vprod:
+    name: CD / vprod
+    needs: [ci-frontend]
+    if: github.event_name == 'push' && github.ref_name == 'vprod'
+    uses: ./.github/workflows/deploy-vprod-reusable.yml
+    secrets: inherit
+    with:
+      commit_sha: ${{ github.sha }}

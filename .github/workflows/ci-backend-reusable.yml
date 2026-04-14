@@ -1,18 +1,12 @@
-name: CI — Backend
+# Jobs backend — appelés uniquement via `workflow_call` (chaînage `needs` dans `ci-pipeline.yml`).
+name: Reusable — CI Backend
 
 on:
-  push:
-    branches: [vdev, vpreprod, vprod]
-  pull_request:
-    branches: [vdev, vpreprod, vprod]
+  workflow_call:
 
 permissions:
   contents: read
   actions: read
-
-concurrency:
-  group: ci-backend-${{ github.repository }}-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
-  cancel-in-progress: true
 
 env:
   NODE_VERSION_SERVER: "20"

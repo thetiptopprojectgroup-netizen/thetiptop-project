@@ -50,12 +50,20 @@ module.exports = async function openPromotionPr({ github, core, context }) {
     cdLabel = 'CD / vpreprod';
   }
 
-  const cdRequired = [
-    '0 · CI Backend + CI Frontend vertes sur ce commit (ou manuel)',
-    harborName,
-    '2 · Registry — build & push images',
-    '3 · VPS — rsync & docker compose',
-  ];
+  const singlePipeline = process.env.SINGLE_PIPELINE === 'true';
+
+  const cdRequired = singlePipeline
+    ? [
+        harborName,
+        '2 · Registry — build & push images',
+        '3 · VPS — rsync & docker compose',
+      ]
+    : [
+        '0 · CI Backend + CI Frontend vertes sur ce commit (ou manuel)',
+        harborName,
+        '2 · Registry — build & push images',
+        '3 · VPS — rsync & docker compose',
+      ];
 
   async function fetchAllRunJobs(runId) {
     const jobs = [];
@@ -96,55 +104,59 @@ module.exports = async function openPromotionPr({ github, core, context }) {
     return true;
   }
 
-  const { data: runsPayload } = await github.rest.actions.listWorkflowRunsForRepo({
-    owner,
-    repo,
-    head_sha: shaFull,
-    per_page: 50,
-  });
-  const ciSuccessRuns = (runsPayload.workflow_runs || [])
-    .filter(
-      (w) =>
-        w.name === ciName &&
-        w.head_branch === headBranch &&
-        w.event === 'push' &&
-        w.conclusion === 'success'
-    )
-    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-  if (ciSuccessRuns.length === 0) {
-    core.setFailed(
-      `Aucun run « ${ciName} » (push/${headBranch}) en succès pour ${shaFull.slice(0, 7)}.`
-    );
-    return;
-  }
-  const ciRun = ciSuccessRuns[0];
-  core.info(`CI Backend : #${ciRun.id} (${ciRun.html_url})`);
-  const ciJobs = await fetchAllRunJobs(ciRun.id);
-  if (!assertJobsOk(ciJobs, 'CI — Backend')) return;
+  if (!singlePipeline) {
+    const { data: runsPayload } = await github.rest.actions.listWorkflowRunsForRepo({
+      owner,
+      repo,
+      head_sha: shaFull,
+      per_page: 50,
+    });
+    const ciSuccessRuns = (runsPayload.workflow_runs || [])
+      .filter(
+        (w) =>
+          w.name === ciName &&
+          w.head_branch === headBranch &&
+          w.event === 'push' &&
+          w.conclusion === 'success'
+      )
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    if (ciSuccessRuns.length === 0) {
+      core.setFailed(
+        `Aucun run « ${ciName} » (push/${headBranch}) en succès pour ${shaFull.slice(0, 7)}.`
+      );
+      return;
+    }
+    const ciRun = ciSuccessRuns[0];
+    core.info(`CI Backend : #${ciRun.id} (${ciRun.html_url})`);
+    const ciJobs = await fetchAllRunJobs(ciRun.id);
+    if (!assertJobsOk(ciJobs, 'CI — Backend')) return;
 
-  const ciFrontSuccessRuns = (runsPayload.workflow_runs || [])
-    .filter(
-      (w) =>
-        w.name === ciFrontendName &&
-        w.head_branch === headBranch &&
-        w.head_sha === shaFull &&
-        w.conclusion === 'success'
-    )
-    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-  if (ciFrontSuccessRuns.length === 0) {
-    core.setFailed(
-      `Aucun run « ${ciFrontendName} » en succès pour ${shaFull.slice(0, 7)} sur ${headBranch}.`
-    );
-    return;
+    const ciFrontSuccessRuns = (runsPayload.workflow_runs || [])
+      .filter(
+        (w) =>
+          w.name === ciFrontendName &&
+          w.head_branch === headBranch &&
+          w.head_sha === shaFull &&
+          w.conclusion === 'success'
+      )
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    if (ciFrontSuccessRuns.length === 0) {
+      core.setFailed(
+        `Aucun run « ${ciFrontendName} » en succès pour ${shaFull.slice(0, 7)} sur ${headBranch}.`
+      );
+      return;
+    }
+    const feRun = ciFrontSuccessRuns[0];
+    core.info(`CI Frontend : #${feRun.id} (${feRun.html_url})`);
+    const feJobs = await fetchAllRunJobs(feRun.id);
+    if (!assertJobsOk(feJobs, 'CI — Frontend')) return;
+  } else {
+    core.info('Pipeline unique (`needs`) : pas de vérification de runs CI séparés.');
   }
-  const feRun = ciFrontSuccessRuns[0];
-  core.info(`CI Frontend : #${feRun.id} (${feRun.html_url})`);
-  const feJobs = await fetchAllRunJobs(feRun.id);
-  if (!assertJobsOk(feJobs, 'CI — Frontend')) return;
 
   const cdJobs = await fetchAllRunJobs(cdRunId);
   for (const name of cdRequired) {
-    const j = cdJobs.find((x) => x.name === name);
+    const j = cdJobs.find((x) => x.name === name || x.name.endsWith(name));
     if (!j) {
       core.setFailed(`Job CD introuvable : « ${name} »`);
       return;
