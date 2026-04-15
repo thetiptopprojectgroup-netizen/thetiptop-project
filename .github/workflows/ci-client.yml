@@ -18,12 +18,13 @@ concurrency:
 
 env:
   NODE_VERSION_CLIENT: "22"
+  CLIENT_LOCKFILE_PATH: client/package-lock.json
 
 jobs:
   # Le pipeline client ne démarre (lint/tests/build) qu’après succès de CI — Server sur le même commit.
   await-backend-ci:
     name: "0 · Attente CI — Server (succès)"
-    runs-on: ubuntu-latest
+    runs-on: &ubuntu-runner ubuntu-latest
     steps:
       - name: Attendre la fin du workflow backend
         uses: actions/github-script@v8
@@ -83,9 +84,9 @@ jobs:
 
   client-dependencies:
     name: "1 · Client — Install dependencies"
-    runs-on: ubuntu-latest
+    runs-on: *ubuntu-runner
     needs: [await-backend-ci]
-    defaults:
+    defaults: &client-defaults
       run:
         working-directory: client
     steps:
@@ -103,19 +104,21 @@ jobs:
               - 'client/package.json'
               - 'client/package-lock.json'
 
-      - name: Cache client/node_modules
+      - &client-cache-node-modules
+        name: Cache client/node_modules
         id: cache-client-modules
         uses: actions/cache@v4
         with:
           path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+          key: ${{ runner.os }}-client-node-${{ hashFiles(env.CLIENT_LOCKFILE_PATH) }}
 
-      - name: Setup Node.js
+      - &client-setup-node
+        name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION_CLIENT }}
           cache: npm
-          cache-dependency-path: client/package-lock.json
+          cache-dependency-path: ${{ env.CLIENT_LOCKFILE_PATH }}
 
       - name: Install dependencies (npm ci)
         if: |
@@ -125,28 +128,17 @@ jobs:
 
   frontend-quality:
     name: "2 · Frontend Quality"
-    runs-on: ubuntu-latest
+    runs-on: *ubuntu-runner
     needs: [client-dependencies]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
+      - &client-checkout
+        name: Checkout
         uses: actions/checkout@v5
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
       - name: Lint
         run: npm run lint --if-present
@@ -156,112 +148,60 @@ jobs:
 
   frontend-unit:
     name: "3 · Frontend Unit Tests"
-    runs-on: ubuntu-latest
+    runs-on: *ubuntu-runner
     needs: [frontend-quality]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - *client-checkout
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
       - name: Run unit tests (10 cœur + composants)
         run: npm run test:unit && npm run test:unit:components
 
   frontend-integration:
     name: "4 · Frontend Integration Tests"
-    runs-on: ubuntu-latest
+    runs-on: *ubuntu-runner
     needs: [frontend-unit]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - *client-checkout
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
       - name: Run integration tests (15)
         run: npm run test:integration
 
   frontend-functional:
     name: "5 · Frontend Functional Tests (Jest)"
-    runs-on: ubuntu-latest
+    runs-on: *ubuntu-runner
     needs: [frontend-integration]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - *client-checkout
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
       - name: Run functional tests (15)
         run: npm run test:functional
 
   frontend-e2e:
     name: "6 · E2E (Playwright)"
-    runs-on: ubuntu-latest
+    runs-on: *ubuntu-runner
     needs: [frontend-functional]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - *client-checkout
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
       - name: Install Playwright (Chromium)
         run: npx playwright install --with-deps chromium
@@ -273,28 +213,15 @@ jobs:
 
   frontend-build:
     name: "7 · Frontend Build Validation"
-    runs-on: ubuntu-latest
+    runs-on: *ubuntu-runner
     needs: [frontend-e2e]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - *client-checkout
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
       - name: Build frontend
         env:
@@ -303,7 +230,7 @@ jobs:
 
   frontend-package:
     name: "8 · Package Client Image"
-    runs-on: ubuntu-latest
+    runs-on: *ubuntu-runner
     needs: [frontend-build]
     if: github.event_name == 'push'
     env:
@@ -324,7 +251,7 @@ jobs:
           fi
 
       - name: Harbor project metadata
-        if: steps.harbor.outputs.configured == 'true'
+        if: &harbor-enabled steps.harbor.outputs.configured == 'true'
         id: harbor-project
         run: |
           BRANCH="${{ github.ref_name }}"
@@ -354,15 +281,15 @@ jobs:
           echo "site_url=$SITE_URL" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
-        if: steps.harbor.outputs.configured == 'true'
+        if: *harbor-enabled
         uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
-        if: steps.harbor.outputs.configured == 'true'
+        if: *harbor-enabled
         uses: docker/setup-buildx-action@v3
 
       - name: Login Harbor
-        if: steps.harbor.outputs.configured == 'true'
+        if: *harbor-enabled
         uses: docker/login-action@v3
         with:
           registry: ${{ steps.harbor-project.outputs.login_host }}
@@ -370,7 +297,7 @@ jobs:
           password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Build and push client image
-        if: steps.harbor.outputs.configured == 'true'
+        if: *harbor-enabled
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID || secrets.VITE_GA_MEASUREMENT_ID }}
@@ -388,7 +315,7 @@ jobs:
 
   notify-pr:
     name: "9 · PR Feedback (frontend)"
-    runs-on: ubuntu-latest
+    runs-on: *ubuntu-runner
     needs:
       - await-backend-ci
       - client-dependencies
