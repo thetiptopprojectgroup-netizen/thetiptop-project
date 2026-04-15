@@ -10,7 +10,8 @@ module.exports = async function openPromotionPr({ github, core, context }) {
   const shaFull = process.env.COMMIT_FULL || '';
   const cdRunId = parseInt(process.env.CD_RUN_ID || '0', 10);
   const cdHtmlUrl = process.env.CD_HTML_URL || '';
-  const ciWorkflowNames = ['CI — Server', 'CI — Client'];
+  /** Le workflow client ne se termine en succès qu’après le backend + tout le pipeline front. */
+  const ciWorkflowNames = ['CI — Client'];
 
   if (mode !== 'vdev' && mode !== 'vpreprod') {
     core.setFailed(`PROMOTION_MODE invalide : ${mode}`);
@@ -50,7 +51,7 @@ module.exports = async function openPromotionPr({ github, core, context }) {
   }
 
   const cdRequired = [
-    '0 · CI Server & Client vertes sur ce commit (ou manuel)',
+    '0 · CI — Client verte sur ce commit (ou manuel)',
     harborName,
     '2 · Registry — build & push images',
     '3 · VPS — rsync & docker compose',

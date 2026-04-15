@@ -20,9 +20,71 @@ env:
   NODE_VERSION_CLIENT: "22"
 
 jobs:
+  # Le pipeline client ne démarre (lint/tests/build) qu’après succès de CI — Server sur le même commit.
+  await-backend-ci:
+    name: "0 · Attente CI — Server (succès)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Attendre la fin du workflow backend
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headSha = context.payload.pull_request?.head?.sha || context.sha;
+            const evt = context.eventName;
+            const maxAttempts = 90;
+            const delayMs = 10000;
+            core.info(
+              `Attente de « CI — Server » (${evt}) verte pour ${headSha.slice(0, 7)}…`
+            );
+            for (let i = 0; i < maxAttempts; i++) {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                head_sha: headSha,
+                per_page: 30,
+              });
+              const subset = (data.workflow_runs || []).filter(
+                (w) => w.name === 'CI — Server' && w.event === evt
+              );
+              if (subset.length === 0) {
+                core.info(
+                  `Aucun run « CI — Server » encore (tentative ${i + 1}/${maxAttempts})…`
+                );
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
+              }
+              const latest = subset.sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at)
+              )[0];
+              if (latest.status !== 'completed') {
+                core.info(
+                  `CI — Server : ${latest.status} (#${latest.id}) — tentative ${i + 1}/${maxAttempts}`
+                );
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
+              }
+              if (latest.conclusion === 'success') {
+                core.info(
+                  `CI — Server OK (#${latest.id}) — démarrage du pipeline frontend.`
+                );
+                return;
+              }
+              core.setFailed(
+                `CI — Server terminée en « ${latest.conclusion} » — pipeline frontend annulé.`
+              );
+              return;
+            }
+            core.setFailed(
+              'Timeout : CI — Server pas verte à temps — pipeline frontend annulé.'
+            );
+
   frontend-quality:
     name: "1 · Frontend Quality"
     runs-on: ubuntu-latest
+    needs: [await-backend-ci]
     defaults:
       run:
         working-directory: client
@@ -230,6 +292,7 @@ jobs:
     name: "7 · PR Feedback (frontend)"
     runs-on: ubuntu-latest
     needs:
+      - await-backend-ci
       - frontend-quality
       - frontend-unit
       - frontend-integration
@@ -243,16 +306,17 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const failures = Object.entries({
+              await_backend: '${{ needs.await-backend-ci.result }}',
               frontend_quality: '${{ needs.frontend-quality.result }}',
               frontend_unit: '${{ needs.frontend-unit.result }}',
               frontend_integration: '${{ needs.frontend-integration.result }}',
               frontend_functional: '${{ needs.frontend-functional.result }}',
               frontend_build: '${{ needs.frontend-build.result }}',
-            }).filter(([_, result]) => result !== 'success');
+            }).filter(([_, result]) => result !== 'success' && result !== 'skipped');
             const ok = failures.length === 0;
             const body = ok
-              ? '✅ **CI Client** : qualité, tests (unit / intégration / fonctionnels), build frontend OK.'
-              : `❌ **CI Client** en échec sur : ${failures.map(([name]) => `\`${name}\``).join(', ')}.`;
+              ? '✅ **CI Client** : backend déjà vert, puis qualité / tests / build frontend OK.'
+              : `❌ **CI Client** en échec ou bloquée sur : ${failures.map(([name]) => `\`${name}\``).join(', ')}.`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

@@ -1,8 +1,8 @@
 # -----------------------------------------------------------------------------
 # CD — Branche vdev : Harbor → images → VPS
-# Déclenchement : **push** sur `vdev` puis attente dans le job `gate` que les workflows
-# **CI — Server** et **CI — Client** soient **terminés avec succès** sur le même commit
-# (évite de déployer si les tests échouent).
+# Déclenchement : **push** sur `vdev` puis attente dans le job `gate` que **CI — Client** soit
+# **terminée avec succès** sur le même commit (le client n’atteint la fin qu’après le backend,
+# puis lint/tests/build + image). Évite de déployer si une des deux CI échoue.
 # `workflow_dispatch` : déploiement manuel. (On n’utilise pas `workflow_run` seul : il exige
 # que ce fichier soit sur la **branche par défaut** GitHub, sinon le CD ne part jamais.)
 # Secrets : HARBOR_REGISTRY_BASE, HARBOR_ADMIN_PASSWORD, HARBOR_USERNAME/PASSWORD,
@@ -36,7 +36,7 @@ env:
 
 jobs:
   gate:
-    name: "0 · CI Server & Client vertes sur ce commit (ou manuel)"
+    name: "0 · CI — Client verte sur ce commit (ou manuel)"
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
@@ -48,7 +48,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const ciNames = ['CI — Server', 'CI — Client'];
+            const ciName = 'CI — Client';
             const target = 'vdev';
             if (context.eventName === 'workflow_dispatch') {
               core.setOutput('sha', context.sha);
@@ -64,7 +64,7 @@ jobs:
               return;
             }
             core.info(
-              `Attente ${ciNames.join(' + ')} (event=push) verts pour ${sha.slice(0, 7)}…`
+              `Attente « ${ciName} » (push) verte pour ${sha.slice(0, 7)} — le backend est déjà requis avant le client…`
             );
             const owner = context.repo.owner;
             const repo = context.repo.repo;
@@ -78,50 +78,40 @@ jobs:
                 head_sha: sha,
                 per_page: 50,
               });
-              const all = data.workflow_runs || [];
-              let allReady = true;
-              const lines = [];
-              for (const name of ciNames) {
-                const subset = all.filter(
-                  (w) => w.name === name && w.head_branch === target && eventOk(w.event)
-                );
-                if (subset.length === 0) {
-                  lines.push(`${name} : aucun run push encore`);
-                  allReady = false;
-                  continue;
-                }
-                const latest = subset.sort(
-                  (a, b) => new Date(b.created_at) - new Date(a.created_at)
-                )[0];
-                if (latest.status !== 'completed') {
-                  lines.push(`${name} : ${latest.status}`);
-                  allReady = false;
-                } else if (latest.conclusion === 'success') {
-                  lines.push(`${name} : OK (#${latest.id})`);
-                } else {
-                  core.setOutput('sha', sha);
-                  core.setOutput('ok', 'false');
-                  core.setFailed(
-                    `${name} en échec (${latest.conclusion}) — déploiement annulé.`
-                  );
-                  return;
-                }
+              const subset = (data.workflow_runs || []).filter(
+                (w) => w.name === ciName && w.head_branch === target && eventOk(w.event)
+              );
+              if (subset.length === 0) {
+                core.info(`Run « ${ciName} » push pas encore visible (tentative ${i + 1}/${maxAttempts})`);
+                await new Promise((r) => setTimeout(r, delayMs));
+                continue;
               }
-              if (!allReady) {
+              const latest = subset.sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at)
+              )[0];
+              if (latest.status !== 'completed') {
                 core.info(
-                  `CI en attente (tentative ${i + 1}/${maxAttempts}) : ${lines.join(' | ')}`
+                  `${ciName} : ${latest.status} (#${latest.id}) — tentative ${i + 1}/${maxAttempts}`
                 );
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
               }
+              if (latest.conclusion === 'success') {
+                core.setOutput('sha', sha);
+                core.setOutput('ok', 'true');
+                core.info(`${ciName} validée : run #${latest.id}`);
+                return;
+              }
               core.setOutput('sha', sha);
-              core.setOutput('ok', 'true');
-              core.info(`CI Server + Client validées : ${lines.join(' | ')}`);
+              core.setOutput('ok', 'false');
+              core.setFailed(
+                `${ciName} en échec (${latest.conclusion}) — déploiement annulé.`
+              );
               return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
-            core.setFailed('Timeout : CI Server ou Client (push) pas prêtes à temps — déploiement annulé.');
+            core.setFailed(`Timeout : « ${ciName} » (push) pas verte à temps — déploiement annulé.`);
 
   # ---------------------------------------------------------------------------
   # Stage 1 — Projet Harbor (API admin, idempotent)

@@ -6,7 +6,7 @@ Le projet utilise **deux workflows CI** (backend / frontend) + **déploiement VP
 
 1. **`ci-server.yml` — CI — Server** : API Node (`server/`). Push/PR sur **`vdev`**, **`vpreprod`**, **`vprod`**. Jobs : qualité → tests → build → image Docker **`api`** (Harbor si configuré) → commentaire PR.
 2. **`ci-client.yml` — CI — Client** : SPA React (`client/`). Mêmes branches. Jobs : qualité → tests → build Vite (+ SSR) → image **`client`** → commentaire PR.
-3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push (ou manuel). Le **`gate`** attend que **les deux CI** (`event: push` sur vdev/vpreprod ; push ou PR sur vprod selon le fichier) soient vertes. Les PR **[Promotion]** (brouillon) sont ouvertes par le job **`4 · PR promotion`** à la fin du CD dès que **CI + CD** sont verts — `.github/scripts/open-promotion-pr-after-cd.cjs`.
+3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push (ou manuel). Le **`gate`** attend uniquement **`CI — Client`** verte sur le commit : le workflow client commence par une **attente active** jusqu’à succès de **`CI — Server`**, puis enchaîne lint/tests/build ; quand **`CI — Client`** est entièrement verte, le CD peut démarrer (le backend a déjà été validé). Les PR **[Promotion]** (brouillon) sont ouvertes par le job **`4 · PR promotion`** à la fin du CD dès que **CI + CD** sont verts — `.github/scripts/open-promotion-pr-after-cd.cjs`.
 4. **`create-promotion-pr.yml`** : secours manuel si besoin.
 
 **Harbor (CI)** : secret **`HARBOR_REGISTRY_BASE`**, projets **`vdev` / `vpreprod` / `vprod`**, images **`api`** et **`client`** taguées par le SHA du commit.
