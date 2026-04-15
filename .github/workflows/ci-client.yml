@@ -177,13 +177,45 @@ jobs:
         if: steps.cache-client-modules.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Run integration tests
+      - name: Run integration tests (15)
         run: npm run test:integration
 
   frontend-functional:
-    name: "4 · Frontend Functional Tests"
+    name: "4 · Frontend Functional Tests (Jest)"
     runs-on: ubuntu-latest
     needs: [frontend-integration]
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Cache client/node_modules
+        id: cache-client-modules
+        uses: actions/cache@v4
+        with:
+          path: client/node_modules
+          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION_CLIENT }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        if: steps.cache-client-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Run functional tests (15)
+        run: npm run test:functional
+
+  frontend-e2e:
+    name: "5 · E2E (Playwright)"
+    runs-on: ubuntu-latest
+    needs: [frontend-functional]
     defaults:
       run:
         working-directory: client
@@ -212,15 +244,15 @@ jobs:
       - name: Install Playwright (Chromium)
         run: npx playwright install --with-deps chromium
 
-      - name: Run functional tests (E2E Playwright)
-        run: npm run test:functional
+      - name: Run E2E tests (7)
+        run: npm run test:e2e
         env:
           CI: true
 
   frontend-build:
-    name: "5 · Frontend Build Validation"
+    name: "6 · Frontend Build Validation"
     runs-on: ubuntu-latest
-    needs: [frontend-functional]
+    needs: [frontend-e2e]
     defaults:
       run:
         working-directory: client
@@ -252,7 +284,7 @@ jobs:
         run: npm run build
 
   frontend-package:
-    name: "6 · Package Client Image"
+    name: "7 · Package Client Image"
     runs-on: ubuntu-latest
     needs: [frontend-build]
     if: github.event_name == 'push'
@@ -337,7 +369,7 @@ jobs:
           docker push "$IMAGE"
 
   notify-pr:
-    name: "7 · PR Feedback (frontend)"
+    name: "8 · PR Feedback (frontend)"
     runs-on: ubuntu-latest
     needs:
       - await-backend-ci
@@ -345,6 +377,7 @@ jobs:
       - frontend-unit
       - frontend-integration
       - frontend-functional
+      - frontend-e2e
       - frontend-build
     if: always() && github.event_name == 'pull_request'
     steps:
@@ -359,6 +392,7 @@ jobs:
               frontend_unit: '${{ needs.frontend-unit.result }}',
               frontend_integration: '${{ needs.frontend-integration.result }}',
               frontend_functional: '${{ needs.frontend-functional.result }}',
+              frontend_e2e: '${{ needs.frontend-e2e.result }}',
               frontend_build: '${{ needs.frontend-build.result }}',
             }).filter(([_, result]) => result !== 'success' && result !== 'skipped');
             const ok = failures.length === 0;

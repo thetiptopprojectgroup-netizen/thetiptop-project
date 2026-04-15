@@ -115,7 +115,7 @@ jobs:
         if: steps.cache-server-modules.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Run integration tests
+      - name: Run integration tests (15)
         run: npm run test:integration
 
   backend-functional:
@@ -147,7 +147,7 @@ jobs:
         if: steps.cache-server-modules.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Run functional tests
+      - name: Run functional tests (15)
         run: npm run test:functional
 
   backend-build:
