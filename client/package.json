@@ -11,11 +11,14 @@
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "jest --config jest.config.cjs --passWithNoTests",
-    "test:unit": "jest --config jest.config.cjs --passWithNoTests --coverage=false",
-    "test:integration": "echo \"No client integration tests yet\"",
-    "test:functional": "echo \"No client functional tests yet\"",
+    "test:quality": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathPatterns=src/test/quality",
+    "test:unit": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathPatterns=src/test/unit",
+    "test:unit:components": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathIgnorePatterns=/src/test/integration/ --testPathIgnorePatterns=/src/test/quality/ --testPathIgnorePatterns=/src/test/unit/ --testPathIgnorePatterns=/src/test/functional/",
+    "test:integration": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathPatterns=src/test/integration",
+    "test:functional": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathPatterns=src/test/functional",
+    "test:e2e": "playwright test",
     "test:coverage": "jest --config jest.config.cjs --coverage --passWithNoTests",
-    "test:ci": "npm run test:unit && npm run test:integration && npm run test:functional"
+    "test:ci": "npm run test:quality && npm run test:unit && npm run test:unit:components && npm run test:integration && npm run test:functional && npm run test:e2e"
   },
   "dependencies": {
     "axios": "^1.6.2",
@@ -37,6 +40,7 @@
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.28.3",
     "@babel/preset-react": "^7.27.1",
+    "@playwright/test": "^1.59.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@types/react": "^18.2.43",
