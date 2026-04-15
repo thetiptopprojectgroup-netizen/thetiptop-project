@@ -7,8 +7,203 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total[5m]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Débit HTTP global (req/s)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "id": 12,
+      "targets": [
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"301\"}[5m])) * 60",
+          "refId": "A"
+        }
+      ],
+      "title": "301 (requêtes/min)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "id": 13,
+      "targets": [
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"502\"}[5m])) * 60",
+          "refId": "A"
+        }
+      ],
+      "title": "502 (requêtes/min)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "id": 14,
+      "targets": [
+        {
+          "expr": "thetiptop_http_requests_in_flight",
+          "refId": "A"
+        }
+      ],
+      "title": "Requêtes en cours (in-flight)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 4 },
+      "id": 21,
+      "targets": [
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"200\"}[5m])) * 60",
+          "refId": "A"
+        }
+      ],
+      "title": "200 (requêtes/min)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 4 },
+      "id": 22,
+      "targets": [
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"401\"}[5m])) * 60",
+          "refId": "A"
+        }
+      ],
+      "title": "401 (requêtes/min)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 4 },
+      "id": 23,
+      "targets": [
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"404\"}[5m])) * 60",
+          "refId": "A"
+        }
+      ],
+      "title": "404 (requêtes/min)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 4 },
+      "id": 24,
+      "targets": [
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"429\"}[5m])) * 60",
+          "refId": "A"
+        }
+      ],
+      "title": "429 (requêtes/min)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 4 },
+      "id": 25,
+      "targets": [
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"500\"}[5m])) * 60",
+          "refId": "A"
+        }
+      ],
+      "title": "500 (requêtes/min)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 15,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (status_code) (rate(thetiptop_http_requests_total[5m]))",
+          "legendFormat": "HTTP {{status_code}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Débit par code HTTP",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 16,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (route, method) (rate(thetiptop_http_requests_total[5m]))",
+          "legendFormat": "{{method}} {{route}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Charge par route (surcharge des requêtes)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 17,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, route, method) (rate(thetiptop_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 {{method}} {{route}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Latence p95 par route",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 18,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (container_label_com_docker_compose_project) (rate(container_network_receive_bytes_total{container_label_com_docker_compose_project=~\"thetiptop-.*\"}[5m]))",
+          "legendFormat": "RX {{container_label_com_docker_compose_project}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (container_label_com_docker_compose_project) (rate(container_network_transmit_bytes_total{container_label_com_docker_compose_project=~\"thetiptop-.*\"}[5m]))",
+          "legendFormat": "TX {{container_label_com_docker_compose_project}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Bande passante par stack (RX/TX)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
       "id": 1,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -24,7 +219,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
       "id": 2,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -40,7 +235,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
       "id": 3,
       "targets": [
         {
@@ -51,6 +246,38 @@
       ],
       "title": "CPU machine (node-exporter)",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "id": 19,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "(sum by (env) (rate(process_cpu_user_seconds_total{service=\"thetiptop-api\"}[5m]) + rate(process_cpu_system_seconds_total{service=\"thetiptop-api\"}[5m]))) * 100",
+          "legendFormat": "API {{env}}",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU API Node.js par environnement",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+      "id": 20,
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\".*(api|client).*\"}[5m])) * 100",
+          "legendFormat": "{{name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU par conteneur applicatif (api/client)",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
@@ -60,5 +287,5 @@
   "timezone": "browser",
   "title": "TheTipTop — stacks vdev / vpreprod / vprod",
   "uid": "thetiptop-overview",
-  "version": 1
+  "version": 4
 }
