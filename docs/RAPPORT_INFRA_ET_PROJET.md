@@ -120,7 +120,7 @@ Un **docker-compose** à la racine sert au **développement local** (et un profi
 
 | Workflow | Rôle |
 |----------|------|
-| **`ci.yml`** | Lint → unit → integration → functional → build ; jobs Harbor optionnels ; PR promotion automatique (vdev → vpreprod → vprod) si configuré. |
+| **`ci-server.yml`** / **`ci-client.yml`** | Deux pipelines (API / SPA) : lint → tests → build ; images Harbor optionnelles ; le CD attend les deux verts. PR promotion après CD si configuré. |
 | **`deploy-v*.yml`** | Déploiement par branche ; environnements GitHub ; secrets `*_ENV_FILE`. |
 | **`create-promotion-pr.yml`** | Promotion manuelle de branche si l’automatique n’a pas eu lieu. |
 
