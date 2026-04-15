@@ -262,6 +262,10 @@ Détails : **` .github/workflows/README.md`**.
 
 > Les scripts `npm` (`lint`, `test`, `build`, etc.) dans `client` et `server` sont consommés par **`ci-server.yml`** et **`ci-client.yml`** lorsqu’ils sont présents.
 
+### Tests sur `vdev` sans exécution locale obligatoire
+
+Tu n’as **pas besoin** de lancer `npm test`, Playwright ou les tests d’intégration sur ta machine pour valider un changement : dès que tu **`git push origin vdev`**, GitHub Actions exécute automatiquement **CI — Server** et **CI — Client** (lint, tests unitaires / intégration, E2E Playwright côté client, build, images Docker). Ouvre l’onglet **Actions** du dépôt et sélectionne le workflow pour voir le détail des jobs. Le déploiement **CD / vdev** (`deploy-vdev.yml`) n’enchaîne **qu’après** une **CI — Client** réussie sur le même commit — donc pas de mise en ligne sur l’environnement vdev si les tests échouent. Lancer les tests en local reste **optionnel** (debug rapide avant push).
+
 ## 🚀 Installation
 
 ### Prérequis

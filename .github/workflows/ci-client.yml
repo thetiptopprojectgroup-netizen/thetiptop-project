@@ -206,8 +206,13 @@ jobs:
         if: steps.cache-client-modules.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Run functional tests
+      - name: Install Playwright (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run functional tests (E2E Playwright)
         run: npm run test:functional
+        env:
+          CI: true
 
   frontend-build:
     name: "5 · Frontend Build Validation"

@@ -29,6 +29,8 @@ Le projet utilise **deux workflows CI** (backend / frontend) + **déploiement VP
 
 **Pipeline** : **`CI — Server`** + **`CI — Client`** en parallèle — lint/tests, builds, images Docker `api` + `client`.
 
+**Tests sans machine locale** : il n’est pas nécessaire d’exécuter les tests (`npm test`, Playwright, etc.) en local avant le push. La validation officielle est celle des workflows sur GitHub pour le commit poussé sur `vdev` (onglet **Actions**).
+
 **Résultat** : les deux CI vertes, puis **CD / vdev** (déploiement). Si le CD est vert → **PR brouillon** `vdev` → `vpreprod` (job final du workflow CD, pas la CI seule).
 
 ---
