@@ -4,8 +4,8 @@
 
 Le projet utilise **deux workflows CI** (backend / frontend) + **déploiement VPS** + **workflows manuels** :
 
-1. **`ci-server.yml` — CI — Server** : API Node (`server/`). Push/PR sur **`vdev`**, **`vpreprod`**, **`vprod`**. Jobs : qualité → tests → build → image Docker **`api`** (Harbor si configuré) → commentaire PR.
-2. **`ci-client.yml` — CI — Client** : SPA React (`client/`). Mêmes branches. Jobs : qualité → tests → build Vite (+ SSR) → image **`client`** → commentaire PR.
+1. **`ci-server.yml` — CI — Server** : API Node (`server/`). Push/PR sur **`vdev`**, **`vpreprod`**, **`vprod`**. Jobs : qualité → tests → build → image Docker **`api`** (Harbor si configuré) → commentaire PR. **`npm ci`** n’est exécuté que si le cache **`server/node_modules`** (clé = hash de `server/package-lock.json`) n’est pas restauré ; sinon le dossier vient du cache Actions (gain de temps sur chaque job).
+2. **`ci-client.yml` — CI — Client** : SPA React (`client/`). Même principe avec **`client/node_modules`** et `client/package-lock.json`.
 3. **CD VPS** : `deploy-vdev.yml`, `deploy-vpreprod.yml`, `deploy-vprod.yml` — push (ou manuel). Le **`gate`** attend uniquement **`CI — Client`** verte sur le commit : le workflow client commence par une **attente active** jusqu’à succès de **`CI — Server`**, puis enchaîne lint/tests/build ; quand **`CI — Client`** est entièrement verte, le CD peut démarrer (le backend a déjà été validé). Les PR **[Promotion]** (brouillon) sont ouvertes par le job **`4 · PR promotion`** à la fin du CD dès que **CI + CD** sont verts — `.github/scripts/open-promotion-pr-after-cd.cjs`.
 4. **`create-promotion-pr.yml`** : secours manuel si besoin.
 

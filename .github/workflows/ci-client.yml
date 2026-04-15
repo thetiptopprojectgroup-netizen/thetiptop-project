@@ -92,6 +92,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Cache client/node_modules
+        id: cache-client-modules
+        uses: actions/cache@v4
+        with:
+          path: client/node_modules
+          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -100,6 +107,7 @@ jobs:
           cache-dependency-path: client/package-lock.json
 
       - name: Install dependencies
+        if: steps.cache-client-modules.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Lint
@@ -116,6 +124,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Cache client/node_modules
+        id: cache-client-modules
+        uses: actions/cache@v4
+        with:
+          path: client/node_modules
+          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -124,6 +139,7 @@ jobs:
           cache-dependency-path: client/package-lock.json
 
       - name: Install dependencies
+        if: steps.cache-client-modules.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Run unit tests
@@ -140,6 +156,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Cache client/node_modules
+        id: cache-client-modules
+        uses: actions/cache@v4
+        with:
+          path: client/node_modules
+          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -148,6 +171,7 @@ jobs:
           cache-dependency-path: client/package-lock.json
 
       - name: Install dependencies
+        if: steps.cache-client-modules.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Run integration tests
@@ -164,6 +188,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Cache client/node_modules
+        id: cache-client-modules
+        uses: actions/cache@v4
+        with:
+          path: client/node_modules
+          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -172,6 +203,7 @@ jobs:
           cache-dependency-path: client/package-lock.json
 
       - name: Install dependencies
+        if: steps.cache-client-modules.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Run functional tests
@@ -188,6 +220,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      - name: Cache client/node_modules
+        id: cache-client-modules
+        uses: actions/cache@v4
+        with:
+          path: client/node_modules
+          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -196,6 +235,7 @@ jobs:
           cache-dependency-path: client/package-lock.json
 
       - name: Install dependencies
+        if: steps.cache-client-modules.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Build frontend
