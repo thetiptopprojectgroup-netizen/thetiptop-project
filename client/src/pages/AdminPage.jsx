@@ -70,6 +70,100 @@ function buildVisiblePages(totalPages, current) {
   return out;
 }
 
+function formatNumberFR(value) {
+  return Number(value || 0).toLocaleString('fr-FR');
+}
+
+function buildDonutSegments(items, getValue) {
+  const values = items.map((item) => Math.max(0, Number(getValue(item) || 0)));
+  const total = values.reduce((acc, n) => acc + n, 0);
+  if (total <= 0) return [];
+  let cumulative = 0;
+  return values.map((value, index) => {
+    const start = cumulative / total;
+    cumulative += value;
+    const end = cumulative / total;
+    return { index, value, start, end, total };
+  });
+}
+
+function polarToCartesian(cx, cy, radius, angleDeg) {
+  const radians = ((angleDeg - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(radians),
+    y: cy + radius * Math.sin(radians),
+  };
+}
+
+function arcPath(cx, cy, radius, startPct, endPct) {
+  const start = polarToCartesian(cx, cy, radius, endPct * 360);
+  const end = polarToCartesian(cx, cy, radius, startPct * 360);
+  const largeArcFlag = endPct - startPct > 0.5 ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+}
+
+function DonutChart({ items, getValue, getLabel, colors, centerLabel }) {
+  const segments = buildDonutSegments(items, getValue);
+  const radius = 54;
+  const strokeWidth = 24;
+  const cx = 80;
+  const cy = 80;
+  const total = segments[0]?.total || 0;
+
+  if (!segments.length) {
+    return (
+      <div className="h-40 flex items-center justify-center text-sm text-tea-500">
+        Pas de données
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 items-center">
+      <div className="relative w-40 h-40 shrink-0">
+        <svg viewBox="0 0 160 160" className="w-40 h-40" role="img" aria-label={centerLabel}>
+          <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#f5efe2" strokeWidth={strokeWidth} />
+          {segments.map((segment) => (
+            <path
+              key={`${getLabel(items[segment.index])}-${segment.index}`}
+              d={arcPath(cx, cy, radius, segment.start, segment.end)}
+              fill="none"
+              stroke={colors[segment.index % colors.length]}
+              strokeWidth={strokeWidth}
+              strokeLinecap="butt"
+            />
+          ))}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <div className="text-xs text-tea-500">Total</div>
+          <div className="text-xl font-bold text-tea-900">{formatNumberFR(total)}</div>
+        </div>
+      </div>
+      <div className="w-full space-y-2">
+        {segments.map((segment) => {
+          const item = items[segment.index];
+          const value = segment.value;
+          const pct = total > 0 ? (value / total) * 100 : 0;
+          return (
+            <div key={`${getLabel(item)}-${segment.index}`} className="flex items-center justify-between gap-3 text-sm">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="inline-block w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: colors[segment.index % colors.length] }}
+                />
+                <span className="text-tea-700 truncate">{getLabel(item)}</span>
+              </div>
+              <div className="text-tea-900 font-medium whitespace-nowrap">
+                {formatNumberFR(value)} ({pct.toFixed(1)}%)
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -547,7 +641,14 @@ export default function AdminPage() {
 
             <Card>
               <Card.Header><Card.Title>Répartition des lots</Card.Title></Card.Header>
-              <div className="space-y-4">
+              <div className="space-y-5">
+                <DonutChart
+                  items={stats.prizes}
+                  getValue={(prize) => prize.won}
+                  getLabel={(prize) => prize.name}
+                  colors={['#65a30d', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ef4444']}
+                  centerLabel="Répartition des lots gagnés"
+                />
                 {stats.prizes.map((prize) => (
                   <div key={prize.id} className="flex items-center gap-4">
                     <div className="w-10 text-2xl">
@@ -571,14 +672,13 @@ export default function AdminPage() {
               <div className="grid lg:grid-cols-2 gap-6">
                 <Card>
                   <Card.Header><Card.Title>Répartition par genre</Card.Title></Card.Header>
-                  <div className="space-y-3">
-                    {stats.demographics.gender.map((g) => (
-                      <div key={g._id || 'unknown'} className="flex items-center justify-between p-3 bg-cream-50 rounded-xl">
-                        <span className="text-tea-700 capitalize">{g._id || 'Non précisé'}</span>
-                        <span className="font-bold text-tea-900">{g.count}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <DonutChart
+                    items={stats.demographics.gender}
+                    getValue={(g) => g.count}
+                    getLabel={(g) => g._id || 'Non précisé'}
+                    colors={['#0ea5e9', '#f43f5e', '#94a3b8', '#f59e0b']}
+                    centerLabel="Répartition par genre"
+                  />
                 </Card>
                 <Card>
                   <Card.Header><Card.Title>Répartition par âge</Card.Title></Card.Header>
@@ -1224,6 +1324,19 @@ export default function AdminPage() {
                     <div className="flex justify-between text-xs text-tea-500 mt-1">
                       <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
                     </div>
+                  </div>
+                )}
+
+                {gameStats.claimsByMode?.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="font-medium text-tea-900 mb-3">Mode de réclamation des lots</h4>
+                    <DonutChart
+                      items={gameStats.claimsByMode}
+                      getValue={(m) => m.count}
+                      getLabel={(m) => m._id || 'Non précisé'}
+                      colors={['#65a30d', '#f59e0b', '#8b5cf6', '#0ea5e9']}
+                      centerLabel="Répartition par mode de réclamation"
+                    />
                   </div>
                 )}
 
