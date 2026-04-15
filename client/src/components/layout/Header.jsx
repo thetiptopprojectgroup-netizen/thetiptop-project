@@ -51,11 +51,15 @@ export default function Header() {
     return location.pathname.startsWith(href);
   };
 
+  /** Accueil seul : hero sombre → texte blanc sur header transparent si pas scrollé. Ailleurs : fond clair → toujours contraste lisible. */
+  const isHome = location.pathname === '/';
+  const useSolidHeader = isScrolled || !isHome;
+
   return (
     <header
       className={clsx(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
-        isScrolled
+        useSolidHeader
           ? 'bg-white/95 backdrop-blur-md shadow-soft py-3'
           : 'bg-transparent py-5'
       )}
@@ -68,7 +72,7 @@ export default function Header() {
             <span
               className={clsx(
                 'font-display text-xl font-bold transition-colors',
-                isScrolled ? 'text-tea-900' : 'text-white'
+                useSolidHeader ? 'text-tea-900' : 'text-white'
               )}
             >
               Thé Tip Top
@@ -84,7 +88,7 @@ export default function Header() {
                 onClick={link.href === '/how-it-works' ? () => trackHowToPlayClick('header_desktop') : undefined}
                 className={clsx(
                   'relative font-medium transition-colors',
-                  isScrolled
+                  useSolidHeader
                     ? isActive(link.href)
                       ? 'text-matcha-600'
                       : 'text-tea-700 hover:text-matcha-600'
@@ -99,7 +103,7 @@ export default function Header() {
                     layoutId="activeNav"
                     className={clsx(
                       'absolute -bottom-1 left-0 right-0 h-0.5 rounded-full',
-                      isScrolled ? 'bg-matcha-600' : 'bg-white'
+                      useSolidHeader ? 'bg-matcha-600' : 'bg-white'
                     )}
                   />
                 )}
@@ -123,7 +127,7 @@ export default function Header() {
                   <button
                     className={clsx(
                       'flex items-center gap-2 px-4 py-2 rounded-full transition-colors',
-                      isScrolled
+                      useSolidHeader
                         ? 'hover:bg-cream-100 text-tea-700'
                         : 'hover:bg-white/10 text-white'
                     )}
@@ -206,7 +210,7 @@ export default function Header() {
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className={clsx(
               'lg:hidden p-2 rounded-lg transition-colors',
-              isScrolled
+              useSolidHeader
                 ? 'hover:bg-cream-100 text-tea-700'
                 : 'hover:bg-white/10 text-white'
             )}

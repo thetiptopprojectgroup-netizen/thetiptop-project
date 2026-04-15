@@ -252,13 +252,15 @@ L'application est optimisée pour :
 
 ### Intégration continue (GitHub Actions)
 
-- **` .github/workflows/ci.yml`** — **CI Monorepo** : à chaque push / PR sur **`vdev`**, **`vpreprod`**, **`vprod`**, qualité backend + frontend (lint, tests sur `vdev`), build, images Docker **`api`** et **`client`** vers Harbor, PR de promotion automatiques (`vdev`→`vpreprod`, `vpreprod`→`vprod`).
+- **` .github/workflows/ci-server.yml`** — **CI backend** (`server/`) : lint, tests, image **`api`**.
+- **` .github/workflows/ci-client.yml`** — **CI frontend** (`client/`) : lint, tests, build, image **`client`**.
+- Les deux se déclenchent sur push / PR (**`vdev`**, **`vpreprod`**, **`vprod`**). Le CD attend qu’elles soient **toutes les deux** vertes avant de déployer.
 - **` .github/workflows/deploy-vdev.yml`** (et **`deploy-vpreprod.yml`**, **`deploy-vprod.yml`**) — déploiement VPS après CI / push sur la branche cible.
 - **` .github/workflows/create-promotion-pr.yml`** — création manuelle d’une PR de promotion si besoin.
 
 Détails : **` .github/workflows/README.md`**.
 
-> Les scripts `npm` (`lint`, `test`, `test:e2e`, `build`) dans `client` et `server` sont consommés par `ci.yml` lorsqu’ils sont présents.
+> Les scripts `npm` (`lint`, `test`, `build`, etc.) dans `client` et `server` sont consommés par **`ci-server.yml`** et **`ci-client.yml`** lorsqu’ils sont présents.
 
 ## 🚀 Installation
 
@@ -923,3 +925,5 @@ Projet étudiant fictif - Expert en Stratégie et Transformation Digitale (DSP5)
 ---
 
 🍵 Développé avec ❤️ pour le diplôme DSP5
+
+

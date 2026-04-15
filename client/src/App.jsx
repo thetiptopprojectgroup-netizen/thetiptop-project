@@ -23,6 +23,7 @@ import CookieConsent from './components/common/CookieConsent';
 import GoogleAnalytics from './components/analytics/GoogleAnalytics';
 import InstallPrompt from './components/common/InstallPrompt';
 import SeoHead from './components/seo/SeoHead';
+import ScrollToTop from './components/common/ScrollToTop';
 import NewsletterUnsubscribePage from './pages/NewsletterUnsubscribePage';
 import useAuthStore from './store/authStore';
 import api from './services/api';
@@ -86,6 +87,7 @@ function App() {
   return (
     <>
       <SeoHead />
+      <ScrollToTop />
       <Toaster
         position="top-center"
         toastOptions={{

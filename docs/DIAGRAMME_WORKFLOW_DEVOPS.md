@@ -19,7 +19,7 @@ flowchart TB
   end
 
   subgraph cicd["CI/CD — GitHub Actions"]
-    CI["CI — Monorepo<br/>lint · tests · build"]
+    CI["CI — Server + CI — Client<br/>lint · tests · build"]
     CD["CD — deploy-vdev / vpreprod / vprod<br/>gate CI · Harbor · build · rsync · compose"]
     PROMO["PR [Promotion]<br/>brouillon après CD OK"]
   end

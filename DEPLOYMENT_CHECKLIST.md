@@ -120,7 +120,7 @@ Secrets utilisés par **`deploy-vdev.yml`** (noms exacts) :
 2. **build-and-push** — `docker build` API + client (build-args `VITE_*`, `SITE_URL`, …) ; push vers `${HARBOR_REGISTRY_BASE}/vdev/...:${{ github.sha }}`
 3. **deploy-vps** — SSH : écrit `vdev.env`, `rsync` vers `/opt/thetiptop/app`, `docker login`, `docker compose -f infra/deploy/docker-compose.stack.yml … up -d`, scripts seed utilisateurs si prévus
 
-> Le workflow **`ci.yml`** (CI Monorepo) suit désormais des **stages DevOps explicites** : `quality` → `unit` → `integration` → `functional` → `build` → `package`. Le CD attend cette CI verte avant de déployer.
+> Les workflows **`ci-server.yml`** et **`ci-client.yml`** suivent des **stages DevOps** (qualité → tests → build → package Docker). Le **CD** attend **les deux** CI vertes sur le même commit avant de déployer.
 
 ---
 

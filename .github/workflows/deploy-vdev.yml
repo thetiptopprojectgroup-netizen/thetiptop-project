@@ -1,7 +1,8 @@
 # -----------------------------------------------------------------------------
 # CD — Branche vdev : Harbor → images → VPS
-# Déclenchement : **push** sur `vdev` puis attente dans le job `gate` que la CI Monorepo
-# soit **terminée avec succès** sur le même commit (évite de déployer si les tests échouent).
+# Déclenchement : **push** sur `vdev` puis attente dans le job `gate` que **CI — Client** soit
+# **terminée avec succès** sur le même commit (le client n’atteint la fin qu’après le backend,
+# puis lint/tests/build + image). Évite de déployer si une des deux CI échoue.
 # `workflow_dispatch` : déploiement manuel. (On n’utilise pas `workflow_run` seul : il exige
 # que ce fichier soit sur la **branche par défaut** GitHub, sinon le CD ne part jamais.)
 # Secrets : HARBOR_REGISTRY_BASE, HARBOR_ADMIN_PASSWORD, HARBOR_USERNAME/PASSWORD,
@@ -35,7 +36,7 @@ env:
 
 jobs:
   gate:
-    name: "0 · CI Monorepo verte sur ce commit (ou manuel)"
+    name: "0 · CI — Client verte sur ce commit (ou manuel)"
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
@@ -47,7 +48,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const ciName = 'CI — Monorepo (server + client)';
+            const ciName = 'CI — Client';
             const target = 'vdev';
             if (context.eventName === 'workflow_dispatch') {
               core.setOutput('sha', context.sha);
@@ -62,56 +63,55 @@ jobs:
               core.setOutput('ok', 'false');
               return;
             }
-            // Uniquement le run CI déclenché par le **push** (même événement que ce CD).
-            // Ne pas mélanger avec un run `pull_request` (ex. PR vdev→vpreprod) : il peut être vert
-            // alors que le run `push` est encore en cours ou en échec → CD ne doit pas partir.
-            core.info(`Attente CI « ${ciName} » (event=push) verte pour ${sha.slice(0, 7)}…`);
+            core.info(
+              `Attente « ${ciName} » (push) verte pour ${sha.slice(0, 7)} — le backend est déjà requis avant le client…`
+            );
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const maxAttempts = 90;
             const delayMs = 10000;
+            const eventOk = (e) => e === 'push';
             for (let i = 0; i < maxAttempts; i++) {
               const { data } = await github.rest.actions.listWorkflowRunsForRepo({
                 owner,
                 repo,
                 head_sha: sha,
-                per_page: 30,
+                per_page: 50,
               });
-              const relevant = (data.workflow_runs || []).filter(
-                (w) =>
-                  w.name === ciName &&
-                  w.head_branch === target &&
-                  w.event === 'push'
+              const subset = (data.workflow_runs || []).filter(
+                (w) => w.name === ciName && w.head_branch === target && eventOk(w.event)
               );
-              if (relevant.length === 0) {
-                core.info(`Run CI push pas encore visible (tentative ${i + 1}/${maxAttempts})`);
+              if (subset.length === 0) {
+                core.info(`Run « ${ciName} » push pas encore visible (tentative ${i + 1}/${maxAttempts})`);
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
               }
-              const pending = relevant.filter((w) => w.status !== 'completed');
-              if (pending.length > 0) {
+              const latest = subset.sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at)
+              )[0];
+              if (latest.status !== 'completed') {
                 core.info(
-                  `CI push en cours : ${pending.map((p) => `${p.status}`).join(', ')} (tentative ${i + 1}/${maxAttempts})`
+                  `${ciName} : ${latest.status} (#${latest.id}) — tentative ${i + 1}/${maxAttempts}`
                 );
                 await new Promise((r) => setTimeout(r, delayMs));
                 continue;
               }
-              const okRun = relevant.find((w) => w.conclusion === 'success');
-              if (okRun) {
+              if (latest.conclusion === 'success') {
                 core.setOutput('sha', sha);
                 core.setOutput('ok', 'true');
-                core.info(`CI push validée : run #${okRun.id}`);
+                core.info(`${ciName} validée : run #${latest.id}`);
                 return;
               }
-              const worst = relevant.find((w) => w.conclusion && w.conclusion !== 'skipped') || relevant[0];
               core.setOutput('sha', sha);
               core.setOutput('ok', 'false');
-              core.setFailed(`CI Monorepo (push) en échec (${worst.conclusion}) — déploiement annulé.`);
+              core.setFailed(
+                `${ciName} en échec (${latest.conclusion}) — déploiement annulé.`
+              );
               return;
             }
             core.setOutput('sha', '');
             core.setOutput('ok', 'false');
-            core.setFailed('Timeout : la CI Monorepo (push) n’a pas fini à temps — déploiement annulé.');
+            core.setFailed(`Timeout : « ${ciName} » (push) pas verte à temps — déploiement annulé.`);
 
   # ---------------------------------------------------------------------------
   # Stage 1 — Projet Harbor (API admin, idempotent)
