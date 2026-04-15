@@ -252,8 +252,8 @@ L'application est optimisée pour :
 
 ### Intégration continue (GitHub Actions)
 
-- **` .github/workflows/ci-server.yml`** — **CI backend** (`server/`) : lint, tests, image **`api`**.
-- **` .github/workflows/ci-client.yml`** — **CI frontend** (`client/`) : lint, tests, build, image **`client`**.
+- **` .github/workflows/ci-server.yml`** — **CI backend** (`server/`) : lint, **7 tests qualité**, **10 tests unitaires**, **15 tests d’intégration**, **15 tests fonctionnels**, build, image **`api`**.
+- **` .github/workflows/ci-client.yml`** — **CI frontend** (`client/`) : lint, **7 tests qualité**, **10 tests unitaires cœur** + composants, **15 tests d’intégration**, **15 tests fonctionnels** (Jest), **7 tests E2E** (Playwright), build, image **`client`**.
 - Les deux se déclenchent sur push / PR (**`vdev`**, **`vpreprod`**, **`vprod`**). Le CD attend qu’elles soient **toutes les deux** vertes avant de déployer.
 - **` .github/workflows/deploy-vdev.yml`** (et **`deploy-vpreprod.yml`**, **`deploy-vprod.yml`**) — déploiement VPS après CI / push sur la branche cible.
 - **` .github/workflows/create-promotion-pr.yml`** — création manuelle d’une PR de promotion si besoin.
@@ -261,6 +261,10 @@ L'application est optimisée pour :
 Détails : **` .github/workflows/README.md`**.
 
 > Les scripts `npm` (`lint`, `test`, `build`, etc.) dans `client` et `server` sont consommés par **`ci-server.yml`** et **`ci-client.yml`** lorsqu’ils sont présents.
+
+### Tests sur `vdev` sans exécution locale obligatoire
+
+Tu n’as **pas besoin** de lancer `npm test`, Playwright ou les tests d’intégration sur ta machine pour valider un changement : dès que tu **`git push origin vdev`**, GitHub Actions exécute automatiquement **CI — Server** et **CI — Client** (lint, tests unitaires / intégration, E2E Playwright côté client, build, images Docker). Ouvre l’onglet **Actions** du dépôt et sélectionne le workflow pour voir le détail des jobs. Le déploiement **CD / vdev** (`deploy-vdev.yml`) n’enchaîne **qu’après** une **CI — Client** réussie sur le même commit — donc pas de mise en ligne sur l’environnement vdev si les tests échouent. Lancer les tests en local reste **optionnel** (debug rapide avant push).
 
 ## 🚀 Installation
 

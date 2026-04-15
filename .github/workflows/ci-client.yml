@@ -18,12 +18,13 @@ concurrency:
 
 env:
   NODE_VERSION_CLIENT: "22"
+  CLIENT_LOCKFILE_PATH: client/package-lock.json
 
 jobs:
   # Le pipeline client ne démarre (lint/tests/build) qu’après succès de CI — Server sur le même commit.
   await-backend-ci:
     name: "0 · Attente CI — Server (succès)"
-    runs-on: ubuntu-latest
+    runs-on: &ubuntu-runner ubuntu-latest
     steps:
       - name: Attendre la fin du workflow backend
         uses: actions/github-script@v8
@@ -81,162 +82,146 @@ jobs:
               'Timeout : CI — Server pas verte à temps — pipeline frontend annulé.'
             );
 
-  frontend-quality:
-    name: "1 · Frontend Quality"
-    runs-on: ubuntu-latest
+  client-dependencies:
+    name: "1 · Client — Install dependencies"
+    runs-on: *ubuntu-runner
     needs: [await-backend-ci]
-    defaults:
+    defaults: &client-defaults
       run:
         working-directory: client
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - name: Cache client/node_modules
+      - name: Paths — dépendances client modifiées ?
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            client_deps:
+              - 'client/package.json'
+              - 'client/package-lock.json'
+
+      - &client-cache-node-modules
+        name: Cache client/node_modules
         id: cache-client-modules
         uses: actions/cache@v4
         with:
           path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+          key: ${{ runner.os }}-client-node-${{ hashFiles(env.CLIENT_LOCKFILE_PATH) }}
 
-      - name: Setup Node.js
+      - &client-setup-node
+        name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION_CLIENT }}
           cache: npm
-          cache-dependency-path: client/package-lock.json
+          cache-dependency-path: ${{ env.CLIENT_LOCKFILE_PATH }}
 
-      - name: Install dependencies
-        if: steps.cache-client-modules.outputs.cache-hit != 'true'
+      - name: Install dependencies (npm ci)
+        if: |
+          steps.filter.outputs.client_deps == 'true' ||
+          steps.cache-client-modules.outputs.cache-hit != 'true'
         run: npm ci
+
+  frontend-quality:
+    name: "2 · Frontend Quality"
+    runs-on: *ubuntu-runner
+    needs: [client-dependencies]
+    defaults: *client-defaults
+    steps:
+      - &client-checkout
+        name: Checkout
+        uses: actions/checkout@v5
+
+      - *client-cache-node-modules
+
+      - *client-setup-node
 
       - name: Lint
         run: npm run lint --if-present
 
+      - name: Tests qualité (7)
+        run: npm run test:quality
+
   frontend-unit:
-    name: "2 · Frontend Unit Tests"
-    runs-on: ubuntu-latest
+    name: "3 · Frontend Unit Tests"
+    runs-on: *ubuntu-runner
     needs: [frontend-quality]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - *client-checkout
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
-      - name: Install dependencies
-        if: steps.cache-client-modules.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Run unit tests
-        run: npm run test:unit
+      - name: Run unit tests (10 cœur + composants)
+        run: npm run test:unit && npm run test:unit:components
 
   frontend-integration:
-    name: "3 · Frontend Integration Tests"
-    runs-on: ubuntu-latest
+    name: "4 · Frontend Integration Tests"
+    runs-on: *ubuntu-runner
     needs: [frontend-unit]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - *client-checkout
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
-      - name: Install dependencies
-        if: steps.cache-client-modules.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Run integration tests
+      - name: Run integration tests (15)
         run: npm run test:integration
 
   frontend-functional:
-    name: "4 · Frontend Functional Tests"
-    runs-on: ubuntu-latest
+    name: "5 · Frontend Functional Tests (Jest)"
+    runs-on: *ubuntu-runner
     needs: [frontend-integration]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - *client-checkout
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
-      - name: Install dependencies
-        if: steps.cache-client-modules.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Run functional tests
+      - name: Run functional tests (15)
         run: npm run test:functional
 
-  frontend-build:
-    name: "5 · Frontend Build Validation"
-    runs-on: ubuntu-latest
+  frontend-e2e:
+    name: "6 · E2E (Playwright)"
+    runs-on: *ubuntu-runner
     needs: [frontend-functional]
-    defaults:
-      run:
-        working-directory: client
+    defaults: *client-defaults
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - *client-checkout
 
-      - name: Cache client/node_modules
-        id: cache-client-modules
-        uses: actions/cache@v4
-        with:
-          path: client/node_modules
-          key: ${{ runner.os }}-client-node-${{ hashFiles('client/package-lock.json') }}
+      - *client-cache-node-modules
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION_CLIENT }}
-          cache: npm
-          cache-dependency-path: client/package-lock.json
+      - *client-setup-node
 
-      - name: Install dependencies
-        if: steps.cache-client-modules.outputs.cache-hit != 'true'
-        run: npm ci
+      - name: Install Playwright (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests (7)
+        run: npm run test:e2e
+        env:
+          CI: true
+
+  frontend-build:
+    name: "7 · Frontend Build Validation"
+    runs-on: *ubuntu-runner
+    needs: [frontend-e2e]
+    defaults: *client-defaults
+    steps:
+      - *client-checkout
+
+      - *client-cache-node-modules
+
+      - *client-setup-node
 
       - name: Build frontend
         env:
@@ -244,8 +229,8 @@ jobs:
         run: npm run build
 
   frontend-package:
-    name: "6 · Package Client Image"
-    runs-on: ubuntu-latest
+    name: "8 · Package Client Image"
+    runs-on: *ubuntu-runner
     needs: [frontend-build]
     if: github.event_name == 'push'
     env:
@@ -266,7 +251,7 @@ jobs:
           fi
 
       - name: Harbor project metadata
-        if: steps.harbor.outputs.configured == 'true'
+        if: &harbor-enabled steps.harbor.outputs.configured == 'true'
         id: harbor-project
         run: |
           BRANCH="${{ github.ref_name }}"
@@ -296,15 +281,15 @@ jobs:
           echo "site_url=$SITE_URL" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
-        if: steps.harbor.outputs.configured == 'true'
+        if: *harbor-enabled
         uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
-        if: steps.harbor.outputs.configured == 'true'
+        if: *harbor-enabled
         uses: docker/setup-buildx-action@v3
 
       - name: Login Harbor
-        if: steps.harbor.outputs.configured == 'true'
+        if: *harbor-enabled
         uses: docker/login-action@v3
         with:
           registry: ${{ steps.harbor-project.outputs.login_host }}
@@ -312,7 +297,7 @@ jobs:
           password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Build and push client image
-        if: steps.harbor.outputs.configured == 'true'
+        if: *harbor-enabled
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
           VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID || secrets.VITE_GA_MEASUREMENT_ID }}
@@ -329,14 +314,16 @@ jobs:
           docker push "$IMAGE"
 
   notify-pr:
-    name: "7 · PR Feedback (frontend)"
-    runs-on: ubuntu-latest
+    name: "9 · PR Feedback (frontend)"
+    runs-on: *ubuntu-runner
     needs:
       - await-backend-ci
+      - client-dependencies
       - frontend-quality
       - frontend-unit
       - frontend-integration
       - frontend-functional
+      - frontend-e2e
       - frontend-build
     if: always() && github.event_name == 'pull_request'
     steps:
@@ -347,10 +334,12 @@ jobs:
           script: |
             const failures = Object.entries({
               await_backend: '${{ needs.await-backend-ci.result }}',
+              client_dependencies: '${{ needs.client-dependencies.result }}',
               frontend_quality: '${{ needs.frontend-quality.result }}',
               frontend_unit: '${{ needs.frontend-unit.result }}',
               frontend_integration: '${{ needs.frontend-integration.result }}',
               frontend_functional: '${{ needs.frontend-functional.result }}',
+              frontend_e2e: '${{ needs.frontend-e2e.result }}',
               frontend_build: '${{ needs.frontend-build.result }}',
             }).filter(([_, result]) => result !== 'success' && result !== 'skipped');
             const ok = failures.length === 0;
