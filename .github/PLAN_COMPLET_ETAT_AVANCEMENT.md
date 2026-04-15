@@ -24,7 +24,7 @@ Branches du projet : `dev` (équivalent *develop*), `preprod`, `prod`.
 
 | Point du plan | Statut | Détail |
 |---------------|--------|--------|
-| Pipeline CI à chaque push/PR | ✅ Fait | `ci.yml` (Monorepo) sur push et PR (`vdev`, `vpreprod`, `vprod`) |
+| Pipeline CI à chaque push/PR | ✅ Fait | `ci-server.yml` + `ci-client.yml` sur `vdev`, `vpreprod`, `vprod` |
 | Installation dépendances avec cache | ✅ Fait | `npm install` (cache npm retiré pour éviter échecs si pas de lock file) ; cache Playwright présent |
 | Lint du code | ✅ Fait | ESLint client et server (sur dev / PR vers dev) |
 | Tests unitaires (Jest) | ✅ Fait | Client et server avec `--coverage` |
@@ -164,7 +164,7 @@ Ordre recommandé pour avancer sans tout casser et avec un maximum de valeur.
 
 | Action | Pourquoi | Où |
 |--------|----------|-----|
-| **E2E multi-navigateurs en CI** | Conforme à la spec (Chromium + Firefox + WebKit), détecte les régressions navigateur. | `.github/workflows/ci.yml` (job client-quality) : installer et lancer les 3 navigateurs Playwright au lieu de Chromium seul. |
+| **E2E multi-navigateurs en CI** | Conforme à la spec (Chromium + Firefox + WebKit), détecte les régressions navigateur. | `.github/workflows/ci-client.yml` : installer et lancer les 3 navigateurs Playwright au lieu de Chromium seul. |
 | **Versioning sémantique** | Tags `v1.0.0` pour les releases, traçabilité. | Créer un workflow (ou étape dans le CD) qui crée un tag Git + release GitHub quand on merge vers `prod` (ou manuellement). |
 | **HPA en preprod (optionnel)** | Non applicable en **VPS** sans orchestrateur ; scaler manuellement les ressources Docker / le serveur. |
 

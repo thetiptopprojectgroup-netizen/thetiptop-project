@@ -10,9 +10,9 @@ push sur vdev / vpreprod / vprod
             ├──────────────────────────┐
             ▼                          ▼
    ┌────────────────────┐     ┌─────────────────────────────┐
-   │ CI — Monorepo      │     │ CD — deploy-vdev /          │
-   │ (ci.yml)           │     │     deploy-vpreprod / vprod │
-   │ qualité + images   │     │ gate → build → deploy-vps   │
+   │ CI — Server        │     │ CD — deploy-vdev /          │
+   │ CI — Client        │     │     deploy-vpreprod / vprod │
+   │ (2 workflows)      │     │ gate → build → deploy-vps   │
    └────────────────────┘     └──────────────┬──────────────┘
                                              │ succès
                                              ▼
@@ -28,13 +28,14 @@ Les PR de promotion sont créées **uniquement après** un déploiement CD réus
 
 | Fichier | Rôle |
 |--------|------|
-| `ci.yml` | CI monorepo automatique sur `vdev`, `vpreprod`, `vprod` |
+| `ci-server.yml` | CI backend (`server/`) |
+| `ci-client.yml` | CI frontend (`client/`) |
 | `deploy-vdev.yml` / `deploy-vpreprod.yml` / `deploy-vprod.yml` | CD vers le VPS |
 | `create-promotion-pr.yml` | Ouverture manuelle de PR de promotion |
 
 ## Principes
 
-1. **Qualité complète** surtout sur **`vdev`** (lint, tests) ; jobs allégés sur `vpreprod` / `vprod` selon `RUN_FULL_QUALITY` dans `ci.yml`.
+1. **Qualité** : deux pipelines indépendants (**Server** / **Client**) ; le **gate** CD attend les deux verts sur le même commit.
 2. **PR de promotion** : jobs `promotion-pr` dans les workflows **CD** (`deploy-vdev.yml`, `deploy-vpreprod.yml`), après **`deploy-vps`**.
 
 ## Permissions

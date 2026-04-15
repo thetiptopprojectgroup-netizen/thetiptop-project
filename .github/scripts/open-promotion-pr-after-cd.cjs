@@ -10,7 +10,7 @@ module.exports = async function openPromotionPr({ github, core, context }) {
   const shaFull = process.env.COMMIT_FULL || '';
   const cdRunId = parseInt(process.env.CD_RUN_ID || '0', 10);
   const cdHtmlUrl = process.env.CD_HTML_URL || '';
-  const ciWorkflowName = 'CI — Monorepo (server + client)';
+  const ciWorkflowNames = ['CI — Server', 'CI — Client'];
 
   if (mode !== 'vdev' && mode !== 'vpreprod') {
     core.setFailed(`PROMOTION_MODE invalide : ${mode}`);
@@ -50,7 +50,7 @@ module.exports = async function openPromotionPr({ github, core, context }) {
   }
 
   const cdRequired = [
-    '0 · CI Monorepo verte sur ce commit (ou manuel)',
+    '0 · CI Server & Client vertes sur ce commit (ou manuel)',
     harborName,
     '2 · Registry — build & push images',
     '3 · VPS — rsync & docker compose',
@@ -101,25 +101,28 @@ module.exports = async function openPromotionPr({ github, core, context }) {
     head_sha: shaFull,
     per_page: 50,
   });
-  const ciSuccessRuns = (runsPayload.workflow_runs || [])
-    .filter(
-      (w) =>
-        w.name === ciWorkflowName &&
-        w.head_branch === headBranch &&
-        w.event === 'push' &&
-        w.conclusion === 'success'
-    )
-    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-  if (ciSuccessRuns.length === 0) {
-    core.setFailed(
-      `Aucun run « ${ciWorkflowName} » (push/${headBranch}) en succès pour ${shaFull.slice(0, 7)}.`
-    );
-    return;
+  const runs = runsPayload.workflow_runs || [];
+  for (const ciWorkflowName of ciWorkflowNames) {
+    const ciSuccessRuns = runs
+      .filter(
+        (w) =>
+          w.name === ciWorkflowName &&
+          w.head_branch === headBranch &&
+          w.event === 'push' &&
+          w.conclusion === 'success'
+      )
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    if (ciSuccessRuns.length === 0) {
+      core.setFailed(
+        `Aucun run « ${ciWorkflowName} » (push/${headBranch}) en succès pour ${shaFull.slice(0, 7)}.`
+      );
+      return;
+    }
+    const ciRun = ciSuccessRuns[0];
+    core.info(`CI ${ciWorkflowName} : #${ciRun.id} (${ciRun.html_url})`);
+    const ciJobs = await fetchAllRunJobs(ciRun.id);
+    if (!assertJobsOk(ciJobs, ciWorkflowName)) return;
   }
-  const ciRun = ciSuccessRuns[0];
-  core.info(`CI run : #${ciRun.id} (${ciRun.html_url})`);
-  const ciJobs = await fetchAllRunJobs(ciRun.id);
-  if (!assertJobsOk(ciJobs, 'CI Monorepo')) return;
 
   const cdJobs = await fetchAllRunJobs(cdRunId);
   for (const name of cdRequired) {

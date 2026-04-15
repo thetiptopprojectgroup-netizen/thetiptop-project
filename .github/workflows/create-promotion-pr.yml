@@ -1,5 +1,5 @@
 # Création manuelle d’une PR de promotion (vdev→vpreprod ou vpreprod→vprod).
-# Utile quand la création automatique (ci.yml) n’a pas eu lieu.
+# Utile quand la création automatique (après CD vdev / vpreprod) n’a pas eu lieu.
 #
 # Actions → Create promotion PR → Run workflow → Choisir la branche → Run workflow
 
@@ -51,7 +51,7 @@ jobs:
 
             const titles = { vdev: '🚀 Promotion vdev → vpreprod', vpreprod: '🎯 Promotion vpreprod → vprod' };
             const title = titles[branch] || 'Promotion';
-            const body = `PR créée manuellement (Actions). Vérifier la CI Monorepo sur \`${branch}\`.`;
+            const body = `PR créée manuellement (Actions). Vérifier les workflows **CI — Server** et **CI — Client** sur \`${branch}\`.`;
 
             try {
               const { data: pr } = await github.rest.pulls.create({
