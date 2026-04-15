@@ -51,6 +51,9 @@ jobs:
       - name: Lint
         run: npm run lint --if-present
 
+      - name: Tests qualité (7)
+        run: npm run test:quality
+
   backend-unit:
     name: "2 · Backend Unit Tests"
     runs-on: ubuntu-latest

@@ -113,6 +113,9 @@ jobs:
       - name: Lint
         run: npm run lint --if-present
 
+      - name: Tests qualité (7)
+        run: npm run test:quality
+
   frontend-unit:
     name: "2 · Frontend Unit Tests"
     runs-on: ubuntu-latest
@@ -142,8 +145,8 @@ jobs:
         if: steps.cache-client-modules.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test:unit
+      - name: Run unit tests (10 cœur + composants)
+        run: npm run test:unit && npm run test:unit:components
 
   frontend-integration:
     name: "3 · Frontend Integration Tests"

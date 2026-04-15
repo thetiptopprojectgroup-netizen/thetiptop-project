@@ -252,8 +252,8 @@ L'application est optimisée pour :
 
 ### Intégration continue (GitHub Actions)
 
-- **` .github/workflows/ci-server.yml`** — **CI backend** (`server/`) : lint, tests, image **`api`**.
-- **` .github/workflows/ci-client.yml`** — **CI frontend** (`client/`) : lint, tests, build, image **`client`**.
+- **` .github/workflows/ci-server.yml`** — **CI backend** (`server/`) : lint, **7 tests qualité** (`npm run test:quality`), **10 tests unitaires** (`npm run test:unit`), intégration, fonctionnels, build, image **`api`**.
+- **` .github/workflows/ci-client.yml`** — **CI frontend** (`client/`) : lint, **7 tests qualité**, **10 tests unitaires cœur** (`src/test/unit`) + suite composants (`test:unit:components`), build, image **`client`**.
 - Les deux se déclenchent sur push / PR (**`vdev`**, **`vpreprod`**, **`vprod`**). Le CD attend qu’elles soient **toutes les deux** vertes avant de déployer.
 - **` .github/workflows/deploy-vdev.yml`** (et **`deploy-vpreprod.yml`**, **`deploy-vprod.yml`**) — déploiement VPS après CI / push sur la branche cible.
 - **` .github/workflows/create-promotion-pr.yml`** — création manuelle d’une PR de promotion si besoin.

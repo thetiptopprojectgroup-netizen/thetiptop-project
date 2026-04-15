@@ -11,12 +11,14 @@
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "test": "jest --config jest.config.cjs --passWithNoTests",
-    "test:unit": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathIgnorePatterns=/src/test/integration/",
+    "test:quality": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathPatterns=src/test/quality",
+    "test:unit": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathPatterns=src/test/unit",
+    "test:unit:components": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathIgnorePatterns=/src/test/integration/ --testPathIgnorePatterns=/src/test/quality/ --testPathIgnorePatterns=/src/test/unit/",
     "test:integration": "jest --config jest.config.cjs --passWithNoTests --coverage=false --testPathPatterns=src/test/integration",
     "test:functional": "playwright test",
     "test:e2e": "playwright test",
     "test:coverage": "jest --config jest.config.cjs --coverage --passWithNoTests",
-    "test:ci": "npm run test:unit && npm run test:integration && npm run test:functional"
+    "test:ci": "npm run test:quality && npm run test:unit && npm run test:unit:components && npm run test:integration && npm run test:functional"
   },
   "dependencies": {
     "axios": "^1.6.2",
