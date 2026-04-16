@@ -7,150 +7,167 @@
   "panels": [
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
-      "id": 11,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 3,
       "targets": [
         {
-          "expr": "sum(rate(thetiptop_http_requests_total[5m]))",
+          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "CPU VPS",
           "refId": "A"
         }
       ],
-      "title": "Débit HTTP global (req/s)",
-      "type": "stat"
+      "title": "Sante VPS - CPU utilise (%)",
+      "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
-      "id": 12,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 75 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 26,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"301\"}[5m])) * 60",
+          "expr": "100 * (1 - (sum by (instance) (node_memory_MemAvailable_bytes) / sum by (instance) (node_memory_MemTotal_bytes)))",
+          "legendFormat": "RAM utilisee % {{instance}}",
           "refId": "A"
-        }
-      ],
-      "title": "301 (requêtes/min)",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
-      "id": 13,
-      "targets": [
+        },
         {
-          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"502\"}[5m])) * 60",
-          "refId": "A"
+          "expr": "100 * (sum by (instance) (node_memory_MemAvailable_bytes) / sum by (instance) (node_memory_MemTotal_bytes))",
+          "legendFormat": "RAM restante % {{instance}}",
+          "refId": "B"
         }
       ],
-      "title": "502 (requêtes/min)",
-      "type": "stat"
+      "title": "Sante VPS - RAM utilisee/restante (%)",
+      "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
-      "id": 14,
-      "targets": [
-        {
-          "expr": "thetiptop_http_requests_in_flight",
-          "refId": "A"
-        }
-      ],
-      "title": "Requêtes en cours (in-flight)",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 4 },
-      "id": 21,
-      "targets": [
-        {
-          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"200\"}[5m])) * 60",
-          "refId": "A"
-        }
-      ],
-      "title": "200 (requêtes/min)",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 4 },
-      "id": 22,
-      "targets": [
-        {
-          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"401\"}[5m])) * 60",
-          "refId": "A"
-        }
-      ],
-      "title": "401 (requêtes/min)",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 4 },
-      "id": 23,
-      "targets": [
-        {
-          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"404\"}[5m])) * 60",
-          "refId": "A"
-        }
-      ],
-      "title": "404 (requêtes/min)",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 4 },
-      "id": 24,
-      "targets": [
-        {
-          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"429\"}[5m])) * 60",
-          "refId": "A"
-        }
-      ],
-      "title": "429 (requêtes/min)",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqpm" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 4 },
-      "id": 25,
-      "targets": [
-        {
-          "expr": "sum(rate(thetiptop_http_requests_total{status_code=\"500\"}[5m])) * 60",
-          "refId": "A"
-        }
-      ],
-      "title": "500 (requêtes/min)",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 27,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum by (instance) (node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint!~\"/run.*|/sys.*|/proc.*|/dev.*\"} - node_filesystem_free_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint!~\"/run.*|/sys.*|/proc.*|/dev.*\"})",
+          "legendFormat": "Disque utilisé {{instance}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (instance) (node_filesystem_free_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint!~\"/run.*|/sys.*|/proc.*|/dev.*\"})",
+          "legendFormat": "Disque restant {{instance}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Stockage VPS - capacite utilisee/restante (octets)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 28,
+      "targets": [
+        {
+          "expr": "100 * (1 - (sum by (instance) (node_filesystem_free_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint!~\"/run.*|/sys.*|/proc.*|/dev.*\"}) / sum by (instance) (node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint!~\"/run.*|/sys.*|/proc.*|/dev.*\"})))",
+          "legendFormat": "Disque utilisé % {{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Stockage VPS - disque utilise (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "HTTP 200" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "HTTP 301" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "HTTP 401" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "HTTP 404" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "HTTP 429" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "HTTP 500" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "HTTP 502" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "dark-red" } }]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
       "id": 15,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
         {
-          "expr": "sum by (status_code) (rate(thetiptop_http_requests_total[5m]))",
+          "expr": "sum by (status_code) (rate(thetiptop_http_requests_total{status_code=~\"200|301|401|404|429|500|502\"}[5m]))",
           "legendFormat": "HTTP {{status_code}}",
           "refId": "A"
         }
       ],
-      "title": "Débit par code HTTP",
+      "title": "Codes HTTP (200/301/401/404/429/500/502) - vue unique",
       "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
       "id": 16,
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
@@ -166,7 +183,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
       "id": 17,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -182,7 +199,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
       "id": 18,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -202,8 +219,26 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 32 },
+      "id": 11,
+      "targets": [{ "expr": "sum(rate(thetiptop_http_requests_total[5m]))", "refId": "A" }],
+      "title": "Débit HTTP global (req/s)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 32 },
+      "id": 14,
+      "targets": [{ "expr": "thetiptop_http_requests_in_flight", "refId": "A" }],
+      "title": "Requêtes en cours (in-flight)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 48 },
       "id": 1,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -219,7 +254,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 56 },
       "id": 2,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -234,23 +269,8 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
-      "id": 3,
-      "targets": [
-        {
-          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
-          "legendFormat": "CPU VPS",
-          "refId": "A"
-        }
-      ],
-      "title": "CPU machine (node-exporter)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 56 },
       "id": 19,
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -266,7 +286,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 64 },
       "id": 20,
       "options": { "legend": { "displayMode": "table", "placement": "bottom" } },
       "targets": [
@@ -278,6 +298,27 @@
       ],
       "title": "CPU par conteneur applicatif (api/client)",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 64 },
+      "id": 29,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total{status_code=~\"4..\"}[5m]))",
+          "legendFormat": "Erreurs 4xx",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(thetiptop_http_requests_total{status_code=~\"5..\"}[5m]))",
+          "legendFormat": "Erreurs 5xx",
+          "refId": "B"
+        }
+      ],
+      "title": "Qualite API - erreurs 4xx/5xx (req/s)",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
@@ -287,5 +328,5 @@
   "timezone": "browser",
   "title": "TheTipTop — stacks vdev / vpreprod / vprod",
   "uid": "thetiptop-overview",
-  "version": 4
+  "version": 7
 }
